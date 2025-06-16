@@ -87,7 +87,7 @@ header h1 { font-size: 1.5em; } header h2 { font-size: 0.9em; color: var(--text-
 #chat-input-field { flex-grow: 1; background: none; border: 1px solid #ffffff40; border-radius: 8px; padding: 10px; color: var(--text-light); font-family: 'Poppins', sans-serif; }
 #chat-input-field:focus { outline: none; border-color: var(--action-color); }
 
-/* --- MENU CHAT RAPIDE (INCHANGÉ) --- */
+/* --- MENU CHAT RAPIDE --- */
 #quick-chat-button { background-color: var(--action-color); color: var(--text-light); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5em; line-height: 40px; text-align: center; cursor: pointer; transition: background-color 0.2s; flex-shrink: 0; }
 #quick-chat-button:hover { background-color: #5e9ac4; }
 #quick-chat-menu { display: none; position: absolute; bottom: 110%; left: 0; background-color: #1a2a32; border-radius: 8px; box-shadow: 0 -4px 15px rgba(0,0,0,0.3); padding: 10px; z-index: 10; width: 300px; }
@@ -95,11 +95,45 @@ header h1 { font-size: 1.5em; } header h2 { font-size: 0.9em; color: var(--text-
 .quick-chat-item { padding: 10px; cursor: pointer; border-radius: 4px; transition: background-color 0.2s; }
 .quick-chat-item:hover { background-color: var(--action-color); }
 
+/* ############################################### */
+/* ###          TEXTE FLOTTANT (NOUVEAU)       ### */
+/* ############################################### */
+.floating-text {
+    position: absolute; /* Positionné par rapport à la page */
+    z-index: 1000;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 1.2em;
+    font-weight: 700;
+    pointer-events: none; /* Ignore les clics de souris */
+    animation: fadeUpAndOut 2s ease-out forwards;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+    transform: translateX(-50%); /* Centrer horizontalement */
+}
+.floating-text.gain {
+    background-color: rgba(46, 204, 113, 0.8);
+    color: white;
+    border: 1px solid #ffffff80;
+}
+.floating-text.cost {
+    background-color: rgba(231, 76, 60, 0.8);
+    color: white;
+    border: 1px solid #ffffff80;
+}
+@keyframes fadeUpAndOut {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -80px); /* Déplacement vers le haut */
+    }
+}
 
 /* ############################################### */
 /* ###          RESPONSIVE DESIGN (MOBILE)     ### */
 /* ############################################### */
-
 @media (max-width: 900px) {
     body { padding: 5px; overflow: auto; }
     #game-container { gap: 10px; }
