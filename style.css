@@ -7,46 +7,107 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); color: var(--text-light); overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; padding: 20px; }
 
-/* ---- MISE EN PAGE PRINCIPALE (ADAPTATIVE) ---- */
-#game-container {
-    display: grid;
-    grid-template-columns: 2fr 3fr 2fr;
-    gap: 20px;
-    /* --- MODIFICATION CLÉ POUR LE REDIMENSIONNEMENT --- */
-    width: 100%;
-    height: 100%;
-    max-width: 1800px;
-    aspect-ratio: 16 / 9; /* Force le ratio, le navigateur choisira la bonne dimension (width ou height) */
-}
-
-/* Style commun pour les panneaux */
+/* ---- MISE EN PAGE PRINCIPALE ---- */
+#game-container { display: flex; flex-direction: column; width: 100%; height: 100%; max-width: 1600px; gap: 20px; }
+#main-area { flex-grow: 1; display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px; overflow: hidden; }
 .ui-panel { background-color: var(--bg-panel); border-radius: var(--border-radius); padding: 20px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
-#main-view-container { background-color: var(--bg-view); border-radius: var(--border-radius); overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); }
+#main-view-container { background-color: var(--bg-view); border-radius: var(--border-radius); overflow: hidden; }
 #main-view-canvas { width: 100%; height: 100%; object-fit: cover; }
 
-/* ---- STYLES DES PANNEAUX (INCHANGÉS) ---- */
-header h1 { font-size: 1.6em; font-weight: 700; }
-header h2 { font-size: 0.9em; color: var(--text-secondary); font-weight: 400; }
-.ui-panel h3 { font-size: 1.1em; color: var(--text-light); margin-bottom: 10px; font-weight: 600; border-bottom: 1px solid #ffffff20; padding-bottom: 8px; }
-#minimap-container, #player-stats, #navigation-panel, #tile-info, #interaction-panel, #inventory-section { background-color: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; }
-#minimap-canvas { width: 100%; aspect-ratio: 1 / 1; border-radius: 4px; }
+/* ---- ÉLÉMENTS DANS LES PANNEAUX ---- */
+.ui-panel h3, header h1, header h2 { font-weight: 600; margin-bottom: 10px; border-bottom: 1px solid #ffffff20; padding-bottom: 8px; }
+header h1 { font-size: 1.6em; } header h2 { font-size: 0.9em; color: var(--text-secondary); font-weight: 400; border: none; padding-bottom: 0; margin-bottom: 0; }
+.ui-panel section, #minimap-and-nav, header { background-color: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; }
 .stat { margin-bottom: 10px; } .stat span { display: flex; align-items: center; gap: 8px; font-size: 0.9em; }
 .stat-bar-container { width: 100%; height: 12px; background-color: #00000040; border-radius: 6px; overflow: hidden; margin-top: 4px; }
 .stat-bar { height: 100%; width: 100%; border-radius: 6px; }
 #health-bar { background-color: var(--accent-color); } #thirst-bar { background-color: #a8dadc; } #hunger-bar { background-color: #f4a261; } #sleep-bar { background-color: #e9c46a; }
-.nav-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-.nav-button { background-color: var(--action-color); color: var(--text-light); border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 600; transition: background-color 0.2s, transform 0.1s; }
-.nav-button:hover { background-color: #5e9ac4; } .nav-button:active { transform: scale(0.95); }
+#inventory-list { list-style: none; padding-left: 0; font-size: 0.9em; }
+.inventory-item { cursor: pointer; padding: 5px; border-radius: 4px; transition: background-color 0.2s; }
+.inventory-item:hover { background-color: rgba(0,0,0,0.3); }
 #tile-info p { font-size: 0.9em; color: var(--text-secondary); }
 #actions { display: flex; flex-direction: column; gap: 10px; }
 #actions button { width: 100%; padding: 12px; background-color: var(--action-color); color: var(--text-light); font-weight: 600; font-family: 'Poppins', sans-serif; border: none; border-radius: 8px; cursor: pointer; transition: background-color 0.2s; }
 #actions button:hover { background-color: #5e9ac4; }
-#inventory-list { list-style: none; padding-left: 0; font-size: 0.9em; }
-.inventory-item { cursor: pointer; padding: 5px; border-radius: 4px; transition: background-color 0.2s; }
-.inventory-item:hover { background-color: rgba(0,0,0,0.2); }
+#minimap-and-nav { display: flex; flex-direction: column; gap: 15px; }
+#minimap-canvas { width: 100%; aspect-ratio: 1 / 1; border-radius: 4px; }
+.nav-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.nav-button { background-color: var(--action-color); color: var(--text-light); border: none; padding: 10px; font-size: 1.5em; border-radius: 8px; cursor: pointer; transition: background-color 0.2s; }
+.nav-button:hover { background-color: #5e9ac4; }
 
-/* ---- BARRE DE CHAT ---- */
-#chat-bar { position: fixed; bottom: 0; left: 0; width: 100%; height: 60px; background-color: var(--bg-panel); padding: 0 20px; display: flex; align-items: center; gap: 20px; border-top: 1px solid #ffffff20; }
-#chat-messages { flex-shrink: 1; overflow: hidden; white-space: nowrap; font-size: 0.9em; color: var(--text-secondary); }
-#chat-input-field { flex-grow: 1; background: none; border: none; color: var(--text-light); font-size: 1em; font-family: 'Poppins', sans-serif; }
-#chat-input-field:focus { outline: none; }
+/* ---- BARRE INFÉRIEURE ---- */
+#bottom-bar {
+    height: 120px; /* Hauteur fixe de la barre */
+    flex-shrink: 0;
+    display: flex; /* La barre elle-même est un conteneur flex */
+    background-color: var(--bg-panel);
+    border-radius: var(--border-radius);
+    padding: 15px;
+}
+
+/* ---- ZONE DU CHAT (CORRIGÉE) ---- */
+#chat-container {
+    width: 100%;
+    display: flex; /* Le conteneur du chat devient un flex vertical */
+    flex-direction: column;
+}
+
+#chat-messages {
+    flex-grow: 1; /* La liste des messages prend toute la hauteur disponible */
+    overflow-y: auto; /* Active la barre de défilement verticale */
+    margin-bottom: 10px;
+    background: rgba(0,0,0,0.2);
+    padding: 10px;
+    border-radius: 8px;
+    min-height: 0; /* LA CORRECTION CRUCIALE : autorise la zone à être plus petite que son contenu */
+}
+
+#chat-input-area {
+    flex-shrink: 0; /* La zone de saisie ne se réduit pas */
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    position: relative;
+}
+
+#chat-input-field {
+    flex-grow: 1;
+    background: none;
+    border: 1px solid #ffffff40;
+    border-radius: 8px;
+    padding: 10px;
+    color: var(--text-light);
+    font-family: 'Poppins', sans-serif;
+}
+#chat-input-field:focus { outline: none; border-color: var(--action-color); }
+
+/* ---- MENU DE CHAT RAPIDE ---- */
+#quick-chat-button {
+    background-color: var(--action-color); color: var(--text-light);
+    border: none; border-radius: 50%; width: 40px; height: 40px;
+    font-size: 1.5em; line-height: 40px; text-align: center;
+    cursor: pointer; transition: background-color 0.2s; flex-shrink: 0;
+}
+#quick-chat-button:hover { background-color: #5e9ac4; }
+
+#quick-chat-menu {
+    display: none;
+    position: absolute;
+    bottom: 110%;
+    left: 0;
+    background-color: #1a2a32;
+    border-radius: 8px;
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.3);
+    padding: 10px;
+    z-index: 10;
+    width: 300px;
+}
+#quick-chat-menu.visible { display: block; }
+
+.quick-chat-item {
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+.quick-chat-item:hover { background-color: var(--action-color); }

@@ -1,88 +1,42 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Île des 100 Jours</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <!-- ... head inchangé ... -->
+    <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Île des 100 Jours</title> <link rel="preconnect" href="https://fonts.googleapis.com"> <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet"> <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="game-container">
+        <!-- ... main-area inchangée ... -->
+        <div id="main-area">
+            <div id="left-panel" class="ui-panel"> <header> <h1>Île des 100 Jours</h1> <h2>Jour <span id="day-counter">1</span> / 100</h2> </header> <section id="player-stats"> <h3>Statut du Survivant</h3> <div class="stat"><span>❤️ Santé</span><div class="stat-bar-container"><div id="health-bar" class="stat-bar"></div></div></div> <div class="stat"><span>💧 Soif</span><div class="stat-bar-container"><div id="thirst-bar" class="stat-bar"></div></div></div> <div class="stat"><span>🍗 Faim</span><div class="stat-bar-container"><div id="hunger-bar" class="stat-bar"></div></div></div> <div class="stat"><span>🌙 Sommeil</span><div class="stat-bar-container"><div id="sleep-bar" class="stat-bar"></div></div></div> </section> <div id="minimap-and-nav"> <h3>Navigation</h3> <div id="minimap-container"> <canvas id="minimap-canvas"></canvas> </div> <div id="navigation-panel"> <div class="nav-grid"> <div></div><button class="nav-button" id="nav-north">↑</button><div></div> <button class="nav-button" id="nav-west">←</button> <div class="nav-center"></div> <button class="nav-button" id="nav-east">→</button> <div></div><button class="nav-button" id="nav-south">↓</button><div></div> </div> </div> </div> </div>
+            <div id="main-view-container"> <canvas id="main-view-canvas"></canvas> </div>
+            <div id="right-panel" class="ui-panel"> <section id="tile-info"> <h3>Vous êtes dans : <span id="tile-name">Plaine</span></h3> <p id="tile-description">Description du lieu...</p> </section> <section id="interaction-panel"> <h3>Actions Possibles</h3> <div id="actions"></div> </section> <section id="inventory-section"> <h3>Inventaire</h3> <ul id="inventory-list"><li>(Vide)</li></ul> </section> </div>
+        </div>
 
-        <!-- ### PANNEAU DE GAUCHE : STATS, NAVIGATION ### -->
-        <div id="left-panel" class="ui-panel">
-            <header>
-                <h1>Île des 100 Jours</h1>
-                <h2>Jour <span id="day-counter">1</span> / 100</h2>
-            </header>
-            
-            <div id="minimap-container">
-                <h3>Minicarte</h3>
-                <canvas id="minimap-canvas"></canvas>
+        <!-- ### BARRE INFÉRIEURE (MODIFIÉE) ### -->
+        <div id="bottom-bar">
+            <div id="chat-container">
+                <div id="chat-messages"></div>
+                
+                <!-- NOUVELLE STRUCTURE POUR L'INPUT -->
+                <div id="chat-input-area">
+                    <!-- LE MENU DE CHAT RAPIDE (caché par défaut) -->
+                    <div id="quick-chat-menu">
+                        <div class="quick-chat-item">J'ai besoin de bois.</div>
+                        <div class="quick-chat-item">J'ai besoin de nourriture.</div>
+                        <div class="quick-chat-item">Suivez-moi !</div>
+                        <div class="quick-chat-item">Danger par ici !</div>
+                        <div class="quick-chat-item">Oui.</div>
+                        <div class="quick-chat-item">Non.</div>
+                    </div>
+                    <!-- Le bouton pour ouvrir le menu -->
+                    <button id="quick-chat-button">+</button>
+                    <!-- Le champ de saisie -->
+                    <input type="text" id="chat-input-field" placeholder="Écrire un message ou utiliser le menu...">
+                </div>
             </div>
-
-            <section id="player-stats">
-                <h3>Statut du Survivant</h3>
-                <div class="stat"><span>❤️ Santé</span><div class="stat-bar-container"><div id="health-bar" class="stat-bar"></div></div></div>
-                <div class="stat"><span>💧 Soif</span><div class="stat-bar-container"><div id="thirst-bar" class="stat-bar"></div></div></div>
-                <div class="stat"><span>🍗 Faim</span><div class="stat-bar-container"><div id="hunger-bar" class="stat-bar"></div></div></div>
-                <div class="stat"><span>🌙 Sommeil</span><div class="stat-bar-container"><div id="sleep-bar" class="stat-bar"></div></div></div>
-            </section>
-
-            <!-- NOUVELLE SECTION POUR LA NAVIGATION -->
-            <section id="navigation-panel">
-                <h3>Se Déplacer</h3>
-                <div class="nav-grid">
-                    <div></div>
-                    <button class="nav-button" id="nav-north">Nord</button>
-                    <div></div>
-                    <button class="nav-button" id="nav-west">Ouest</button>
-                    <div class="nav-center"></div>
-                    <button class="nav-button" id="nav-east">Est</button>
-                    <div></div>
-                    <button class="nav-button" id="nav-south">Sud</button>
-                    <div></div>
-                </div>
-            </section>
         </div>
-
-        <!-- ### ZONE CENTRALE : VUE DE LA CASE ACTUELLE ### -->
-        <div id="main-view-container">
-            <canvas id="main-view-canvas"></canvas>
-        </div>
-        
-        <!-- ### PANNEAU DE DROITE : INVENTAIRE, ACTIONS ### -->
-        <div id="right-panel" class="ui-panel">
-            <section id="tile-info">
-                <h3>Vous êtes dans : <span id="tile-name">Plaine</span></h3>
-                <p id="tile-description">Une plaine herbeuse balayée par le vent. Un bon endroit pour construire.</p>
-            </section>
-            
-            <section id="interaction-panel">
-                <h3>Actions Possibles</h3>
-                <div id="actions">
-                    <!-- Les boutons d'action seront générés ici -->
-                </div>
-            </section>
-
-            <section id="inventory-section">
-                <h3>Inventaire</h3>
-                <ul id="inventory-list"><li>(Vide)</li></ul>
-            </section>
-        </div>
-
     </div>
-
-    <!-- ### BARRE DE CHAT EN BAS ### -->
-    <div id="chat-bar">
-        <div id="chat-messages"></div>
-        <input type="text" id="chat-input-field" placeholder="Écrire un message et appuyer sur Entrée...">
-    </div>
-
-    <!-- Le script du jeu reste le même -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
