@@ -11,17 +11,13 @@
 </head>
 <body>
     <div id="game-container">
-        <!-- NOUVEAUX ÉLÉMENTS POUR LES EFFETS VISUELS -->
+        <!-- ÉLÉMENTS POUR LES EFFETS VISUELS -->
         <div id="survival-vignette"></div>
         <div id="action-flash"></div>
 
         <div id="main-area">
             <!-- ### PANNEAU DE GAUCHE ### -->
             <div id="left-panel" class="ui-panel">
-                <header>
-                    <h1>Île des 100 Jours</h1>
-                    <h2>Jour <span id="day-counter">1</span> / 100</h2>
-                </header>
                 <section id="player-stats">
                     <h3>Statut du Survivant</h3>
                     <div class="stat"><span>❤️ Santé</span><div class="stat-bar-container"><div id="health-bar" class="stat-bar"></div></div></div>
@@ -30,7 +26,7 @@
                     <div class="stat"><span>🌙 Sommeil</span><div class="stat-bar-container"><div id="sleep-bar" class="stat-bar"></div></div></div>
                 </section>
                 <section id="minimap-section">
-                    <h3>Carte de l'île</h3>
+                    <h3>Carte de l'île <button id="enlarge-map-btn" title="Agrandir la carte">⛶</button></h3>
                     <div id="minimap-container">
                         <canvas id="minimap-canvas"></canvas>
                     </div>
@@ -38,16 +34,25 @@
             </div>
 
             <!-- ### VUE PRINCIPALE ### -->
-            <div id="main-view-container">
-                <canvas id="main-view-canvas"></canvas>
-                <div id="main-view-overlay">
-                    <div id="navigation-panel-overlay">
-                        <div class="nav-grid-overlay">
-                            <div></div><button class="nav-button-overlay" id="nav-north">↑</button><div></div>
-                            <button class="nav-button-overlay" id="nav-west">←</button>
-                            <div class="nav-center"></div>
-                            <button class="nav-button-overlay" id="nav-east">→</button>
-                            <div></div><button class="nav-button-overlay" id="nav-south">↓</button><div></div>
+            <div id="main-view-wrapper">
+                <div id="main-view-container">
+                    <canvas id="main-view-canvas"></canvas>
+                    <canvas id="characters-canvas"></canvas>
+                    
+                    <!-- NOUVEAU : Le HUD superposé pour le compteur de jours -->
+                    <div id="hud-overlay">
+                        <span id="day-display">Jour <span id="day-counter">1</span> / 100</span>
+                    </div>
+
+                    <div id="main-view-overlay">
+                        <div id="navigation-panel-overlay">
+                            <div class="nav-grid-overlay">
+                                <div></div><button class="nav-button-overlay" id="nav-north">↑</button><div></div>
+                                <button class="nav-button-overlay" id="nav-west">←</button>
+                                <div class="nav-center"></div>
+                                <button class="nav-button-overlay" id="nav-east">→</button>
+                                <div></div><button class="nav-button-overlay" id="nav-south">↓</button><div></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -56,7 +61,10 @@
             <!-- ### PANNEAU DE DROITE ### -->
             <div id="right-panel" class="ui-panel">
                 <section id="tile-info">
-                    <h3>Vous êtes dans : <span id="tile-name">Plaine</span></h3>
+                    <!-- MODIFIÉ : Le compteur de jours a été supprimé d'ici -->
+                    <h3>
+                        <span>Lieu: <span id="tile-name">Forêt</span> <span id="hud-coords" class="coords-display">(7,10)</span></span>
+                    </h3>
                     <p id="tile-description">Description du lieu...</p>
                 </section>
                 <section id="interaction-panel">
@@ -72,6 +80,7 @@
 
         <!-- ### BARRE INFÉRIEURE ### -->
         <div id="bottom-bar">
+            <!-- Contenu de la barre inférieure inchangé... -->
             <div id="chat-container">
                 <div id="chat-messages"></div>
                 <div id="chat-input-area">
@@ -89,6 +98,13 @@
             </div>
         </div>
     </div>
+    
+    <!-- Modale pour la grande carte -->
+    <div id="large-map-modal" class="hidden">
+        <button id="close-large-map-btn">&times;</button>
+        <canvas id="large-map-canvas"></canvas>
+    </div>
+
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

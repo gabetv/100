@@ -1,3 +1,4 @@
+// js/map.js
 import { TILE_TYPES } from './config.js';
 
 export function generateMap(config) {
@@ -8,17 +9,20 @@ export function generateMap(config) {
     for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { if (baseLayout[y][x] === 'water') { map[y][x] = { type: TILE_TYPES.WATER_LAGOON }; continue; } let isCoastal = false; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { const nx = x + dx, ny = y + dy; if (baseLayout[ny] && baseLayout[ny][nx] === 'water') { isCoastal = true; break; } } if (isCoastal) { map[y][x] = { type: TILE_TYPES.SAND_GOLDEN }; } else { map[y][x] = { type: (Math.random() < 0.7) ? TILE_TYPES.FOREST : TILE_TYPES.PLAINS }; } } }
     const shelterX = Math.floor(centerX), shelterY = Math.floor(centerY); if (map[shelterY] && map[shelterY][shelterX].type.accessible) { map[shelterY][shelterX].type = TILE_TYPES.SHELTER_COLLECTIVE; }
 
-    // Placement aléatoire des gisements de pierre
+    // CORRIGÉ : Placement plus fréquent des gisements de pierre
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             const tile = map[y][x];
-            if ((tile.type === TILE_TYPES.PLAINS || tile.type === TILE_TYPES.WASTELAND) && Math.random() < 0.15) { // 15% de chance
-                map[y][x].type = TILE_TYPES.STONE_DEPOSIT;
+            // On augmente la probabilité à 30% et on ajoute les friches comme lieu d'apparition possible
+            if (tile.type === TILE_TYPES.PLAINS || tile.type === TILE_TYPES.WASTELAND) {
+                if (Math.random() < 0.30) { // 30% de chance
+                    map[y][x].type = TILE_TYPES.STONE_DEPOSIT;
+                }
             }
         }
     }
     
-    // Finalisation des tuiles avec un fond aléatoire fixe
+    // Finalisation des tuiles
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             const type = map[y][x].type;
@@ -27,7 +31,7 @@ export function generateMap(config) {
             map[y][x] = { type, x, y, backgroundKey: chosenBackground, harvestsLeft: type.harvests || 0, resources: type.resource ? { type: type.resource.type, yield: type.resource.yield } : null, occupant: null };
         }
     }
-    console.log("Map generation finished with randomized backgrounds and resources.");
+    console.log("Map generation finished with more stone deposits.");
     return map;
 }
 
