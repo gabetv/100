@@ -33,8 +33,6 @@ function updatePossibleActions() {
         UI.actionsEl.appendChild(button);
     };
 
-    // --- Actions contextuelles basées sur le type de tuile ---
-
     // Actions de récolte
     if (tileType.resource && tile.harvestsLeft > 0) {
         let actionText = `Récolter ${tileType.resource.type}`;
@@ -195,19 +193,31 @@ function setupEventListeners() {
     document.getElementById('nav-south').addEventListener('click', () => handleNavigation('south'));
     document.getElementById('nav-east').addEventListener('click', () => handleNavigation('east'));
     document.getElementById('nav-west').addEventListener('click', () => handleNavigation('west'));
+    
     document.getElementById('consume-health-btn').addEventListener('click', () => handleConsumeClick('health'));
     document.getElementById('consume-thirst-btn').addEventListener('click', () => handleConsumeClick('thirst'));
     document.getElementById('consume-hunger-btn').addEventListener('click', () => handleConsumeClick('hunger'));
+    
     const quickChatButton = document.getElementById('quick-chat-button');
     const quickChatMenu = document.getElementById('quick-chat-menu');
     quickChatButton.addEventListener('click', () => quickChatMenu.classList.toggle('visible'));
     quickChatMenu.addEventListener('click', (e) => { if (e.target.classList.contains('quick-chat-item')) { UI.addChatMessage(e.target.textContent, 'player', 'Vous'); quickChatMenu.classList.remove('visible'); } });
     document.addEventListener('click', (e) => { if (!quickChatMenu.contains(e.target) && e.target !== quickChatButton) { quickChatMenu.classList.remove('visible'); } });
-    UI.enlargeMapBtn.addEventListener('click', () => { UI.drawLargeMap(State.state, CONFIG); UI.largeMapModal.classList.remove('hidden'); });
-    UI.closeLargeMapBtn.addEventListener('click', () => { UI.largeMapModal.classList.add('hidden'); });
+    
+    // CORRIGÉ: Utilisation d'un écouteur standard pour éviter les conflits
+    UI.enlargeMapBtn.addEventListener('click', () => {
+        UI.drawLargeMap(State.state, CONFIG);
+        UI.largeMapModal.classList.remove('hidden');
+    });
+    UI.closeLargeMapBtn.addEventListener('click', () => { 
+        UI.largeMapModal.classList.add('hidden'); 
+    });
+    
+    // --- MODALE D'INVENTAIRE ---
     UI.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
     UI.inventoryModal.addEventListener('click', (e) => { if (e.target.id === 'inventory-modal') UI.hideInventoryModal(); });
 
+    // --- LOGIQUE DRAG AND DROP ---
     let draggedItem = null;
     UI.inventoryModal.addEventListener('dragstart', (e) => { if (e.target.classList.contains('inventory-item')) { draggedItem = e.target; setTimeout(() => e.target.classList.add('dragging'), 0); } });
     UI.inventoryModal.addEventListener('dragend', () => { if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; } });
@@ -283,7 +293,7 @@ async function init() {
         requestAnimationFrame(gameLoop);
         State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
         State.state.gameIntervals.push(setInterval(() => npcChatter(State.state.npcs), CONFIG.CHAT_MESSAGE_INTERVAL_MS));
-        console.log("Jeu initialisé avec les nouvelles règles de gameplay.");
+        console.log("Jeu initialisé avec les nouvelles règles de gameplay et l'UI en carrés.");
     } catch (error) {
         console.error("ERREUR CRITIQUE lors de l'initialisation :", error);
         document.body.innerHTML = `<div style="color:white; padding: 20px;">Erreur critique au chargement : ${error.message}</div>`;

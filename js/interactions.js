@@ -146,7 +146,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             if (!sleepEffect) return;
 
             performTimedAction(player, ACTION_DURATIONS.SLEEP, 
-                () => UI.addChatMessage("Vous vous endormez...", "system"), 
+                () => UI.addChatMessage("Vous vous endormez pour 10 heures...", "system"), 
                 () => {
                     player.sleep = Math.min(100, player.sleep + sleepEffect.sleep); 
                     player.health = Math.min(10, player.health + sleepEffect.health);

@@ -12,6 +12,7 @@ export const ACTION_DURATIONS = {
     DIG: 5000, // Nouvelle durée pour creuser
 };
 
+// NOUVEAU: Liste des minerais possibles
 export const ORE_TYPES = ['Charbon', 'Cuivre', 'Fer', 'Argent', 'Or'];
 
 export const SPRITESHEET_PATHS = {

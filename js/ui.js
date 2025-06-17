@@ -6,15 +6,13 @@ export const mainViewCanvas = document.getElementById('main-view-canvas'), mainV
 export const charactersCanvas = document.getElementById('characters-canvas'), charactersCtx = charactersCanvas.getContext('2d');
 const minimapCanvas = document.getElementById('minimap-canvas'), minimapCtx = minimapCanvas.getContext('2d');
 export const tileNameEl = document.getElementById('tile-name'), tileDescriptionEl = document.getElementById('tile-description'), actionsEl = document.getElementById('actions'), chatInputEl = document.getElementById('chat-input-field');
-const dayCounterEl = document.getElementById('day-counter'), 
-      thirstBarEl = document.getElementById('thirst-bar'), 
-      hungerBarEl = document.getElementById('hunger-bar'), 
-      sleepBarEl = document.getElementById('sleep-bar'), 
-      inventoryListEl = document.getElementById('inventory-list'), 
-      chatMessagesEl = document.getElementById('chat-messages');
+const dayCounterEl = document.getElementById('day-counter');
 
-// MODIFIÉ: Références pour la nouvelle barre de vie
+// Références pour les conteneurs des barres de statut
 const healthBarSquaresEl = document.getElementById('health-bar-squares');
+const thirstBarSquaresEl = document.getElementById('thirst-bar-squares');
+const hungerBarSquaresEl = document.getElementById('hunger-bar-squares');
+const sleepBarSquaresEl = document.getElementById('sleep-bar-squares');
 const healthStatusEl = document.getElementById('health-status');
 
 export const hudCoordsEl = document.getElementById('hud-coords');
@@ -84,10 +82,24 @@ function drawMinimap(gameState, config) { const { map, player, npcs } = gameStat
 
 export function drawLargeMap(gameState, config) { const { map, player, npcs } = gameState; const { MAP_WIDTH, MAP_HEIGHT } = config; const cellSize = Math.min(largeMapCanvas.parentElement.clientWidth / MAP_WIDTH, largeMapCanvas.parentElement.clientHeight / MAP_HEIGHT, 40); largeMapCanvas.width = MAP_WIDTH * cellSize; largeMapCanvas.height = MAP_HEIGHT * cellSize; largeMapCtx.clearRect(0, 0, largeMapCanvas.width, largeMapCanvas.height); for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { const tile = map[y][x]; largeMapCtx.fillStyle = tile.type.color || '#ff00ff'; largeMapCtx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); largeMapCtx.fillStyle = 'rgba(255, 255, 255, 0.8)'; largeMapCtx.font = `bold ${cellSize * 0.6}px Poppins`; largeMapCtx.textAlign = 'center'; largeMapCtx.textBaseline = 'middle'; largeMapCtx.fillText(tile.type.name.charAt(0), x * cellSize + cellSize / 2, y * cellSize + cellSize / 2); } } largeMapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)'; largeMapCtx.lineWidth = 1; for (let i = 0; i <= MAP_WIDTH; i++) { largeMapCtx.beginPath(); largeMapCtx.moveTo(i * cellSize, 0); largeMapCtx.lineTo(i * cellSize, largeMapCanvas.height); largeMapCtx.stroke(); } for (let i = 0; i <= MAP_HEIGHT; i++) { largeMapCtx.beginPath(); largeMapCtx.moveTo(0, i * cellSize); largeMapCtx.lineTo(largeMapCanvas.width, i * cellSize); largeMapCtx.stroke(); } npcs.forEach(npc => { largeMapCtx.fillStyle = npc.color; largeMapCtx.beginPath(); largeMapCtx.arc(npc.x * cellSize + cellSize / 2, npc.y * cellSize + cellSize / 2, cellSize * 0.35, 0, Math.PI * 2); largeMapCtx.fill(); }); largeMapCtx.fillStyle = player.color; largeMapCtx.beginPath(); largeMapCtx.arc(player.x * cellSize + cellSize / 2, player.y * cellSize + cellSize / 2, cellSize * 0.4, 0, Math.PI * 2); largeMapCtx.fill(); largeMapCtx.strokeStyle = 'white'; largeMapCtx.lineWidth = 3; largeMapCtx.stroke(); }
 
+function drawSquaresBar(container, value, maxValue) {
+    container.innerHTML = '';
+    const numSquares = 10;
+    const filledCount = Math.ceil((value / maxValue) * numSquares);
+
+    for (let i = 0; i < numSquares; i++) {
+        const square = document.createElement('div');
+        // CORRECTION: Utilisation de la classe générique '.stat-square'
+        square.classList.add('stat-square'); 
+        square.classList.toggle('filled', i < filledCount);
+        container.appendChild(square);
+    }
+}
+
 function updateConsumeButtons(player) {
     const inv = player.inventory;
     const canDrink = inv['Eau'] && inv['Eau'] > 0;
-    const canEat = (inv['Poisson Cuit'] && inv['Poisson Cuit'] > 0) || (inv['Poisson'] && inv['Poisson'] > 0);
+    const canEat = (inv['Poisson Cuit'] && inv['Poisson Cuit'] > 0) || (inv['Poisson'] > 0);
     const canHeal = (inv['Poisson Cuit'] && inv['Poisson Cuit'] > 0) && player.health < 10;
     document.getElementById('consume-thirst-btn').disabled = !canDrink;
     document.getElementById('consume-hunger-btn').disabled = !canEat;
@@ -95,39 +107,50 @@ function updateConsumeButtons(player) {
 }
 
 function updateStatsPanel(player) {
-    // Barre de vie en carrés
-    healthBarSquaresEl.innerHTML = '';
-    for (let i = 0; i < 10; i++) {
-        const square = document.createElement('div');
-        square.classList.add('health-square');
-        square.classList.toggle('filled', i < player.health);
-        square.classList.toggle('empty', i >= player.health);
-        healthBarSquaresEl.appendChild(square);
-    }
+    // Dessiner les barres de carrés
+    drawSquaresBar(healthBarSquaresEl, player.health, 10);
+    drawSquaresBar(thirstBarSquaresEl, player.thirst, 100);
+    drawSquaresBar(hungerBarSquaresEl, player.hunger, 100);
+    drawSquaresBar(sleepBarSquaresEl, player.sleep, 100);
     
-    // Statut
+    // Mettre à jour le statut textuel
     healthStatusEl.textContent = player.status;
 
-    // Autres barres
-    thirstBarEl.style.width = `${player.thirst}%`;
-    hungerBarEl.style.width = `${player.hunger}%`;
-    sleepBarEl.style.width = `${player.sleep}%`;
-    
-    // Effets visuels
+    // Gérer les effets de pulsation pour avertir le joueur
     healthBarSquaresEl.classList.toggle('pulsing', player.health <= 3);
-    thirstBarEl.parentElement.classList.toggle('pulsing', player.thirst <= 20);
-    hungerBarEl.parentElement.classList.toggle('pulsing', player.hunger <= 20);
+    thirstBarSquaresEl.classList.toggle('pulsing', player.thirst <= 20);
+    hungerBarSquaresEl.classList.toggle('pulsing', player.hunger <= 20);
+    sleepBarSquaresEl.classList.toggle('pulsing', player.sleep <= 20);
+    
     document.getElementById('survival-vignette').classList.toggle('active', player.health <= 3);
     
     updateConsumeButtons(player);
 }
 
 function updateInventory(player) {
-    inventoryListEl.innerHTML = ''; const inventory = player.inventory; const total = getTotalResources(inventory); inventoryCapacityEl.textContent = `(${total} / ${CONFIG.PLAYER_MAX_RESOURCES})`;
-    if (Object.keys(inventory).length === 0) { inventoryListEl.innerHTML = '<li class="inventory-empty">(Vide)</li>'; } else { for (const item in inventory) { const li = document.createElement('li'); const icon = ITEM_ICONS[item] || ITEM_ICONS.default; li.innerHTML = `<span class="inventory-icon">${icon}</span><span class="inventory-name">${item}</span><span class="inventory-count">${inventory[item]}</span>`; li.classList.add('inventory-item'); li.dataset.itemName = item; inventoryListEl.appendChild(li); } }
+    const inventoryListEl = document.getElementById('inventory-list');
+    inventoryListEl.innerHTML = ''; 
+    const inventory = player.inventory; 
+    const total = getTotalResources(inventory); 
+    inventoryCapacityEl.textContent = `(${total} / ${CONFIG.PLAYER_MAX_RESOURCES})`;
+
+    if (Object.keys(inventory).length === 0) { 
+        inventoryListEl.innerHTML = '<li class="inventory-empty">(Vide)</li>'; 
+    } else { 
+        for (const item in inventory) { 
+            const li = document.createElement('li'); 
+            const icon = ITEM_ICONS[item] || ITEM_ICONS.default; 
+            li.innerHTML = `<span class="inventory-icon">${icon}</span><span class="inventory-name">${item}</span><span class="inventory-count">${inventory[item]}</span>`; 
+            li.classList.add('inventory-item'); 
+            li.dataset.itemName = item; 
+            inventoryListEl.appendChild(li); 
+        } 
+    }
 }
 
-function updateDayCounter(day) { dayCounterEl.textContent = day; }
+function updateDayCounter(day) { 
+    dayCounterEl.textContent = day; 
+}
 
 export function updateAllUI(gameState) {
     if (!gameState || !gameState.player) return;
@@ -225,6 +248,7 @@ export function updateAllButtonsState(gameState) {
 }
 
 export function addChatMessage(message, type, author) {
+    const chatMessagesEl = document.getElementById('chat-messages');
     const msgDiv = document.createElement('div');
     msgDiv.classList.add('chat-message', type);
     let content = author ? `<strong>${author}: </strong>` : '';

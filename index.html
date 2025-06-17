@@ -16,39 +16,52 @@
             <div id="left-panel" class="ui-panel">
                 <section id="player-stats">
                     <h3>Statut du Survivant</h3>
+                    
+                    <!-- STAT DE SANTÉ -->
                     <div class="stat">
-                        <!-- MODIFIÉ: Structure de la barre de santé -->
                         <div class="stat-header">
                             <span class="stat-icon">❤️</span>
                             <span>Santé (<span id="health-status">Normal</span>)</span>
                             <button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button>
                         </div>
                         <div class="stat-bar-container-squares" id="health-bar-squares">
-                            <!-- Les carrés de vie seront générés ici par JS -->
+                            <!-- Les carrés seront générés ici par JS -->
                         </div>
                     </div>
+
+                    <!-- STAT DE SOIF -->
                     <div class="stat">
                         <div class="stat-header">
                             <span class="stat-icon">💧</span>
                             <span>Soif</span>
                             <button class="consume-btn" id="consume-thirst-btn" title="Boire de l'eau">+</button>
                         </div>
-                        <div class="stat-bar-container"><div id="thirst-bar" class="stat-bar"></div></div>
+                        <div class="stat-bar-container-squares" id="thirst-bar-squares">
+                            <!-- Les carrés seront générés ici par JS -->
+                        </div>
                     </div>
+
+                    <!-- STAT DE FAIM -->
                     <div class="stat">
                         <div class="stat-header">
                             <span class="stat-icon">🍗</span>
                             <span>Faim</span>
                             <button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button>
                         </div>
-                        <div class="stat-bar-container"><div id="hunger-bar" class="stat-bar"></div></div>
+                        <div class="stat-bar-container-squares" id="hunger-bar-squares">
+                            <!-- Les carrés seront générés ici par JS -->
+                        </div>
                     </div>
+
+                    <!-- STAT DE SOMMEIL -->
                     <div class="stat">
                         <div class="stat-header">
                             <span class="stat-icon">🌙</span>
                             <span>Sommeil</span>
                         </div>
-                        <div class="stat-bar-container"><div id="sleep-bar" class="stat-bar"></div></div>
+                        <div class="stat-bar-container-squares" id="sleep-bar-squares">
+                            <!-- Les carrés seront générés ici par JS -->
+                        </div>
                     </div>
                 </section>
                 <section id="minimap-section">
