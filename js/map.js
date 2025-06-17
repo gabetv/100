@@ -9,29 +9,68 @@ export function generateMap(config) {
     for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { if (baseLayout[y][x] === 'water') { map[y][x] = { type: TILE_TYPES.WATER_LAGOON }; continue; } let isCoastal = false; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { const nx = x + dx, ny = y + dy; if (baseLayout[ny] && baseLayout[ny][nx] === 'water') { isCoastal = true; break; } } if (isCoastal) { map[y][x] = { type: TILE_TYPES.SAND_GOLDEN }; } else { map[y][x] = { type: (Math.random() < 0.7) ? TILE_TYPES.FOREST : TILE_TYPES.PLAINS }; } } }
     const shelterX = Math.floor(centerX), shelterY = Math.floor(centerY); if (map[shelterY] && map[shelterY][shelterX].type.accessible) { map[shelterY][shelterX].type = TILE_TYPES.SHELTER_COLLECTIVE; }
 
-    // CORRIGÉ : Placement plus fréquent des gisements de pierre
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             const tile = map[y][x];
-            // On augmente la probabilité à 30% et on ajoute les friches comme lieu d'apparition possible
             if (tile.type === TILE_TYPES.PLAINS || tile.type === TILE_TYPES.WASTELAND) {
-                if (Math.random() < 0.30) { // 30% de chance
+                if (Math.random() < 0.30) {
                     map[y][x].type = TILE_TYPES.STONE_DEPOSIT;
                 }
             }
         }
     }
     
-    // Finalisation des tuiles
+    // MODIFIÉ : Finalisation des tuiles avec une logique anti-répétition
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             const type = map[y][x].type;
             const backgroundOptions = type.background || [];
-            const chosenBackground = backgroundOptions.length > 0 ? backgroundOptions[Math.floor(Math.random() * backgroundOptions.length)] : null;
-            map[y][x] = { type, x, y, backgroundKey: chosenBackground, harvestsLeft: type.harvests || 0, resources: type.resource ? { type: type.resource.type, yield: type.resource.yield } : null, occupant: null };
+            let chosenBackground = null;
+
+            if (backgroundOptions.length > 0) {
+                // On commence avec toutes les options possibles
+                let allowedBackgrounds = [...backgroundOptions];
+
+                // Si on a plus d'une option, on essaie d'éviter les répétitions
+                if (allowedBackgrounds.length > 1) {
+                    // Vérifier le voisin de GAUCHE (west)
+                    if (x > 0 && map[y][x - 1].type === type) {
+                        const westKey = map[y][x - 1].backgroundKey;
+                        // On filtre pour retirer la clé du voisin
+                        allowedBackgrounds = allowedBackgrounds.filter(key => key !== westKey);
+                    }
+
+                    // Vérifier le voisin du HAUT (north)
+                    if (y > 0 && map[y - 1][x].type === type) {
+                        const northKey = map[y - 1][x].backgroundKey;
+                        // On filtre à nouveau
+                        allowedBackgrounds = allowedBackgrounds.filter(key => key !== northKey);
+                    }
+                }
+
+                // S'il ne reste plus d'options après filtrage (cas rare), on utilise la liste originale
+                if (allowedBackgrounds.length === 0) {
+                    allowedBackgrounds = backgroundOptions;
+                }
+
+                // On choisit une image au hasard parmi les options autorisées
+                chosenBackground = allowedBackgrounds[Math.floor(Math.random() * allowedBackgrounds.length)];
+            }
+            
+            // On crée l'objet final de la tuile
+            map[y][x] = { 
+                type, 
+                x, 
+                y, 
+                backgroundKey: chosenBackground, 
+                harvestsLeft: type.harvests || 0, 
+                resources: type.resource ? { type: type.resource.type, yield: type.resource.yield } : null, 
+                occupant: null 
+            };
         }
     }
-    console.log("Map generation finished with more stone deposits.");
+    
+    console.log("Map generation finished with non-repeating adjacent backgrounds.");
     return map;
 }
 
