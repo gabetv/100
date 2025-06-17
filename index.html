@@ -20,11 +20,39 @@
             <div id="left-panel" class="ui-panel">
                 <section id="player-stats">
                     <h3>Statut du Survivant</h3>
-                    <!-- MODIFIÉ : Ajout d'icônes (emojis) pour chaque stat -->
-                    <div class="stat"><span class="stat-icon">❤️</span><span>Santé</span><div class="stat-bar-container"><div id="health-bar" class="stat-bar"></div></div></div>
-                    <div class="stat"><span class="stat-icon">💧</span><span>Soif</span><div class="stat-bar-container"><div id="thirst-bar" class="stat-bar"></div></div></div>
-                    <div class="stat"><span class="stat-icon">🍗</span><span>Faim</span><div class="stat-bar-container"><div id="hunger-bar" class="stat-bar"></div></div></div>
-                    <div class="stat"><span class="stat-icon">🌙</span><span>Sommeil</span><div class="stat-bar-container"><div id="sleep-bar" class="stat-bar"></div></div></div>
+                    <!-- MODIFIÉ : Ajout des boutons de consommation rapide -->
+                    <div class="stat">
+                        <div class="stat-header">
+                            <span class="stat-icon">❤️</span>
+                            <span>Santé</span>
+                            <button class="consume-btn" id="consume-health-btn" title="Consommer pour la santé">+</button>
+                        </div>
+                        <div class="stat-bar-container"><div id="health-bar" class="stat-bar"></div></div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-header">
+                            <span class="stat-icon">💧</span>
+                            <span>Soif</span>
+                            <button class="consume-btn" id="consume-thirst-btn" title="Boire de l'eau">+</button>
+                        </div>
+                        <div class="stat-bar-container"><div id="thirst-bar" class="stat-bar"></div></div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-header">
+                            <span class="stat-icon">🍗</span>
+                            <span>Faim</span>
+                            <button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button>
+                        </div>
+                        <div class="stat-bar-container"><div id="hunger-bar" class="stat-bar"></div></div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-header">
+                            <span class="stat-icon">🌙</span>
+                            <span>Sommeil</span>
+                            <!-- Pas de bouton pour le sommeil, c'est une action -->
+                        </div>
+                        <div class="stat-bar-container"><div id="sleep-bar" class="stat-bar"></div></div>
+                    </div>
                 </section>
                 <section id="minimap-section">
                     <h3>Carte de l'île <button id="enlarge-map-btn" title="Agrandir la carte">⛶</button></h3>
@@ -39,13 +67,10 @@
                 <div id="main-view-container">
                     <canvas id="main-view-canvas"></canvas>
                     <canvas id="characters-canvas"></canvas>
-                    
                     <div id="hud-overlay">
                         <span id="day-display">Jour <span id="day-counter">1</span> / 100</span>
                     </div>
-
                     <div id="main-view-overlay">
-                        <!-- MODIFIÉ : Nouvelle structure pour les boutons de navigation sur les bords -->
                         <div id="navigation-edge-panel">
                             <button class="nav-button-overlay" id="nav-north">↑</button>
                             <button class="nav-button-overlay" id="nav-west">←</button>
@@ -70,7 +95,6 @@
                 </section>
                 <section id="inventory-section">
                     <h3>Inventaire</h3>
-                    <!-- MODIFIÉ : La liste est maintenant prête à afficher des icônes via JS -->
                     <ul id="inventory-list"><li>(Vide)</li></ul>
                 </section>
             </div>

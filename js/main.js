@@ -6,7 +6,7 @@ import { initPlayer, movePlayer, decayStats, updatePossibleActions, consumeItem,
 import { initNpcs, updateNpcs, npcChatter } from './npc.js';
 
 const gameState = { map: [], player: null, npcs: [], day: 1, gameIntervals: [] };
-let lastFrameTime = 0;
+let lastFrameTimestamp = 0;
 
 function gameLoop(currentTime) {
     if (gameState.isGameOver) return;
@@ -16,27 +16,28 @@ function gameLoop(currentTime) {
         return;
     }
 
-    const deltaTime = (currentTime - lastFrameTime) || 16.67;
-    lastFrameTime = currentTime;
+    if (lastFrameTimestamp === 0) {
+        lastFrameTimestamp = currentTime;
+    }
+    const deltaTime = currentTime - lastFrameTimestamp;
+    lastFrameTimestamp = currentTime;
 
-    // Les PNJ ne bougent que si le joueur n'est pas en pleine animation de transition
     if (!gameState.player.animationState) {
         updateNpcs(gameState.npcs, gameState.map, CONFIG, deltaTime);
     }
     
-    // Gère l'animation de déplacement du joueur
     if (gameState.player.animationState) {
         const anim = gameState.player.animationState;
-        anim.progress += deltaTime / ACTION_DURATIONS.MOVE_TRANSITION;
+        const safeDeltaTime = Math.min(deltaTime, 50);
+        anim.progress += safeDeltaTime / ACTION_DURATIONS.MOVE_TRANSITION;
         
         if (anim.progress >= 1) {
-            // Fin de l'animation de sortie de l'écran
             if (anim.type === 'out') {
                 movePlayer(anim.direction, gameState.player, gameState.map, CONFIG);
-                UI.draw(gameState); // On redessine le fond pour la nouvelle tuile
-                anim.type = 'in';   // On passe à l'animation d'entrée
+                UI.draw(gameState);
+                anim.type = 'in';
                 anim.progress = 0;
-            } else { // Fin de l'animation d'entrée
+            } else {
                 gameState.player.animationState = null;
                 gameState.player.isBusy = false;
                 updatePossibleActions(gameState);
@@ -45,7 +46,6 @@ function gameLoop(currentTime) {
         }
     }
 
-    // Le rendu des stats, de la minimap et des personnages se fait à chaque frame
     UI.updateAllUI(gameState, CONFIG);
     UI.drawSceneCharacters(gameState);
     
@@ -69,7 +69,9 @@ function handleNavigation(direction) {
 }
 
 function dailyUpdate() { if (++gameState.day > 100) endGame(true); }
-function handleInventoryClick(e) { const itemElement = e.target.closest('.inventory-item'); if (itemElement) { const itemName = itemElement.dataset.itemName; consumeItem(itemName, gameState.player, gameState, CONFIG); } }
+
+// SUPPRIMÉ : handleInventoryClick n'est plus nécessaire car on ne clique plus sur l'inventaire.
+
 function handleSendChat() { const message = UI.chatInputEl.value.trim(); if (message) { UI.addChatMessage(message, 'player', 'Vous'); UI.chatInputEl.value = ''; } }
 
 function setupEventListeners() {
@@ -81,8 +83,10 @@ function setupEventListeners() {
     addSafeClickListener(document.getElementById('nav-east'), () => handleNavigation('east')); 
     addSafeClickListener(document.getElementById('nav-west'), () => handleNavigation('west'));
     
-    // UI
-    document.getElementById('inventory-list').addEventListener('click', handleInventoryClick);
+    // MODIFIÉ : Ajout des listeners pour les boutons de consommation rapide
+    addSafeClickListener(document.getElementById('consume-health-btn'), () => consumeItem('health', gameState.player, gameState, CONFIG));
+    addSafeClickListener(document.getElementById('consume-thirst-btn'), () => consumeItem('thirst', gameState.player, gameState, CONFIG));
+    addSafeClickListener(document.getElementById('consume-hunger-btn'), () => consumeItem('hunger', gameState.player, gameState, CONFIG));
     
     // Chat
     UI.chatInputEl.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSendChat(); });
@@ -117,31 +121,29 @@ function endGame(isVictory) {
     document.getElementById('chat-input-field').disabled = true;
 }
 
-/**
- * Initialise le jeu.
- */
+function fullResizeAndRedraw() {
+    UI.resizeGameView();
+    if (gameState.player) {
+        UI.draw(gameState);
+    }
+}
+
 async function init() {
     try {
         await UI.loadAssets(SPRITESHEET_PATHS);
         
-        // On appelle la nouvelle fonction de redimensionnement une fois au début
-        UI.resizeGameView(); 
-        // Et on l'attache à l'événement de redimensionnement de la fenêtre pour la rendre dynamique
-        window.addEventListener('resize', UI.resizeGameView);
+        fullResizeAndRedraw();
+        window.addEventListener('resize', fullResizeAndRedraw);
         
-        // 1. Créer toutes les données du jeu
         gameState.map = generateMap(CONFIG);
         gameState.player = initPlayer(CONFIG);
         gameState.npcs = initNpcs(CONFIG, gameState.map);
         
         setupEventListeners();
         
-        // 2. Faire un rendu COMPLET de l'UI avec les données initiales
-        UI.draw(gameState); // Dessine le fond initial
-        UI.updateAllUI(gameState, CONFIG); // Dessine la minimap, les stats, l'inventaire...
-        updatePossibleActions(gameState); // Affiche les premières actions possibles
+        UI.updateAllUI(gameState, CONFIG);
+        updatePossibleActions(gameState);
         
-        // 3. Lancer les boucles de jeu
         const intervals = [ 
             setInterval(() => decayStats(gameState.player), CONFIG.STAT_DECAY_INTERVAL_MS), 
             setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS), 
@@ -149,9 +151,9 @@ async function init() {
         ];
         gameState.gameIntervals.push(...intervals);
         
-        requestAnimationFrame(gameLoop); // Démarrer la boucle de rendu principale
+        requestAnimationFrame(gameLoop);
         
-        console.log("Jeu initialisé avec redimensionnement dynamique.");
+        console.log("Jeu initialisé. Consommation via les boutons de stat activée.");
     } catch (error) {
         console.error("ERREUR CRITIQUE lors de l'initialisation :", error);
         document.body.innerHTML = `<div style="color:white; padding: 20px;">Erreur critique au chargement : ${error.message}</div>`;

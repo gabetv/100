@@ -3,10 +3,6 @@ import * as UI from './ui.js';
 import { TILE_TYPES, CONFIG, ACTION_DURATIONS } from './config.js';
 
 // --- Fonctions de base du joueur ---
-
-/**
- * MODIFIÉ POUR LE DÉBOGAGE : Ajoute 400 de chaque ressource au départ.
- */
 export function initPlayer(config) {
     return {
         x: Math.floor(config.MAP_WIDTH / 2) + 1,
@@ -16,12 +12,10 @@ export function initPlayer(config) {
         hunger: 100,
         sleep: 100,
         inventory: {
-            // --- RESSOURCES DE DÉPART POUR LE TEST ---
             'Bois': 400,
             'Pierre': 400,
             'Poisson': 400,
             'Eau': 400,
-            // -----------------------------------------
         },
         color: '#ffd700',
         isBusy: false,
@@ -48,7 +42,7 @@ export function decayStats(player) {
     player.thirst = Math.max(0, player.thirst - 2);
     player.hunger = Math.max(0, player.hunger - 1);
     player.sleep = Math.max(0, player.sleep - 0.5);
-    if (player.thirst === 0 || player.hunger === 0) {
+    if (player.thirst <= 0 || player.hunger <= 0) {
         UI.addChatMessage("Votre santé se dégrade !", "system");
         player.health = Math.max(0, player.health - 5);
     }
@@ -143,11 +137,11 @@ export function updatePossibleActions(gameState) {
 
     switch (tile.type) {
         case TILE_TYPES.PLAINS: case TILE_TYPES.WASTELAND:
-            createActionButton("Abri (-20B, -10P)", () => { if (playerHasResources(player, { 'Bois': 20, 'Pierre': 10 })) { performTimedAction(gameState, ACTION_DURATIONS.CRAFT, () => UI.addChatMessage("Construction d'un abri...", 'system'), () => { deductResources(player, { 'Bois': 20, 'Pierre': 10 }); tile.type = TILE_TYPES.SHELTER_INDIVIDUAL; }); } }, !playerHasResources(player, { 'Bois': 20, 'Pierre': 10 }, true));
-            createActionButton("Feu (-10B, -5P)", () => { if (playerHasResources(player, { 'Bois': 10, 'Pierre': 5 })) { performTimedAction(gameState, ACTION_DURATIONS.CRAFT, () => UI.addChatMessage("Préparation d'un feu de camp...", 'system'), () => { deductResources(player, { 'Bois': 10, 'Pierre': 5 }); tile.type = TILE_TYPES.CAMPFIRE; }); } }, !playerHasResources(player, { 'Bois': 10, 'Pierre': 5 }, true));
+            createActionButton("Abri (-20 Bois, -10 Pierre)", () => { if (playerHasResources(player, { 'Bois': 20, 'Pierre': 10 })) { performTimedAction(gameState, ACTION_DURATIONS.CRAFT, () => UI.addChatMessage("Construction d'un abri...", 'system'), () => { deductResources(player, { 'Bois': 20, 'Pierre': 10 }); tile.type = TILE_TYPES.SHELTER_INDIVIDUAL; tile.backgroundKey = TILE_TYPES.SHELTER_INDIVIDUAL.background[0]; }); } }, !playerHasResources(player, { 'Bois': 20, 'Pierre': 10 }, true));
+            createActionButton("Feu (-10 Bois, -5 Pierre)", () => { if (playerHasResources(player, { 'Bois': 10, 'Pierre': 5 })) { performTimedAction(gameState, ACTION_DURATIONS.CRAFT, () => UI.addChatMessage("Préparation d'un feu de camp...", 'system'), () => { deductResources(player, { 'Bois': 10, 'Pierre': 5 }); tile.type = TILE_TYPES.CAMPFIRE; tile.backgroundKey = TILE_TYPES.CAMPFIRE.background[0]; }); } }, !playerHasResources(player, { 'Bois': 10, 'Pierre': 5 }, true));
             break;
         case TILE_TYPES.CAMPFIRE:
-            createActionButton("Cuisiner (-1P, -1B)", () => { if (playerHasResources(player, { 'Poisson': 1, 'Bois': 1 })) { performTimedAction(gameState, ACTION_DURATIONS.CRAFT, () => UI.addChatMessage("Cuisson du poisson...", 'system'), () => { deductResources(player, { 'Poisson': 1, 'Bois': 1 }); player.inventory['Poisson Cuit'] = (player.inventory['Poisson Cuit'] || 0) + 1; UI.showFloatingText("+1 Poisson Cuit", 'gain'); }); } }, !playerHasResources(player, { 'Poisson': 1, 'Bois': 1 }, true));
+            createActionButton("Cuisiner (-1 Poisson, -1 Bois)", () => { if (playerHasResources(player, { 'Poisson': 1, 'Bois': 1 })) { performTimedAction(gameState, ACTION_DURATIONS.CRAFT, () => UI.addChatMessage("Cuisson du poisson...", 'system'), () => { deductResources(player, { 'Poisson': 1, 'Bois': 1 }); player.inventory['Poisson Cuit'] = (player.inventory['Poisson Cuit'] || 0) + 1; UI.showFloatingText("+1 Poisson Cuit", 'gain'); }); } }, !playerHasResources(player, { 'Poisson': 1, 'Bois': 1 }, true));
             break;
         case TILE_TYPES.SHELTER_COLLECTIVE: case TILE_TYPES.SHELTER_INDIVIDUAL:
             createActionButton("Dormir", () => sleep(gameState));
@@ -166,41 +160,73 @@ export function sleep(gameState) {
     );
 }
 
-export function consumeItem(itemName, player, gameState, config) {
-    if (player.isBusy || player.animationState || !player.inventory[itemName] || player.inventory[itemName] <= 0) return;
+// MODIFIÉ : consumeItem peut maintenant être appelé avec un "type" de besoin (ex: 'hunger')
+export function consumeItem(itemOrNeed, player, gameState, config) {
+    if (player.isBusy || player.animationState) {
+        UI.addChatMessage("Vous êtes occupé.", "system");
+        return;
+    }
+
+    let itemName = itemOrNeed;
+
+    // Logique pour choisir le meilleur objet si on reçoit un besoin ('hunger', 'thirst', 'health')
+    if (itemOrNeed === 'hunger') {
+        if (player.inventory['Poisson Cuit'] > 0) itemName = 'Poisson Cuit';
+        else if (player.inventory['Poisson'] > 0) itemName = 'Poisson';
+        else { UI.addChatMessage("Vous n'avez rien à manger.", "system"); return; }
+    } else if (itemOrNeed === 'thirst') {
+        if (player.inventory['Eau'] > 0) itemName = 'Eau';
+        else { UI.addChatMessage("Vous n'avez rien à boire.", "system"); return; }
+    } else if (itemOrNeed === 'health') {
+        // Seul le poisson cuit soigne pour l'instant
+        if (player.inventory['Poisson Cuit'] > 0) itemName = 'Poisson Cuit';
+        else { UI.addChatMessage("Vous n'avez rien pour vous soigner.", "system"); return; }
+    }
+
+    if (!player.inventory[itemName] || player.inventory[itemName] <= 0) {
+        UI.addChatMessage(`Vous n'avez plus de "${itemName}".`, "system");
+        return;
+    }
+
+    let consumed = false;
     
-    let consumed = true;
     switch (itemName) {
         case 'Eau':
             player.thirst = Math.min(100, player.thirst + 30);
+            UI.addChatMessage("Vous buvez de l'eau fraîche.", "system");
             UI.showFloatingText("+30 Soif", 'gain');
-            UI.triggerActionFlash('gain');
+            consumed = true;
             break;
         case 'Poisson':
             player.hunger = Math.min(100, player.hunger + 15);
             player.health = Math.max(0, player.health - 5);
-            UI.addChatMessage("Manger du poisson cru n'est pas une bonne idée... (-5 santé)", 'system');
+            UI.addChatMessage("Manger du poisson cru n'est pas une bonne idée... (-5 Santé)", 'system');
             UI.showFloatingText("+15 Faim", 'gain');
             UI.showFloatingText("-5 Santé", 'cost');
-            UI.triggerActionFlash('gain');
+            consumed = true;
             break;
         case 'Poisson Cuit':
             player.hunger = Math.min(100, player.hunger + 40);
+            player.health = Math.min(100, player.health + 5);
+            UI.addChatMessage("Vous mangez un délicieux poisson cuit. (+5 Santé)", "system");
             UI.showFloatingText("+40 Faim", 'gain');
-            UI.triggerActionFlash('gain');
+            UI.showFloatingText("+5 Santé", 'gain');
+            consumed = true;
             break;
         default:
-            consumed = false;
-            UI.addChatMessage("Vous ne pouvez pas consommer cet objet.", "system");
+            UI.addChatMessage(`Vous ne pouvez pas consommer "${itemName}".`, "system");
             break;
     }
 
     if (consumed) {
         player.inventory[itemName]--;
+        UI.triggerActionFlash('gain');
+        
         if (player.inventory[itemName] <= 0) {
             delete player.inventory[itemName];
         }
-        UI.updateAllUI(gameState, CONFIG);
+
+        UI.updateAllUI(gameState, config);
         updatePossibleActions(gameState);
         UI.updateAllButtonsState(gameState);
     }
