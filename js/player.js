@@ -42,16 +42,16 @@ export function decayStats(gameState) {
 
 // MODIFIÉ : Amélioration des logs de débogage pour plus de clarté
 export function transferItem(itemName, from, to, toCapacity = Infinity) {
-    // console.log(`-- Tentative de transfert pour '${itemName}' --`);
+    console.log(`-- Tentative de transfert pour '${itemName}' --`); // Décommenté
     
     if (!from[itemName] || from[itemName] <= 0) {
-        // console.error(`  [transferItem] ÉCHEC: Source n'a pas '${itemName}'.`);
+        console.error(`  [transferItem] ÉCHEC: Source n'a pas '${itemName}'.`); // Décommenté
         return false;
     }
 
     const totalInTo = getTotalResources(to);
     if (totalInTo >= toCapacity) {
-        // console.error(`  [transferItem] ÉCHEC: Destination pleine (${totalInTo}/${toCapacity}).`);
+        console.error(`  [transferItem] ÉCHEC: Destination pleine (${totalInTo}/${toCapacity}).`); // Décommenté
         return false;
     }
 
@@ -61,7 +61,7 @@ export function transferItem(itemName, from, to, toCapacity = Infinity) {
         delete from[itemName];
     }
 
-    // console.log(`  [transferItem] SUCCÈS pour '${itemName}'.`);
+    console.log(`  [transferItem] SUCCÈS pour '${itemName}'.`); // Décommenté
     return true;
 }
 

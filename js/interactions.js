@@ -1,12 +1,8 @@
 // js/interactions.js
 import { TILE_TYPES, CONFIG, ACTION_DURATIONS } from './config.js';
 import * as UI from './ui.js';
-// NOUVEAU : On importe le module d'état pour demander des modifications
 import * as State from './state.js';
 import { getTotalResources } from './player.js';
-
-// CETTE FONCTION N'EST PLUS NÉCESSAIRE ICI, ELLE EST DANS STATE.JS
-// export function handleInventoryTransfer(...)
 
 function performTimedAction(player, duration, onStart, onComplete, updateUICallbacks) {
     if (player.isBusy || player.animationState) return;
@@ -26,7 +22,7 @@ function performTimedAction(player, duration, onStart, onComplete, updateUICallb
 }
 
 export function handlePlayerAction(actionId, data, updateUICallbacks) {
-    const { player, map, activeEvent } = State.state; // On lit l'état
+    const { player, map, activeEvent } = State.state;
     const tile = map[player.y][player.x];
 
     switch(actionId) {
@@ -40,13 +36,13 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     const amountToHarvest = Math.min(finalYield, availableSpace);
 
                     if (amountToHarvest > 0) {
-                        State.addResourceToPlayer(type, amountToHarvest); // Demande de modification
+                        State.addResourceToPlayer(type, amountToHarvest);
                         tile.harvestsLeft--;
                         UI.showFloatingText(`+${amountToHarvest} ${type}`, 'gain');
                         UI.triggerActionFlash('gain');
                         if (amountToHarvest < finalYield) UI.addChatMessage("Inventaire plein, récolte partielle.", "system");
                         if (tile.harvestsLeft <= 0 && tile.type.harvests !== Infinity) {
-                            State.updateTileType(player.x, player.y, TILE_TYPES.WASTELAND); // Demande de modification
+                            State.updateTileType(player.x, player.y, TILE_TYPES.WASTELAND);
                             UI.addChatMessage("Les ressources de cette zone sont épuisées.", "system");
                         }
                     } else { 
@@ -60,7 +56,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
 
         case 'build':
             const costs = data.structure === 'shelter' ? { 'Bois': 20, 'Pierre': 10 } : { 'Bois': 10, 'Pierre': 5 };
-            if (!State.hasResources(costs).success) { // On vérifie via le state
+            if (!State.hasResources(costs).success) {
                 UI.addChatMessage("Ressources insuffisantes.", "system");
                 UI.triggerShake(document.getElementById('inventory-list'));
                 return;
@@ -68,17 +64,17 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             performTimedAction(player, ACTION_DURATIONS.CRAFT, 
                 () => UI.addChatMessage(`Construction...`, "system"), 
                 () => {
-                    State.applyResourceDeduction(costs); // Demande de modification
+                    State.applyResourceDeduction(costs);
                     UI.showFloatingText(`-${costs['Bois']} Bois`, 'cost');
                     UI.showFloatingText(`-${costs['Pierre']} Pierre`, 'cost');
                     UI.triggerActionFlash('cost');
                     const newStructure = data.structure === 'shelter' ? TILE_TYPES.SHELTER_INDIVIDUAL : TILE_TYPES.CAMPFIRE;
-                    State.updateTileType(player.x, player.y, newStructure); // Demande de modification
+                    State.updateTileType(player.x, player.y, newStructure);
                 },
                 updateUICallbacks
             );
             break;
-        // ... les autres cas (cook, sleep) suivent le même modèle ...
+
         case 'cook':
              if (!State.hasResources({ 'Poisson': 1, 'Bois': 1 }).success) {
                 UI.addChatMessage("Ressources insuffisantes pour cuisiner.", "system");
@@ -95,6 +91,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 updateUICallbacks
             );
             break;
+
         case 'sleep':
             performTimedAction(player, ACTION_DURATIONS.SLEEP, 
                 () => UI.addChatMessage("Vous vous endormez...", "system"), 

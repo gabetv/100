@@ -3,10 +3,13 @@ import { TILE_TYPES } from './config.js';
 
 export function generateMap(config) {
     console.log("Starting map generation with controlled stone deposits...");
-    const { MAP_WIDTH, MAP_HEIGHT } = config, map = Array(MAP_HEIGHT).fill(null).map(() => Array(MAP_WIDTH).fill(null)), centerX = MAP_WIDTH / 2, centerY = MAP_HEIGHT / 2;
-    const baseLayout = Array.from({ length: MAP_HEIGHT }, () => Array(MAP_WIDTH).fill(null));
+    const { MAP_WIDTH, MAP_HEIGHT } = config;
+    const map = Array(MAP_HEIGHT).fill(null).map(() => Array(MAP_WIDTH).fill(null));
+    const centerX = MAP_WIDTH / 2;
+    const centerY = MAP_HEIGHT / 2;
 
-    // Génération de la bordure d'eau
+    // --- Étape 1: Création du terrain de base (terre/eau) ---
+    const baseLayout = Array.from({ length: MAP_HEIGHT }, () => Array(MAP_WIDTH).fill(null));
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             if (y === 0 || y === MAP_HEIGHT - 1 || x === 0 || x === MAP_WIDTH - 1) {
@@ -19,7 +22,7 @@ export function generateMap(config) {
         }
     }
 
-    // Placement des biomes de base
+    // --- Étape 2: Placement des biomes de base ---
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             if (baseLayout[y][x] === 'water') {
@@ -41,9 +44,15 @@ export function generateMap(config) {
             }
         }
     }
-    const shelterX = Math.floor(centerX), shelterY = Math.floor(centerY); if (map[shelterY] && map[shelterY][shelterX].type.accessible) { map[shelterY][shelterX].type = TILE_TYPES.SHELTER_COLLECTIVE; }
 
-    // Algorithme pour placer exactement 2 gisements de pierre non adjacents
+    // --- Étape 3: Placement des structures spéciales (Abri, Gisements) ---
+    const shelterX = Math.floor(centerX);
+    const shelterY = Math.floor(centerY);
+    if (map[shelterY] && map[shelterY][shelterX].type.accessible) {
+        // On remplace le type de la tuile par celui de l'abri
+        map[shelterY][shelterX].type = TILE_TYPES.SHELTER_COLLECTIVE;
+    }
+
     const possibleStoneLocations = [];
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
@@ -52,24 +61,15 @@ export function generateMap(config) {
             }
         }
     }
+    // ... (la logique de placement des pierres reste la même)
     let stonePlacedCount = 0;
     const maxStones = 2;
     const placedCoordinates = [];
-    for (let i = possibleStoneLocations.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [possibleStoneLocations[i], possibleStoneLocations[j]] = [possibleStoneLocations[j], possibleStoneLocations[i]];
-    }
+    for (let i = possibleStoneLocations.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [possibleStoneLocations[i], possibleStoneLocations[j]] = [possibleStoneLocations[j], possibleStoneLocations[i]]; }
     for (const loc of possibleStoneLocations) {
         if (stonePlacedCount >= maxStones) break;
         let isAdjacent = false;
-        for (const placedLoc of placedCoordinates) {
-            const dx = Math.abs(loc.x - placedLoc.x);
-            const dy = Math.abs(loc.y - placedLoc.y);
-            if (dx <= 1 && dy <= 1) {
-                isAdjacent = true;
-                break;
-            }
-        }
+        for (const placedLoc of placedCoordinates) { const dx = Math.abs(loc.x - placedLoc.x); const dy = Math.abs(loc.y - placedLoc.y); if (dx <= 1 && dy <= 1) { isAdjacent = true; break; } }
         if (!isAdjacent) {
             map[loc.y][loc.x].type = TILE_TYPES.STONE_DEPOSIT;
             placedCoordinates.push(loc);
@@ -77,7 +77,7 @@ export function generateMap(config) {
         }
     }
     
-    // Finalisation des tuiles avec une logique anti-répétition et copie de l'inventaire
+    // --- Étape 4: Finalisation de TOUTES les tuiles (C'est ici que la correction a lieu) ---
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             const type = map[y][x].type;
@@ -87,37 +87,32 @@ export function generateMap(config) {
             if (backgroundOptions.length > 0) {
                 let allowedBackgrounds = [...backgroundOptions];
                 if (allowedBackgrounds.length > 1) {
-                    if (x > 0 && map[y][x - 1].type === type) {
-                        allowedBackgrounds = allowedBackgrounds.filter(key => key !== map[y][x - 1].backgroundKey);
-                    }
-                    if (y > 0 && map[y - 1][x].type === type) {
-                        allowedBackgrounds = allowedBackgrounds.filter(key => key !== map[y - 1][x].backgroundKey);
-                    }
+                    if (x > 0 && map[y][x - 1].type === type) { allowedBackgrounds = allowedBackgrounds.filter(key => key !== map[y][x - 1].backgroundKey); }
+                    if (y > 0 && map[y - 1][x].type === type) { allowedBackgrounds = allowedBackgrounds.filter(key => key !== map[y - 1][x].backgroundKey); }
                 }
-                if (allowedBackgrounds.length === 0) {
-                    allowedBackgrounds = backgroundOptions;
-                }
+                if (allowedBackgrounds.length === 0) { allowedBackgrounds = backgroundOptions; }
                 chosenBackground = allowedBackgrounds[Math.floor(Math.random() * allowedBackgrounds.length)];
             }
             
-            // CORRECTION PRINCIPALE ICI
+            // On remplace l'objet temporaire par l'objet final complet
             map[y][x] = { 
-                type, 
-                x, 
-                y, 
+                type: type, 
+                x: x, 
+                y: y, 
                 backgroundKey: chosenBackground, 
-                harvestsLeft: type.harvests || 0, 
-                resources: type.resource ? { type: type.resource.type, yield: type.resource.yield } : null, 
+                harvestsLeft: type.harvests === Infinity ? Infinity : (type.harvests || 0),
+                resources: type.resource ? { ...type.resource } : null, 
                 occupant: null,
-                // On copie l'inventaire S'IL EXISTE sur le type de tuile.
-                // On utilise JSON.parse(JSON.stringify(...)) pour faire une copie profonde
-                // et éviter que toutes les tuiles partagent la même référence d'objet.
+                // =======================================================================
+                // == LA CORRECTION EST ICI : On copie la propriété 'inventory' si elle ==
+                // == existe sur le modèle de la tuile (ex: SHELTER_COLLECTIVE).       ==
+                // =======================================================================
                 inventory: type.inventory ? JSON.parse(JSON.stringify(type.inventory)) : undefined
             };
         }
     }
     
-    console.log(`Map generation finished with corrected shared inventory. Placed ${stonePlacedCount} stones.`);
+    console.log(`Map generation finished. Placed ${stonePlacedCount} stones. Shared inventory should be available.`);
     return map;
 }
 

@@ -1,25 +1,24 @@
 // js/main.js
 import * as UI from './ui.js';
 import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES } from './config.js';
-// NOUVEAU : On importe le module de gestion d'état
 import * as State from './state.js';
 import { movePlayer, decayStats, getTotalResources } from './player.js';
 import { updateNpcs, npcChatter } from './npc.js';
 import * as Interactions from './interactions.js';
 
-// Plus de `gameState` local ! On utilisera `State.state` partout.
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
 
 function updatePossibleActions() {
     UI.actionsEl.innerHTML = '';
-    const { player, map } = State.state; // On lit l'état depuis le module
+    const { player, map } = State.state;
     const tile = map[player.y][player.x];
     
     if (player.isBusy || player.animationState) {
         const busyAction = document.createElement('div');
         busyAction.textContent = player.animationState ? "Déplacement..." : "Action en cours...";
-        busyAction.style.textAlign = 'center'; busyAction.style.padding = '12px';
+        busyAction.style.textAlign = 'center';
+        busyAction.style.padding = '12px';
         UI.actionsEl.appendChild(busyAction);
         return;
     }
@@ -33,6 +32,16 @@ function updatePossibleActions() {
         UI.actionsEl.appendChild(button);
     };
 
+    // ==========================================================
+    // == MODIFIÉ : Ajout du bouton pour ouvrir le coffre        ==
+    // ==========================================================
+    if (tile.type.name === TILE_TYPES.SHELTER_COLLECTIVE.name) {
+        const openChestButton = document.createElement('button');
+        openChestButton.textContent = "🧰 Ouvrir le coffre";
+        openChestButton.onclick = () => UI.showInventoryModal(State.state);
+        UI.actionsEl.appendChild(openChestButton);
+    }
+
     if (tile.type.resource && tile.harvestsLeft > 0) {
         let { type } = tile.type.resource;
         let actionText = `Récolter ${type}`;
@@ -45,7 +54,6 @@ function updatePossibleActions() {
     
     const currentTileType = tile.type.name;
     if (currentTileType === TILE_TYPES.PLAINS.name || currentTileType === TILE_TYPES.WASTELAND.name) {
-        // On utilise la fonction de vérification de State
         const canBuildShelter = State.hasResources({ 'Bois': 20, 'Pierre': 10 }).success;
         createButton("Abri (-20 Bois, -10 Pierre)", 'build', { structure: 'shelter' }, !canBuildShelter, !canBuildShelter ? "Ressources manquantes" : "");
         const canBuildCampfire = State.hasResources({ 'Bois': 10, 'Pierre': 5 }).success;
@@ -90,8 +98,12 @@ function handleEvents() {
 function gameLoop(currentTime) {
     const { player, isGameOver } = State.state;
     if (isGameOver) return;
-    if (player.health <= 0) { endGame(false); return; }
-    
+
+    if (player.health <= 0) {
+        endGame(false);
+        return;
+    }
+
     if (lastFrameTimestamp === 0) lastFrameTimestamp = currentTime;
     const deltaTime = currentTime - lastFrameTimestamp;
     lastFrameTimestamp = currentTime;
@@ -101,16 +113,18 @@ function gameLoop(currentTime) {
         if(decayResult && decayResult.message) UI.addChatMessage(decayResult.message, 'system');
         lastStatDecayTimestamp = currentTime;
     }
-    
-    if (!player.animationState) { updateNpcs(State.state, deltaTime); }
 
+    if (!player.animationState) {
+        updateNpcs(State.state, deltaTime);
+    }
+    
     if (player.animationState) {
         const anim = player.animationState;
-        const safeDeltaTime = Math.min(deltaTime, 50);
+        const safeDeltaTime = Math.min(deltaTime, 50); 
         anim.progress += safeDeltaTime / ACTION_DURATIONS.MOVE_TRANSITION;
+
         if (anim.progress >= 1) {
             if (anim.type === 'out') {
-                // On demande une modification de l'état
                 State.applyPlayerMove(anim.direction);
                 UI.draw(State.state);
                 anim.type = 'in';
@@ -124,24 +138,30 @@ function gameLoop(currentTime) {
             }
         }
     }
+
     UI.updateAllUI(State.state);
     UI.drawSceneCharacters(State.state);
+
     requestAnimationFrame(gameLoop);
 }
 
 function handleNavigation(direction) {
     const { player, map } = State.state;
     if (player.isBusy || player.animationState) return;
-    
+
     const { x, y } = player;
     let newX = x, newY = y;
-    if (direction === 'north') newY--; else if (direction === 'south') newY++;
-    else if (direction === 'west') newX--; else if (direction === 'east') newX++;
-    
+
+    if (direction === 'north') newY--;
+    else if (direction === 'south') newY++;
+    else if (direction === 'west') newX--;
+    else if (direction === 'east') newX++;
+
     if (newX < 0 || newX >= CONFIG.MAP_WIDTH || newY < 0 || newY >= CONFIG.MAP_HEIGHT || !map[newY][newX].type.accessible) {
         UI.addChatMessage("Vous ne pouvez pas aller dans cette direction.", "system");
         return;
     }
+
     player.isBusy = true;
     player.animationState = { type: 'out', direction: direction, progress: 0 };
     updatePossibleActions();
@@ -150,13 +170,17 @@ function handleNavigation(direction) {
 
 function handleConsumeClick(itemOrNeed) {
     const { player } = State.state;
-    if (player.isBusy || player.animationState) { UI.addChatMessage("Vous êtes occupé.", "system"); return; }
-    
+    if (player.isBusy || player.animationState) {
+        UI.addChatMessage("Vous êtes occupé.", "system");
+        return;
+    }
     const result = State.consumeItem(itemOrNeed);
     UI.addChatMessage(result.message, 'system');
     if(result.success) {
         UI.triggerActionFlash('gain');
-        result.floatingTexts.forEach(text => { UI.showFloatingText(text, text.startsWith('-') ? 'cost' : 'gain'); });
+        result.floatingTexts.forEach(text => {
+            UI.showFloatingText(text, text.startsWith('-') ? 'cost' : 'gain');
+        });
         updateAllUI();
         updatePossibleActions();
         updateAllButtonsState();
@@ -168,9 +192,9 @@ function handleConsumeClick(itemOrNeed) {
 function updateAllUI() { UI.updateAllUI(State.state); }
 function updateAllButtonsState() { UI.updateAllButtonsState(State.state); }
 
-function dailyUpdate() { 
+function dailyUpdate() {
     if (++State.state.day > 100) endGame(true);
-    handleEvents(); 
+    handleEvents();
 }
 
 function handleSendChat() {
@@ -182,79 +206,118 @@ function handleSendChat() {
 }
 
 function setupEventListeners() {
-    const addSafeClickListener = (element, callback) => { ['mousedown', 'touchstart'].forEach(eventType => { element.addEventListener(eventType, (e) => { e.preventDefault(); e.stopPropagation(); if (element.disabled) return; callback(e); }); }); };
+    document.getElementById('nav-north').addEventListener('click', () => handleNavigation('north'));
+    document.getElementById('nav-south').addEventListener('click', () => handleNavigation('south'));
+    document.getElementById('nav-east').addEventListener('click', () => handleNavigation('east'));
+    document.getElementById('nav-west').addEventListener('click', () => handleNavigation('west'));
     
-    addSafeClickListener(document.getElementById('nav-north'), () => handleNavigation('north'));
-    addSafeClickListener(document.getElementById('nav-south'), () => handleNavigation('south'));
-    addSafeClickListener(document.getElementById('nav-east'), () => handleNavigation('east'));
-    addSafeClickListener(document.getElementById('nav-west'), () => handleNavigation('west'));
-    
-    addSafeClickListener(document.getElementById('consume-health-btn'), () => handleConsumeClick('health'));
-    addSafeClickListener(document.getElementById('consume-thirst-btn'), () => handleConsumeClick('thirst'));
-    addSafeClickListener(document.getElementById('consume-hunger-btn'), () => handleConsumeClick('hunger'));
+    document.getElementById('consume-health-btn').addEventListener('click', () => handleConsumeClick('health'));
+    document.getElementById('consume-thirst-btn').addEventListener('click', () => handleConsumeClick('thirst'));
+    document.getElementById('consume-hunger-btn').addEventListener('click', () => handleConsumeClick('hunger'));
     
     UI.chatInputEl.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSendChat(); });
-    // ... autres listeners ...
+    
     const quickChatButton = document.getElementById('quick-chat-button');
     const quickChatMenu = document.getElementById('quick-chat-menu');
-    addSafeClickListener(quickChatButton, () => { quickChatMenu.classList.toggle('visible'); });
-    quickChatMenu.addEventListener('click', (e) => { if (e.target.classList.contains('quick-chat-item')) { UI.addChatMessage(e.target.textContent, 'player', 'Vous'); quickChatMenu.classList.remove('visible'); } });
-    addSafeClickListener(document.documentElement, (e) => { if (!quickChatMenu.contains(e.target) && e.target !== quickChatButton) { quickChatMenu.classList.remove('visible'); } });
+    quickChatButton.addEventListener('click', () => { quickChatMenu.classList.toggle('visible'); });
+    quickChatMenu.addEventListener('click', (e) => {
+        if (e.target.classList.contains('quick-chat-item')) {
+            UI.addChatMessage(e.target.textContent, 'player', 'Vous');
+            quickChatMenu.classList.remove('visible');
+        }
+    });
+    document.addEventListener('click', (e) => {
+        if (!quickChatMenu.contains(e.target) && e.target !== quickChatButton) {
+            quickChatMenu.classList.remove('visible');
+        }
+    });
     
-    addSafeClickListener(UI.enlargeMapBtn, () => { UI.drawLargeMap(State.state, CONFIG); UI.largeMapModal.classList.remove('hidden'); });
-    addSafeClickListener(UI.closeLargeMapBtn, () => { UI.largeMapModal.classList.add('hidden'); });
+    UI.enlargeMapBtn.addEventListener('click', () => {
+        UI.drawLargeMap(State.state, CONFIG);
+        UI.largeMapModal.classList.remove('hidden');
+    });
+    UI.closeLargeMapBtn.addEventListener('click', () => { UI.largeMapModal.classList.add('hidden'); });
     
-    // ** LA LOGIQUE DE CLIC AVEC DÉBOGAGE AMÉLIORÉ **
-    document.getElementById('shared-inventory-section').addEventListener('click', (e) => {
-        console.log("%c--- Clic détecté sur la section de stockage ---", "color: yellow; font-weight: bold;");
-        
-        const { player } = State.state;
-        if (player.isBusy || player.animationState) {
-            console.log("DEBUG: Action bloquée car le joueur est occupé.", player);
-            UI.addChatMessage("Vous êtes occupé.", "system");
-            return;
+    // ==========================================================
+    // == NOUVEAU : Logique pour la modale et le Drag-and-Drop   ==
+    // ==========================================================
+
+    UI.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
+
+    UI.inventoryModal.addEventListener('click', (e) => {
+        if (e.target.id === 'inventory-modal') {
+            UI.hideInventoryModal();
         }
-        console.log("DEBUG: Le joueur n'est pas occupé, on continue.");
-
-        const targetButton = e.target.closest('button');
-        console.log("DEBUG: Élément cliqué (e.target):", e.target);
-        console.log("DEBUG: Bouton le plus proche trouvé (targetButton):", targetButton);
-
-        if (!targetButton) {
-            console.log("DEBUG: Le clic n'était pas sur un bouton ou un de ses enfants. Action ignorée.");
-            return;
-        }
-
-        if (targetButton.disabled) {
-            console.log("DEBUG: Le bouton est désactivé. Action ignorée.");
-            UI.addChatMessage("Cette action n'est pas possible.", "system");
-            return;
-        }
-        
-        const itemName = targetButton.dataset.itemName;
-        const transferType = targetButton.classList.contains('deposit-btn') ? 'deposit' : 'withdraw';
-        
-        console.log(`%cDEBUG: Préparation de l'action: Type='${transferType}', Objet='${itemName}'`, "color: cyan;");
-
-        // On appelle la logique de l'état
-        const result = State.applyInventoryTransfer(itemName, transferType);
-
-        console.log(`%cDEBUG: Résultat de l'action:`, "color: orange;", result);
-
-        UI.addChatMessage(result.message, 'system');
-        if (result.success) {
-            UI.triggerActionFlash('gain');
-        } else {
-            UI.triggerShake(targetButton);
-        }
-
-        // Toujours rafraîchir pour garantir la synchronisation
-        console.log("DEBUG: Mise à jour de toute l'interface utilisateur.");
-        updateAllUI();
-        updatePossibleActions();
     });
 
-    window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !UI.largeMapModal.classList.contains('hidden')) { UI.largeMapModal.classList.add('hidden'); } });
+    let draggedItem = null;
+
+    UI.inventoryModal.addEventListener('dragstart', (e) => {
+        if (e.target.classList.contains('inventory-item')) {
+            draggedItem = e.target;
+            setTimeout(() => e.target.classList.add('dragging'), 0);
+        }
+    });
+
+    UI.inventoryModal.addEventListener('dragend', () => {
+        if (draggedItem) {
+            draggedItem.classList.remove('dragging');
+            draggedItem = null;
+        }
+    });
+
+    const modalGrid = document.getElementById('inventory-modal-grid');
+    modalGrid.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const dropZone = e.target.closest('.droppable');
+        if (dropZone) {
+            document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over'));
+            dropZone.classList.add('drag-over');
+        }
+    });
+
+    modalGrid.addEventListener('dragleave', (e) => {
+        const dropZone = e.target.closest('.droppable');
+        if (dropZone) {
+            dropZone.classList.remove('drag-over');
+        }
+    });
+    
+    modalGrid.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const dropZone = e.target.closest('.droppable');
+        document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over'));
+
+        if (dropZone && draggedItem) {
+            const sourceOwner = draggedItem.dataset.owner;
+            const destOwner = dropZone.dataset.owner;
+            const itemName = draggedItem.dataset.itemName;
+            
+            if (sourceOwner !== destOwner) {
+                const transferType = (destOwner === 'shared') ? 'deposit' : 'withdraw';
+                const result = State.applyInventoryTransfer(itemName, transferType);
+
+                UI.addChatMessage(result.message, 'system');
+                if (result.success) {
+                    UI.showInventoryModal(State.state);
+                    updateAllUI();
+                } else {
+                    UI.triggerShake(draggedItem);
+                }
+            }
+        }
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (!UI.largeMapModal.classList.contains('hidden')) {
+                UI.largeMapModal.classList.add('hidden');
+            }
+            if (!UI.inventoryModal.classList.contains('hidden')) {
+                UI.hideInventoryModal();
+            }
+        }
+    });
 }
 
 function endGame(isVictory) {
@@ -267,11 +330,11 @@ function endGame(isVictory) {
     document.getElementById('chat-input-field').disabled = true;
 }
 
-function fullResizeAndRedraw() { 
+function fullResizeAndRedraw() {
     UI.resizeGameView();
     if (State.state.player) {
         UI.draw(State.state);
-    } 
+    }
 }
 
 async function init() {
@@ -280,9 +343,7 @@ async function init() {
         fullResizeAndRedraw();
         window.addEventListener('resize', fullResizeAndRedraw);
         
-        // On utilise notre nouvelle fonction d'initialisation
         State.initializeGameState(CONFIG);
-
         setupEventListeners();
         updateAllUI();
         updatePossibleActions();
@@ -292,7 +353,7 @@ async function init() {
         State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
         State.state.gameIntervals.push(setInterval(() => npcChatter(State.state.npcs), CONFIG.CHAT_MESSAGE_INTERVAL_MS));
         
-        console.log("Jeu initialisé avec un gestionnaire d'état centralisé.");
+        console.log("Jeu initialisé avec inventaire drag-and-drop.");
     } catch (error) {
         console.error("ERREUR CRITIQUE lors de l'initialisation :", error);
         document.body.innerHTML = `<div style="color:white; padding: 20px;">Erreur critique au chargement : ${error.message}</div>`;

@@ -59,17 +59,13 @@
             <!-- ### VUE PRINCIPALE ### -->
             <div id="main-view-wrapper">
                 <div id="main-view-container">
-                    <!-- CORRECTION: Les overlays sont maintenant DANS le conteneur de la vue principale -->
                     <div id="survival-vignette"></div>
                     <div id="action-flash"></div>
-                    
                     <canvas id="main-view-canvas"></canvas>
                     <canvas id="characters-canvas"></canvas>
-                    
                     <div id="hud-overlay">
                         <span id="day-display">Jour <span id="day-counter">1</span> / 100</span>
                     </div>
-                    
                     <div id="main-view-overlay">
                         <div id="navigation-edge-panel">
                             <button class="nav-button-overlay" id="nav-north">↑</button>
@@ -91,11 +87,7 @@
                     <p id="tile-harvests-info" class="tile-detail"></p>
                 </section>
 
-                <section id="shared-inventory-section" class="hidden">
-                    <h3>Stockage Commun</h3>
-                    <ul id="shared-inventory-list"></ul>
-                </section>
-
+                <!-- L'ancien stockage commun est maintenant géré par la modale -->
                 <section id="interaction-panel">
                     <h3>Actions Possibles</h3>
                     <div id="actions"></div>
@@ -133,6 +125,35 @@
         <canvas id="large-map-canvas"></canvas>
     </div>
 
+    <!-- ========================================================== -->
+    <!-- == NOUVEAU : Modale pour l'inventaire Drag-and-Drop       == -->
+    <!-- ========================================================== -->
+    <div id="inventory-modal" class="hidden">
+        <div id="inventory-modal-content">
+            <button id="close-inventory-modal-btn">&times;</button>
+            <h2>Gestion du Stockage</h2>
+            <div id="inventory-modal-grid">
+                <!-- Section de l'inventaire du joueur -->
+                <div class="inventory-container">
+                    <h3>Votre Inventaire (<span id="modal-player-capacity">0 / 0</span>)</h3>
+                    <ul id="modal-player-inventory" class="inventory-list droppable" data-owner="player">
+                        <!-- Les objets seront ajoutés ici par JS -->
+                    </ul>
+                </div>
+                <!-- Section de l'inventaire commun -->
+                <div class="inventory-container">
+                    <h3>Stockage Commun</h3>
+                    <ul id="modal-shared-inventory" class="inventory-list droppable" data-owner="shared">
+                        <!-- Les objets seront ajoutés ici par JS -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/state.js"></script>
+    <script type="module" src="js/ui.js"></script>
+    <script type="module" src="js/interactions.js"></script>
 </body>
 </html>

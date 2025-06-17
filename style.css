@@ -14,7 +14,6 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
 #main-area { flex-grow: 1; display: grid; grid-template-columns: 320px 1fr 320px; gap: 15px; overflow: hidden; }
 
 /* Panneaux avec effet "verre dépoli" */
-/* CORRECTION: Ajout d'un position: relative et z-index pour garantir qu'ils sont au-dessus */
 .ui-panel { 
     background-color: var(--bg-panel); 
     backdrop-filter: blur(10px); 
@@ -28,7 +27,7 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
     border: 1px solid rgba(255, 255, 255, 0.1); 
     box-shadow: 0 4px 15px var(--shadow-color);
     position: relative;
-    z-index: 20; 
+    z-index: 30; 
 }
 
 /* Wrapper pour centrer la vue principale */
@@ -44,30 +43,13 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
 .consume-btn { background-color: var(--action-color); color: var(--text-light); border: none; width: 22px; height: 22px; border-radius: 50%; font-size: 1.2em; line-height: 22px; cursor: pointer; transition: all 0.2s; }
 .consume-btn:hover:not(:disabled) { background-color: #5e9ac4; transform: scale(1.1); } .consume-btn:disabled { background-color: #2f4553; opacity: 0.4; cursor: not-allowed; }
 
-
-/* Styles pour les inventaires */
-#inventory-list, #shared-inventory-list { list-style: none; padding-left: 0; font-size: 0.9em; display: flex; flex-direction: column; gap: 5px; }
-.inventory-item, .shared-inventory-item { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; }
-.inventory-item { background: rgba(0,0,0,0.1); }
-.shared-inventory-item .inventory-name { flex-grow: 1; }
+/* Styles pour les inventaires (hors modale) */
+#inventory-list { list-style: none; padding-left: 0; font-size: 0.9em; display: flex; flex-direction: column; gap: 5px; }
+.inventory-item { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.1); }
 .inventory-icon { font-size: 1.2em; }
+.inventory-name { flex-grow: 1; }
 .inventory-count { font-weight: 600; color: var(--text-secondary); min-width: 25px; text-align: right; margin-right: 10px; }
 .inventory-empty { color: var(--text-secondary); opacity: 0.7; }
-
-/* Conteneur pour les boutons + et - */
-.item-actions { display: flex; gap: 5px; margin-left: auto; }
-.deposit-btn, .withdraw-btn {
-    color: var(--text-light); border: none; width: 26px; height: 26px; border-radius: 50%;
-    font-size: 1.6em; line-height: 26px; font-weight: 600; text-align: center; cursor: pointer; transition: all 0.2s;
-    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-}
-.deposit-btn { background-color: var(--deposit-color); padding-bottom: 2px; }
-.withdraw-btn { background-color: var(--accent-color); padding-bottom: 4px; }
-.deposit-btn:hover:not(:disabled) { background-color: #3bc6b6; transform: scale(1.1); }
-.withdraw-btn:hover:not(:disabled) { background-color: #f75c6a; transform: scale(1.1); }
-.deposit-btn:disabled, .withdraw-btn:disabled { background-color: #2f4553; opacity: 0.4; cursor: not-allowed; }
-
-.storage-note { display: none; } 
 .hidden { display: none !important; }
 
 #tile-info p { font-size: 0.9em; color: var(--text-secondary); }
@@ -77,8 +59,8 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
 
 #actions { display: flex; flex-direction: column; gap: 10px; }
 #actions button { width: 100%; padding: 12px; background-color: var(--action-color); color: var(--text-light); font-weight: 600; font-family: 'Poppins', sans-serif; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; border-bottom: 3px solid #2f5a7a; }
-#actions button:hover { background-color: #5e9ac4; transform: translateY(-2px); border-bottom-color: #457b9d; }
-#actions button:disabled { background-color: #2f4553; color: #9ab4c2; cursor: not-allowed; border-bottom-color: #1a2a32; }
+#actions button:hover:not(:disabled) { background-color: #5e9ac4; transform: translateY(-2px); border-bottom-color: #457b9d; }
+#actions button:disabled { background-color: #2f4553; color: #9ab4c2; cursor: not-allowed; border-bottom-color: #1a2a32; transform: none; }
 #actions button:disabled:hover { transform: none; }
 
 #minimap-section h3 button#enlarge-map-btn { margin-left: auto; }
@@ -95,7 +77,7 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
 .nav-button-overlay:hover { background-color: rgba(69, 123, 157, 0.8); color: white; transform: scale(1.1); }
 #nav-north { top: 15px; left: 50%; transform: translateX(-50%); } #nav-north:hover { transform: translateX(-50%) scale(1.1); } #nav-south { bottom: 15px; left: 50%; transform: translateX(-50%); } #nav-south:hover { transform: translateX(-50%) scale(1.1); } #nav-west { left: 15px; top: 50%; transform: translateY(-50%); } #nav-west:hover { transform: translateY(-50%) scale(1.1); } #nav-east { right: 15px; top: 50%; transform: translateY(-50%); } #nav-east:hover { transform: translateY(-50%) scale(1.1); }
 
-/* BARRE INFÉRIEURE - Z-index élevé aussi */
+/* BARRE INFÉRIEURE */
 #bottom-bar { background-color: var(--bg-panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); height: 180px; flex-shrink: 0; display: flex; border-radius: var(--border-radius); padding: 15px; border: 1px solid rgba(255, 255, 255, 0.1); position: relative; z-index: 20; }
 #chat-container { width: 100%; display: flex; flex-direction: column; } #chat-messages { flex-grow: 1; overflow-y: auto; margin-bottom: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; min-height: 0; } .chat-message { margin-bottom: 8px; line-height: 1.4; } .chat-message.player { color: #a8dadc; } .chat-message.npc { color: #f4a261; } .chat-message.system { color: #e63946; font-style: italic; }
 #chat-input-area { position: relative; flex-shrink: 0; display: flex; gap: 10px; align-items: center; } #chat-input-field { flex-grow: 1; background: none; border: 1px solid #ffffff40; border-radius: 8px; padding: 10px; color: var(--text-light); font-family: 'Poppins', sans-serif; } #chat-input-field:focus { outline: none; border-color: var(--action-color); }
@@ -110,29 +92,115 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
 
 .stat-bar.pulsing { animation: pulse-warning 1.5s infinite ease-in-out; } @keyframes pulse-warning { 0% { transform: scale(1); filter: brightness(100%); } 50% { transform: scale(1.02); filter: brightness(130%); } 100% { transform: scale(1); filter: brightness(100%); } }
 #large-map-modal { position: fixed; inset: 0; z-index: 2000; background-color: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; padding: 20px; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
-#large-map-modal:not(.hidden) { opacity: 1; pointer-events: auto; } #large-map-modal.hidden { display: none !important; } #large-map-canvas { max-width: 90vh; max-height: 90vh; image-rendering: pixelated; border-radius: 8px; border: 2px solid var(--text-secondary); }
+#large-map-modal:not(.hidden) { opacity: 1; pointer-events: auto; } #large-map-canvas { max-width: 90vh; max-height: 90vh; image-rendering: pixelated; border-radius: 8px; border: 2px solid var(--text-secondary); }
 #close-large-map-btn { position: absolute; top: 20px; right: 20px; background: var(--accent-color); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 2em; line-height: 40px; text-align: center; cursor: pointer; transition: transform 0.2s; } #close-large-map-btn:hover { transform: scale(1.1) rotate(90deg); }
 @media (max-width: 1200px) { #main-area { grid-template-columns: 250px 1fr 250px; } } @media (max-width: 900px) { body { padding: 5px; overflow: auto; } #game-container { gap: 10px; } #main-area { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; } #main-view-wrapper { grid-row: 1; height: 50vh; } #right-panel { grid-row: 2; } #left-panel { grid-row: 3; } .ui-panel { overflow-y: visible; padding: 15px; } .ui-panel section { padding: 12px; } .nav-button-overlay { width: 45px; height: 45px; font-size: 1.2em; } #bottom-bar { height: 200px; } }
 
-/* Animation de secousse pour le débogage visuel */
-.action-failed-shake {
-    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+.action-failed-shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+
+/* ========================================================== */
+/* == NOUVEAU : Styles pour la modale d'inventaire           == */
+/* ========================================================== */
+
+#inventory-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    opacity: 1;
+    transition: opacity 0.3s ease;
 }
 
-@keyframes shake {
-  10%, 90% {
-    transform: translate3d(-1px, 0, 0);
-  }
-  
-  20%, 80% {
-    transform: translate3d(2px, 0, 0);
-  }
+#inventory-modal.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
 
-  30%, 50%, 70% {
-    transform: translate3d(-4px, 0, 0);
-  }
+#inventory-modal-content {
+    background-color: var(--bg-panel);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--border-radius);
+    padding: 30px;
+    width: 100%;
+    max-width: 900px;
+    min-height: 400px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    position: relative;
+}
 
-  40%, 60% {
-    transform: translate3d(4px, 0, 0);
-  }
+#close-inventory-modal-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 2em;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s, transform 0.2s;
+}
+
+#close-inventory-modal-btn:hover {
+    color: var(--accent-color);
+    transform: scale(1.1);
+}
+
+#inventory-modal h2 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: var(--text-light);
+}
+
+#inventory-modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 25px;
+}
+
+.inventory-container h3 {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+#inventory-modal .inventory-list {
+    background-color: rgba(0,0,0,0.25);
+    border-radius: 8px;
+    padding: 15px;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: background-color 0.2s ease;
+}
+
+/* ========================================================== */
+/* == NOUVEAU : Styles pour le Drag-and-Drop                 == */
+/* ========================================================== */
+
+/* L'objet qu'on est en train de déplacer */
+#inventory-modal .inventory-item.dragging {
+    opacity: 0.4;
+    background: var(--action-color);
+}
+
+/* La zone de dépôt quand un objet est glissé dessus */
+#inventory-modal .inventory-list.drag-over {
+    background-color: rgba(69, 123, 157, 0.4); /* --action-color avec transparence */
+    outline: 2px dashed var(--action-color);
+}
+
+/* Rendre les objets déplaçables et indiquer qu'on peut le faire */
+#inventory-modal .inventory-item[draggable="true"] {
+    cursor: grab;
+}
+#inventory-modal .inventory-item[draggable="true"]:active {
+    cursor: grabbing;
 }

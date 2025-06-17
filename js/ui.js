@@ -9,8 +9,6 @@ export const tileNameEl = document.getElementById('tile-name'), tileDescriptionE
 const dayCounterEl = document.getElementById('day-counter'), healthBarEl = document.getElementById('health-bar'), thirstBarEl = document.getElementById('thirst-bar'), hungerBarEl = document.getElementById('hunger-bar'), sleepBarEl = document.getElementById('sleep-bar'), inventoryListEl = document.getElementById('inventory-list'), chatMessagesEl = document.getElementById('chat-messages');
 export const hudCoordsEl = document.getElementById('hud-coords');
 const tileHarvestsInfoEl = document.getElementById('tile-harvests-info');
-const sharedInventorySectionEl = document.getElementById('shared-inventory-section');
-const sharedInventoryListEl = document.getElementById('shared-inventory-list');
 const inventoryCapacityEl = document.getElementById('inventory-capacity-display');
 
 export const largeMapModal = document.getElementById('large-map-modal');
@@ -18,6 +16,14 @@ export const largeMapCanvas = document.getElementById('large-map-canvas');
 const largeMapCtx = largeMapCanvas.getContext('2d');
 export const enlargeMapBtn = document.getElementById('enlarge-map-btn');
 export const closeLargeMapBtn = document.getElementById('close-large-map-btn');
+
+// NOUVEAU : Éléments de la modale d'inventaire
+export const inventoryModal = document.getElementById('inventory-modal');
+export const closeInventoryModalBtn = document.getElementById('close-inventory-modal-btn');
+const modalPlayerInventoryEl = document.getElementById('modal-player-inventory');
+const modalSharedInventoryEl = document.getElementById('modal-shared-inventory');
+const modalPlayerCapacityEl = document.getElementById('modal-player-capacity');
+
 
 const loadedAssets = {};
 const ITEM_ICONS = { 'Bois': '🪵', 'Pierre': '🪨', 'Poisson': '🐟', 'Eau': '💧', 'Poisson Cuit': '🔥', 'default': '物品' };
@@ -68,38 +74,74 @@ function updateInventory(player) {
     if (Object.keys(inventory).length === 0) { inventoryListEl.innerHTML = '<li class="inventory-empty">(Vide)</li>'; } else { for (const item in inventory) { const li = document.createElement('li'); const icon = ITEM_ICONS[item] || ITEM_ICONS.default; li.innerHTML = `<span class="inventory-icon">${icon}</span><span class="inventory-name">${item}</span><span class="inventory-count">${inventory[item]}</span>`; li.classList.add('inventory-item'); li.dataset.itemName = item; inventoryListEl.appendChild(li); } }
 }
 
-function updateSharedInventory(tile, player) {
-    if (tile.inventory) {
-        sharedInventorySectionEl.classList.remove('hidden'); sharedInventoryListEl.innerHTML = '';
-        const isPlayerInventoryFull = getTotalResources(player.inventory) >= CONFIG.PLAYER_MAX_RESOURCES;
-        const allItemKeys = new Set([ ...Object.keys(tile.inventory || {}), ...Object.keys(player.inventory || {}) ]);
-        if (allItemKeys.size === 0) { sharedInventoryListEl.innerHTML = '<li class="inventory-empty">(Vide)</li>'; return; }
-        allItemKeys.forEach(itemName => {
-            const sharedCount = tile.inventory[itemName] || 0; const playerCount = player.inventory[itemName] || 0; const icon = ITEM_ICONS[itemName] || ITEM_ICONS.default;
-            const canWithdraw = sharedCount > 0 && !isPlayerInventoryFull; const canDeposit = playerCount > 0;
-            const li = document.createElement('li'); li.classList.add('shared-inventory-item');
-            li.innerHTML = `
-                <span class="inventory-icon">${icon}</span>
-                <span class="inventory-name">${itemName}</span>
-                <span class="inventory-count">${sharedCount}</span>
-                <div class="item-actions">
-                    <button class="withdraw-btn" data-item-name="${itemName}" title="Prendre 1" ${!canWithdraw ? 'disabled' : ''}>-</button>
-                    <button class="deposit-btn" data-item-name="${itemName}" title="Déposer 1 (Vous en avez ${playerCount})" ${!canDeposit ? 'disabled' : ''}>+</button>
-                </div>
-            `;
-            sharedInventoryListEl.appendChild(li);
-        });
-    } else {
-        sharedInventorySectionEl.classList.add('hidden');
-    }
-}
-
 function updateDayCounter(day) { dayCounterEl.textContent = day; }
 
 export function updateAllUI(gameState) {
     if (!gameState || !gameState.player) return;
     const currentTile = gameState.map[gameState.player.y][gameState.player.x];
-    updateStatsPanel(gameState.player); updateInventory(gameState.player); if (gameState.day) updateDayCounter(gameState.day); updateTileInfoPanel(currentTile); updateSharedInventory(currentTile, gameState.player); drawMinimap(gameState, CONFIG); hudCoordsEl.textContent = `(${gameState.player.x}, ${gameState.player.y})`;
+    updateStatsPanel(gameState.player);
+    updateInventory(gameState.player);
+    if (gameState.day) updateDayCounter(gameState.day);
+    updateTileInfoPanel(currentTile);
+    drawMinimap(gameState, CONFIG);
+    hudCoordsEl.textContent = `(${gameState.player.x}, ${gameState.player.y})`;
+}
+
+// ==========================================================================================
+// == NOUVEAU : Fonctions pour gérer la modale d'inventaire Drag-and-Drop                  ==
+// ==========================================================================================
+
+export function showInventoryModal(gameState) {
+    const { player, map } = gameState;
+    const tile = map[player.y][player.x];
+
+    if (!tile.inventory) {
+        addChatMessage("Ce lieu n'a pas de stockage.", "system");
+        return;
+    }
+
+    modalPlayerInventoryEl.innerHTML = '';
+    modalSharedInventoryEl.innerHTML = '';
+
+    populateInventoryList(player.inventory, modalPlayerInventoryEl, 'player');
+    populateInventoryList(tile.inventory, modalSharedInventoryEl, 'shared');
+
+    const totalPlayerResources = getTotalResources(player.inventory);
+    modalPlayerCapacityEl.textContent = `${totalPlayerResources} / ${CONFIG.PLAYER_MAX_RESOURCES}`;
+
+    inventoryModal.classList.remove('hidden');
+}
+
+export function hideInventoryModal() {
+    inventoryModal.classList.add('hidden');
+}
+
+function populateInventoryList(inventory, listElement, owner) {
+    if (Object.keys(inventory).length === 0) {
+        const li = document.createElement('li');
+        li.className = 'inventory-empty';
+        li.textContent = '(Vide)';
+        listElement.appendChild(li);
+    } else {
+        for (const itemName in inventory) {
+            const count = inventory[itemName];
+            if (count <= 0) continue;
+
+            const li = document.createElement('li');
+            li.className = 'inventory-item';
+            li.setAttribute('draggable', 'true'); 
+            li.dataset.itemName = itemName;
+            li.dataset.owner = owner;
+
+            const icon = ITEM_ICONS[itemName] || ITEM_ICONS.default;
+            li.innerHTML = `
+                <span class="inventory-icon">${icon}</span>
+                <span class="inventory-name">${itemName}</span>
+                <span class="inventory-count">${count}</span>
+            `;
+            listElement.appendChild(li);
+        }
+    }
 }
 
 export function updateAllButtonsState(gameState) {
@@ -117,14 +159,14 @@ export function addChatMessage(message, type, author) {
     chatMessagesEl.appendChild(msgDiv);
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
 }
+
 export function showFloatingText(text, type) { const mainView = document.getElementById('main-view-container'); const textEl = document.createElement('div'); textEl.textContent = text; textEl.className = `floating-text ${type}`; const rect = mainView.getBoundingClientRect(); textEl.style.left = `${rect.left + rect.width / 2}px`; textEl.style.top = `${rect.top + rect.height / 3}px`; document.body.appendChild(textEl); setTimeout(() => { textEl.remove(); }, 2000); }
 export function triggerActionFlash(type) { const flashEl = document.getElementById('action-flash'); flashEl.className = ''; void flashEl.offsetWidth; flashEl.classList.add(type === 'gain' ? 'flash-gain' : 'flash-cost'); }
 
-// NOUVEAU : Fonction pour secouer un élément de l'UI en cas d'échec
 export function triggerShake(element) {
     if (!element) return;
     element.classList.add('action-failed-shake');
     setTimeout(() => {
         element.classList.remove('action-failed-shake');
-    }, 500); // Doit correspondre à la durée de l'animation CSS
+    }, 500);
 }
