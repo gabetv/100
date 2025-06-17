@@ -1,6 +1,7 @@
 // js/state.js
 import { generateMap } from './map.js';
-import { initPlayer, getTotalResources, hasResources as playerHasResources, deductResources, consumeItem as playerConsumeItem, transferItem } from './player.js';
+// CORRECTION ICI : 'transferItem' a été retiré de la liste d'importation.
+import { initPlayer, getTotalResources, hasResources as playerHasResources, deductResources, consumeItem as playerConsumeItem, transferItems } from './player.js';
 import { initNpcs } from './npc.js';
 import { TILE_TYPES, CONFIG } from './config.js';
 
@@ -28,7 +29,6 @@ export function initializeGameState(config) {
     } else {
         console.error("Aucun abri collectif n'a été généré sur la carte.");
     }
-    console.log("Game state initialized:", gameState);
 }
 
 export function applyPlayerMove(direction) {
@@ -43,7 +43,7 @@ export function applyPlayerMove(direction) {
     gameState.player.y = newY;
 }
 
-export function applyInventoryTransfer(itemName, transferType) {
+export function applyBulkInventoryTransfer(itemName, amount, transferType) {
     const tile = gameState.map[gameState.player.y][gameState.player.x];
     const player = gameState.player;
 
@@ -51,22 +51,23 @@ export function applyInventoryTransfer(itemName, transferType) {
         return { success: false, message: "Ce lieu n'a pas de stockage." };
     }
 
+    let from, to, toCapacity, success;
+
     if (transferType === 'deposit') {
-        const success = transferItem(itemName, player.inventory, tile.inventory);
-        if (success) return { success: true, message: `Vous avez déposé 1 ${itemName}.` };
-        return { success: false, message: "Le dépôt a échoué. Avez-vous cet objet ?" };
+        from = player.inventory;
+        to = tile.inventory;
+        success = transferItems(itemName, amount, from, to);
+        if (success) return { success: true, message: `Vous avez déposé ${amount} ${itemName}.` };
+        return { success: false, message: "Le dépôt a échoué. Quantité invalide ?" };
     } 
     
     if (transferType === 'withdraw') {
-        const totalPlayerResources = getTotalResources(player.inventory);
-        if (totalPlayerResources >= CONFIG.PLAYER_MAX_RESOURCES) {
-             return { success: false, message: "Votre inventaire est plein." };
-        }
-
-        const success = transferItem(itemName, tile.inventory, player.inventory, CONFIG.PLAYER_MAX_RESOURCES);
-        if (success) return { success: true, message: `Vous avez pris 1 ${itemName}.` };
-        
-        return { success: false, message: "Le retrait a échoué. Le stock est vide ?" };
+        from = tile.inventory;
+        to = player.inventory;
+        toCapacity = CONFIG.PLAYER_MAX_RESOURCES;
+        success = transferItems(itemName, amount, from, to, toCapacity);
+        if (success) return { success: true, message: `Vous avez pris ${amount} ${itemName}.` };
+        return { success: false, message: "Le retrait a échoué. Inventaire plein ou stock insuffisant ?" };
     }
 
     return { success: false, message: "Type de transfert inconnu." };
@@ -81,8 +82,12 @@ export function updateTileType(x, y, newType) {
     const tile = gameState.map[y][x];
     tile.type = newType;
     if (newType.background && newType.background.length > 0) {
+        // Pour éviter une erreur si une nouvelle tuile n'a pas de fond défini
         tile.backgroundKey = newType.background[Math.floor(Math.random() * newType.background.length)];
     }
+    // S'assurer que les propriétés de la nouvelle tuile sont bien appliquées
+    tile.harvestsLeft = newType.harvests === Infinity ? Infinity : (newType.harvests || 0);
+    tile.resources = newType.resource ? { ...newType.resource } : null;
 }
 
 export function consumeItem(itemOrNeed) {

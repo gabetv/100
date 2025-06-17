@@ -1,5 +1,5 @@
 // js/interactions.js
-import { TILE_TYPES, CONFIG, ACTION_DURATIONS } from './config.js';
+import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ORE_TYPES } from './config.js';
 import * as UI from './ui.js';
 import * as State from './state.js';
 import { getTotalResources } from './player.js';
@@ -26,11 +26,15 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
     const tile = map[player.y][player.x];
 
     switch(actionId) {
-        case 'harvest':
+        case 'harvest': {
+            const { type, yield: baseYield, thirstCost, hungerCost } = tile.type.resource;
+            // Déduction des coûts en stats
+            player.thirst = Math.max(0, player.thirst - thirstCost);
+            player.hunger = Math.max(0, player.hunger - hungerCost);
+            
             performTimedAction(player, ACTION_DURATIONS.HARVEST, 
                 () => UI.addChatMessage("Récolte...", "system"), 
                 () => {
-                    const { type, yield: baseYield } = tile.type.resource;
                     let finalYield = activeEvent.type === 'Abondance' && activeEvent.data.resource === type ? baseYield * 2 : baseYield;
                     const availableSpace = CONFIG.PLAYER_MAX_RESOURCES - getTotalResources(player.inventory);
                     const amountToHarvest = Math.min(finalYield, availableSpace);
@@ -53,9 +57,30 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 updateUICallbacks
             );
             break;
+        }
 
-        case 'build':
-            const costs = data.structure === 'shelter' ? { 'Bois': 20, 'Pierre': 10 } : { 'Bois': 10, 'Pierre': 5 };
+        case 'harvest_ore': {
+            const { thirstCost, hungerCost } = tile.type.resource;
+            player.thirst = Math.max(0, player.thirst - thirstCost);
+            player.hunger = Math.max(0, player.hunger - hungerCost);
+
+            performTimedAction(player, ACTION_DURATIONS.HARVEST,
+                () => UI.addChatMessage("Vous minez...", "system"),
+                () => {
+                    const randomOre = ORE_TYPES[Math.floor(Math.random() * ORE_TYPES.length)];
+                    State.addResourceToPlayer(randomOre, 1);
+                    UI.showFloatingText(`+1 ${randomOre}`, 'gain');
+                    UI.triggerActionFlash('gain');
+                },
+                updateUICallbacks
+            );
+            break;
+        }
+
+        case 'build': {
+            const costs = data.structure === 'shelter_individual' 
+                ? { 'Bois': 20 } 
+                : { 'Bois': 600 }; // Abri collectif
             if (!State.hasResources(costs).success) {
                 UI.addChatMessage("Ressources insuffisantes.", "system");
                 UI.triggerShake(document.getElementById('inventory-list'));
@@ -66,16 +91,73 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 () => {
                     State.applyResourceDeduction(costs);
                     UI.showFloatingText(`-${costs['Bois']} Bois`, 'cost');
-                    UI.showFloatingText(`-${costs['Pierre']} Pierre`, 'cost');
-                    UI.triggerActionFlash('cost');
-                    const newStructure = data.structure === 'shelter' ? TILE_TYPES.SHELTER_INDIVIDUAL : TILE_TYPES.CAMPFIRE;
+                    const newStructure = data.structure === 'shelter_individual' ? TILE_TYPES.SHELTER_INDIVIDUAL : TILE_TYPES.SHELTER_COLLECTIVE;
                     State.updateTileType(player.x, player.y, newStructure);
                 },
                 updateUICallbacks
             );
             break;
+        }
+        
+        case 'dig_mine': {
+            const costs = { 'Bois': 100 };
+            if (!State.hasResources(costs).success) {
+                UI.addChatMessage("Pas assez de bois pour étayer la mine.", "system");
+                return;
+            }
+            
+            player.thirst = Math.max(0, player.thirst - 10);
+            player.hunger = Math.max(0, player.hunger - 10);
 
-        case 'cook':
+            performTimedAction(player, ACTION_DURATIONS.DIG,
+                () => UI.addChatMessage("Vous creusez une entrée de mine...", "system"),
+                () => {
+                    State.applyResourceDeduction(costs);
+                    UI.showFloatingText("-100 Bois", 'cost');
+                    State.updateTileType(player.x, player.y, TILE_TYPES.MINE);
+                    UI.addChatMessage("La mine est prête !", "system");
+                },
+                updateUICallbacks
+            );
+            break;
+        }
+
+        case 'regenerate_forest': {
+            const costs = TILE_TYPES.WASTELAND.regeneration.cost;
+            if (!State.hasResources(costs).success) {
+                UI.addChatMessage("Vous n'avez pas assez d'eau.", "system");
+                return;
+            }
+            performTimedAction(player, ACTION_DURATIONS.CRAFT,
+                () => UI.addChatMessage("Vous arrosez la terre...", "system"),
+                () => {
+                    State.applyResourceDeduction(costs);
+                    UI.showFloatingText("-5 Eau", "cost");
+                    State.updateTileType(player.x, player.y, TILE_TYPES.FOREST);
+                    UI.addChatMessage("La terre redevient fertile.", "system");
+                },
+                updateUICallbacks
+            );
+            break;
+        }
+
+        case 'sleep': {
+            const sleepEffect = tile.type.sleepEffect;
+            if (!sleepEffect) return;
+
+            performTimedAction(player, ACTION_DURATIONS.SLEEP, 
+                () => UI.addChatMessage("Vous vous endormez...", "system"), 
+                () => {
+                    player.sleep = Math.min(100, player.sleep + sleepEffect.sleep); 
+                    player.health = Math.min(10, player.health + sleepEffect.health);
+                    UI.addChatMessage("Vous vous réveillez reposé.", "system");
+                },
+                updateUICallbacks
+            );
+            break;
+        }
+
+        case 'cook': {
              if (!State.hasResources({ 'Poisson': 1, 'Bois': 1 }).success) {
                 UI.addChatMessage("Ressources insuffisantes pour cuisiner.", "system");
                 UI.triggerShake(document.getElementById('inventory-list'));
@@ -91,17 +173,6 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 updateUICallbacks
             );
             break;
-
-        case 'sleep':
-            performTimedAction(player, ACTION_DURATIONS.SLEEP, 
-                () => UI.addChatMessage("Vous vous endormez...", "system"), 
-                () => {
-                    player.sleep = Math.min(100, player.sleep + 50); 
-                    player.health = Math.min(100, player.health + 10);
-                    UI.addChatMessage("Vous vous réveillez reposé.", "system");
-                },
-                updateUICallbacks
-            );
-            break;
+        }
     }
 }

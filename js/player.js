@@ -8,8 +8,13 @@ export function getTotalResources(inventory) {
 export function initPlayer(config) {
     return {
         x: Math.floor(config.MAP_WIDTH / 2) + 1, y: Math.floor(config.MAP_HEIGHT / 2),
-        health: 100, thirst: 100, hunger: 100, sleep: 100,
-        inventory: { 'Bois': 10, 'Poisson': 5, },
+        // MODIFIÉ: Santé sur 10 et ajout du statut
+        health: 10,
+        status: 'Normal', // 'Normal', 'Blessé', 'Empoisonné', 'Malade', etc.
+        thirst: 100, 
+        hunger: 100, 
+        sleep: 100,
+        inventory: { 'Bois': 20, 'Poisson': 10, 'Eau': 10 },
         color: '#ffd700', isBusy: false, animationState: null,
     };
 }
@@ -33,35 +38,28 @@ export function decayStats(gameState) {
     player.thirst = Math.max(0, player.thirst - (2 * decayMultiplier));
     player.hunger = Math.max(0, player.hunger - (1 * decayMultiplier));
     player.sleep = Math.max(0, player.sleep - (0.5 * decayMultiplier));
+    
+    // MODIFIÉ: La perte de vie est maintenant gérée en points entiers (sur 10)
     if (player.thirst <= 0 || player.hunger <= 0) {
-        player.health = Math.max(0, player.health - 5);
+        player.health = Math.max(0, player.health - 1);
         return { message: "Votre santé se dégrade !" };
     }
     return null;
 }
 
-// MODIFIÉ : Amélioration des logs de débogage pour plus de clarté
-export function transferItem(itemName, from, to, toCapacity = Infinity) {
-    console.log(`-- Tentative de transfert pour '${itemName}' --`); // Décommenté
-    
-    if (!from[itemName] || from[itemName] <= 0) {
-        console.error(`  [transferItem] ÉCHEC: Source n'a pas '${itemName}'.`); // Décommenté
+export function transferItems(itemName, amount, from, to, toCapacity = Infinity) {
+    if (!itemName || !from[itemName] || from[itemName] < amount || amount <= 0) {
         return false;
     }
-
     const totalInTo = getTotalResources(to);
-    if (totalInTo >= toCapacity) {
-        console.error(`  [transferItem] ÉCHEC: Destination pleine (${totalInTo}/${toCapacity}).`); // Décommenté
+    if (totalInTo + amount > toCapacity) {
         return false;
     }
-
-    from[itemName]--;
-    to[itemName] = (to[itemName] || 0) + 1;
+    from[itemName] -= amount;
+    to[itemName] = (to[itemName] || 0) + amount;
     if (from[itemName] <= 0) {
         delete from[itemName];
     }
-
-    console.log(`  [transferItem] SUCCÈS pour '${itemName}'.`); // Décommenté
     return true;
 }
 
@@ -108,13 +106,17 @@ export function consumeItem(itemOrNeed, player) {
             break;
         case 'Poisson':
             player.hunger = Math.min(100, player.hunger + 15);
-            player.health = Math.max(0, player.health - 5);
-            result = { success: true, message: "Manger du poisson cru n'est pas une bonne idée... (-5 Santé)", floatingTexts: ["+15 Faim", "-5 Santé"] };
+            player.health = Math.max(0, player.health - 1); // -1 point de vie
+            result = { success: true, message: "Manger du poisson cru n'est pas une bonne idée... (-1 Santé)", floatingTexts: ["+15 Faim", "-1 Santé"] };
             break;
         case 'Poisson Cuit':
             player.hunger = Math.min(100, player.hunger + 40);
-            player.health = Math.min(100, player.health + 5);
-            result = { success: true, message: "Vous mangez un délicieux poisson cuit. (+5 Santé)", floatingTexts: ["+40 Faim", "+5 Santé"] };
+            if(player.health < 10) { // On ne peut pas soigner au-delà du max
+                player.health = Math.min(10, player.health + 1); // +1 point de vie
+                result = { success: true, message: "Vous mangez un délicieux poisson cuit. (+1 Santé)", floatingTexts: ["+40 Faim", "+1 Santé"] };
+            } else {
+                result = { success: true, message: "Vous mangez un délicieux poisson cuit.", floatingTexts: ["+40 Faim"] };
+            }
             break;
     }
     if (result.success) {

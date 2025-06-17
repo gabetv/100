@@ -2,7 +2,7 @@
 import * as UI from './ui.js';
 import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES } from './config.js';
 import * as State from './state.js';
-import { movePlayer, decayStats, getTotalResources } from './player.js';
+import { decayStats, getTotalResources } from './player.js';
 import { updateNpcs, npcChatter } from './npc.js';
 import * as Interactions from './interactions.js';
 
@@ -13,6 +13,7 @@ function updatePossibleActions() {
     UI.actionsEl.innerHTML = '';
     const { player, map } = State.state;
     const tile = map[player.y][player.x];
+    const tileType = tile.type;
     
     if (player.isBusy || player.animationState) {
         const busyAction = document.createElement('div');
@@ -32,39 +33,54 @@ function updatePossibleActions() {
         UI.actionsEl.appendChild(button);
     };
 
-    // ==========================================================
-    // == MODIFIÉ : Ajout du bouton pour ouvrir le coffre        ==
-    // ==========================================================
-    if (tile.type.name === TILE_TYPES.SHELTER_COLLECTIVE.name) {
+    // --- Actions contextuelles basées sur le type de tuile ---
+
+    // Actions de récolte
+    if (tileType.resource && tile.harvestsLeft > 0) {
+        let actionText = `Récolter ${tileType.resource.type}`;
+        if (tileType.name === 'Forêt') actionText = `Couper du bois (+5 Bois, -2 Soif, -3 Faim)`;
+        if (tileType.name === 'Mine') actionText = `Extraire du minerai (-1 Soif, -3 Faim)`;
+        
+        const isPlayerInventoryFull = getTotalResources(player.inventory) >= CONFIG.PLAYER_MAX_RESOURCES;
+        const action = tileType.name === 'Mine' ? 'harvest_ore' : 'harvest';
+        createButton(actionText, action, {}, isPlayerInventoryFull, isPlayerInventoryFull ? "Votre inventaire est plein !" : "");
+    }
+    
+    // Actions de construction et d'aménagement
+    if (tileType.name === TILE_TYPES.PLAINS.name || tileType.name === TILE_TYPES.WASTELAND.name) {
+        const canBuildShelterInd = State.hasResources({ 'Bois': 20 }).success;
+        createButton("Abri Individuel (-20 Bois)", 'build', { structure: 'shelter_individual' }, !canBuildShelterInd, !canBuildShelterInd ? "Ressources manquantes" : "");
+        
+        const canBuildShelterCol = State.hasResources({ 'Bois': 600 }).success;
+        createButton("Abri Collectif (-600 Bois)", 'build', { structure: 'shelter_collective' }, !canBuildShelterCol, !canBuildShelterCol ? "Ressources manquantes" : "");
+    
+        const canDigMine = State.hasResources({ 'Bois': 100 }).success;
+        createButton("Creuser une Mine (-100 Bois)", 'dig_mine', {}, !canDigMine, !canDigMine ? "Ressources manquantes" : "");
+    }
+    
+    // Action d'arrosage sur une friche
+    if (tileType.name === TILE_TYPES.WASTELAND.name && tileType.regeneration) {
+        const canRegenerate = State.hasResources(tileType.regeneration.cost).success;
+        createButton("Arroser (-5 Eau)", 'regenerate_forest', {}, !canRegenerate, !canRegenerate ? "Ressources manquantes" : "");
+    }
+    
+    // Actions de Feu de Camp
+    if (tileType.name === TILE_TYPES.CAMPFIRE.name) {
+        const canCook = State.hasResources({ 'Poisson': 1, 'Bois': 1 }).success;
+        createButton("Cuisiner (-1 Poisson, -1 Bois)", 'cook', {}, !canCook, !canCook ? "Ressources manquantes" : "");
+    }
+    
+    // Action de dormir
+    if (tileType.sleepEffect) {
+        createButton("Dormir (10h)", 'sleep');
+    }
+
+    // Action d'ouvrir l'inventaire partagé
+    if (tileType.inventory) {
         const openChestButton = document.createElement('button');
         openChestButton.textContent = "🧰 Ouvrir le coffre";
         openChestButton.onclick = () => UI.showInventoryModal(State.state);
         UI.actionsEl.appendChild(openChestButton);
-    }
-
-    if (tile.type.resource && tile.harvestsLeft > 0) {
-        let { type } = tile.type.resource;
-        let actionText = `Récolter ${type}`;
-        if (type === 'Eau') actionText = `Puiser`; else if (type === 'Poisson') actionText = `Pêcher`;
-        else if (type === 'Pierre') actionText = `Miner`; else if (type === 'Bois') actionText = `Couper du bois`;
-        
-        const isPlayerInventoryFull = getTotalResources(player.inventory) >= CONFIG.PLAYER_MAX_RESOURCES;
-        createButton(actionText, 'harvest', {}, isPlayerInventoryFull, isPlayerInventoryFull ? "Votre inventaire est plein !" : "");
-    }
-    
-    const currentTileType = tile.type.name;
-    if (currentTileType === TILE_TYPES.PLAINS.name || currentTileType === TILE_TYPES.WASTELAND.name) {
-        const canBuildShelter = State.hasResources({ 'Bois': 20, 'Pierre': 10 }).success;
-        createButton("Abri (-20 Bois, -10 Pierre)", 'build', { structure: 'shelter' }, !canBuildShelter, !canBuildShelter ? "Ressources manquantes" : "");
-        const canBuildCampfire = State.hasResources({ 'Bois': 10, 'Pierre': 5 }).success;
-        createButton("Feu (-10 Bois, -5 Pierre)", 'build', { structure: 'campfire' }, !canBuildCampfire, !canBuildCampfire ? "Ressources manquantes" : "");
-    }
-    if (currentTileType === TILE_TYPES.CAMPFIRE.name) {
-        const canCook = State.hasResources({ 'Poisson': 1, 'Bois': 1 }).success;
-        createButton("Cuisiner (-1 Poisson, -1 Bois)", 'cook', {}, !canCook, !canCook ? "Ressources manquantes" : "");
-    }
-    if (currentTileType === TILE_TYPES.SHELTER_INDIVIDUAL.name || currentTileType === TILE_TYPES.SHELTER_COLLECTIVE.name) {
-        createButton("Dormir", 'sleep');
     }
 }
 
@@ -98,12 +114,7 @@ function handleEvents() {
 function gameLoop(currentTime) {
     const { player, isGameOver } = State.state;
     if (isGameOver) return;
-
-    if (player.health <= 0) {
-        endGame(false);
-        return;
-    }
-
+    if (player.health <= 0) { endGame(false); return; }
     if (lastFrameTimestamp === 0) lastFrameTimestamp = currentTime;
     const deltaTime = currentTime - lastFrameTimestamp;
     lastFrameTimestamp = currentTime;
@@ -113,16 +124,11 @@ function gameLoop(currentTime) {
         if(decayResult && decayResult.message) UI.addChatMessage(decayResult.message, 'system');
         lastStatDecayTimestamp = currentTime;
     }
-
-    if (!player.animationState) {
-        updateNpcs(State.state, deltaTime);
-    }
-    
+    if (!player.animationState) { updateNpcs(State.state, deltaTime); }
     if (player.animationState) {
         const anim = player.animationState;
         const safeDeltaTime = Math.min(deltaTime, 50); 
         anim.progress += safeDeltaTime / ACTION_DURATIONS.MOVE_TRANSITION;
-
         if (anim.progress >= 1) {
             if (anim.type === 'out') {
                 State.applyPlayerMove(anim.direction);
@@ -138,30 +144,24 @@ function gameLoop(currentTime) {
             }
         }
     }
-
     UI.updateAllUI(State.state);
     UI.drawSceneCharacters(State.state);
-
     requestAnimationFrame(gameLoop);
 }
 
 function handleNavigation(direction) {
     const { player, map } = State.state;
     if (player.isBusy || player.animationState) return;
-
     const { x, y } = player;
     let newX = x, newY = y;
-
     if (direction === 'north') newY--;
     else if (direction === 'south') newY++;
     else if (direction === 'west') newX--;
     else if (direction === 'east') newX++;
-
     if (newX < 0 || newX >= CONFIG.MAP_WIDTH || newY < 0 || newY >= CONFIG.MAP_HEIGHT || !map[newY][newX].type.accessible) {
         UI.addChatMessage("Vous ne pouvez pas aller dans cette direction.", "system");
         return;
     }
-
     player.isBusy = true;
     player.animationState = { type: 'out', direction: direction, progress: 0 };
     updatePossibleActions();
@@ -170,20 +170,13 @@ function handleNavigation(direction) {
 
 function handleConsumeClick(itemOrNeed) {
     const { player } = State.state;
-    if (player.isBusy || player.animationState) {
-        UI.addChatMessage("Vous êtes occupé.", "system");
-        return;
-    }
+    if (player.isBusy || player.animationState) { UI.addChatMessage("Vous êtes occupé.", "system"); return; }
     const result = State.consumeItem(itemOrNeed);
     UI.addChatMessage(result.message, 'system');
     if(result.success) {
         UI.triggerActionFlash('gain');
-        result.floatingTexts.forEach(text => {
-            UI.showFloatingText(text, text.startsWith('-') ? 'cost' : 'gain');
-        });
-        updateAllUI();
-        updatePossibleActions();
-        updateAllButtonsState();
+        result.floatingTexts.forEach(text => { UI.showFloatingText(text, text.startsWith('-') ? 'cost' : 'gain'); });
+        updateAllUI(); updatePossibleActions(); updateAllButtonsState();
     } else {
         UI.triggerShake(document.getElementById('inventory-list'));
     }
@@ -197,112 +190,58 @@ function dailyUpdate() {
     handleEvents();
 }
 
-function handleSendChat() {
-    const message = UI.chatInputEl.value.trim();
-    if (message) {
-        UI.addChatMessage(message, 'player', 'Vous');
-        UI.chatInputEl.value = '';
-    }
-}
-
 function setupEventListeners() {
     document.getElementById('nav-north').addEventListener('click', () => handleNavigation('north'));
     document.getElementById('nav-south').addEventListener('click', () => handleNavigation('south'));
     document.getElementById('nav-east').addEventListener('click', () => handleNavigation('east'));
     document.getElementById('nav-west').addEventListener('click', () => handleNavigation('west'));
-    
     document.getElementById('consume-health-btn').addEventListener('click', () => handleConsumeClick('health'));
     document.getElementById('consume-thirst-btn').addEventListener('click', () => handleConsumeClick('thirst'));
     document.getElementById('consume-hunger-btn').addEventListener('click', () => handleConsumeClick('hunger'));
-    
-    UI.chatInputEl.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleSendChat(); });
-    
     const quickChatButton = document.getElementById('quick-chat-button');
     const quickChatMenu = document.getElementById('quick-chat-menu');
-    quickChatButton.addEventListener('click', () => { quickChatMenu.classList.toggle('visible'); });
-    quickChatMenu.addEventListener('click', (e) => {
-        if (e.target.classList.contains('quick-chat-item')) {
-            UI.addChatMessage(e.target.textContent, 'player', 'Vous');
-            quickChatMenu.classList.remove('visible');
-        }
-    });
-    document.addEventListener('click', (e) => {
-        if (!quickChatMenu.contains(e.target) && e.target !== quickChatButton) {
-            quickChatMenu.classList.remove('visible');
-        }
-    });
-    
-    UI.enlargeMapBtn.addEventListener('click', () => {
-        UI.drawLargeMap(State.state, CONFIG);
-        UI.largeMapModal.classList.remove('hidden');
-    });
+    quickChatButton.addEventListener('click', () => quickChatMenu.classList.toggle('visible'));
+    quickChatMenu.addEventListener('click', (e) => { if (e.target.classList.contains('quick-chat-item')) { UI.addChatMessage(e.target.textContent, 'player', 'Vous'); quickChatMenu.classList.remove('visible'); } });
+    document.addEventListener('click', (e) => { if (!quickChatMenu.contains(e.target) && e.target !== quickChatButton) { quickChatMenu.classList.remove('visible'); } });
+    UI.enlargeMapBtn.addEventListener('click', () => { UI.drawLargeMap(State.state, CONFIG); UI.largeMapModal.classList.remove('hidden'); });
     UI.closeLargeMapBtn.addEventListener('click', () => { UI.largeMapModal.classList.add('hidden'); });
-    
-    // ==========================================================
-    // == NOUVEAU : Logique pour la modale et le Drag-and-Drop   ==
-    // ==========================================================
-
     UI.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
-
-    UI.inventoryModal.addEventListener('click', (e) => {
-        if (e.target.id === 'inventory-modal') {
-            UI.hideInventoryModal();
-        }
-    });
+    UI.inventoryModal.addEventListener('click', (e) => { if (e.target.id === 'inventory-modal') UI.hideInventoryModal(); });
 
     let draggedItem = null;
-
-    UI.inventoryModal.addEventListener('dragstart', (e) => {
-        if (e.target.classList.contains('inventory-item')) {
-            draggedItem = e.target;
-            setTimeout(() => e.target.classList.add('dragging'), 0);
-        }
-    });
-
-    UI.inventoryModal.addEventListener('dragend', () => {
-        if (draggedItem) {
-            draggedItem.classList.remove('dragging');
-            draggedItem = null;
-        }
-    });
-
+    UI.inventoryModal.addEventListener('dragstart', (e) => { if (e.target.classList.contains('inventory-item')) { draggedItem = e.target; setTimeout(() => e.target.classList.add('dragging'), 0); } });
+    UI.inventoryModal.addEventListener('dragend', () => { if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; } });
     const modalGrid = document.getElementById('inventory-modal-grid');
-    modalGrid.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        const dropZone = e.target.closest('.droppable');
-        if (dropZone) {
-            document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over'));
-            dropZone.classList.add('drag-over');
-        }
-    });
-
-    modalGrid.addEventListener('dragleave', (e) => {
-        const dropZone = e.target.closest('.droppable');
-        if (dropZone) {
-            dropZone.classList.remove('drag-over');
-        }
-    });
+    modalGrid.addEventListener('dragover', (e) => { e.preventDefault(); const dropZone = e.target.closest('.droppable'); if (dropZone) { document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over')); dropZone.classList.add('drag-over'); } });
+    modalGrid.addEventListener('dragleave', (e) => { const dropZone = e.target.closest('.droppable'); if (dropZone) { dropZone.classList.remove('drag-over'); } });
     
     modalGrid.addEventListener('drop', (e) => {
         e.preventDefault();
         const dropZone = e.target.closest('.droppable');
         document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over'));
-
         if (dropZone && draggedItem) {
             const sourceOwner = draggedItem.dataset.owner;
             const destOwner = dropZone.dataset.owner;
             const itemName = draggedItem.dataset.itemName;
+            const maxAmount = parseInt(draggedItem.dataset.itemCount, 10);
             
             if (sourceOwner !== destOwner) {
                 const transferType = (destOwner === 'shared') ? 'deposit' : 'withdraw';
-                const result = State.applyInventoryTransfer(itemName, transferType);
-
-                UI.addChatMessage(result.message, 'system');
-                if (result.success) {
-                    UI.showInventoryModal(State.state);
-                    updateAllUI();
+                
+                if (e.shiftKey) {
+                    const result = State.applyBulkInventoryTransfer(itemName, maxAmount, transferType);
+                    UI.addChatMessage(result.message, 'system');
+                    if (result.success) { UI.showInventoryModal(State.state); updateAllUI(); } 
+                    else { UI.triggerShake(draggedItem); }
                 } else {
-                    UI.triggerShake(draggedItem);
+                    UI.showQuantityModal(itemName, maxAmount, (chosenAmount) => {
+                        if (chosenAmount > 0) {
+                            const result = State.applyBulkInventoryTransfer(itemName, chosenAmount, transferType);
+                            UI.addChatMessage(result.message, 'system');
+                            if (result.success) { UI.showInventoryModal(State.state); updateAllUI(); } 
+                            else { UI.triggerShake(draggedItem); }
+                        }
+                    });
                 }
             }
         }
@@ -310,12 +249,9 @@ function setupEventListeners() {
 
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            if (!UI.largeMapModal.classList.contains('hidden')) {
-                UI.largeMapModal.classList.add('hidden');
-            }
-            if (!UI.inventoryModal.classList.contains('hidden')) {
-                UI.hideInventoryModal();
-            }
+            if (!UI.largeMapModal.classList.contains('hidden')) UI.largeMapModal.classList.add('hidden');
+            if (!UI.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
+            if (!UI.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
         }
     });
 }
@@ -332,9 +268,7 @@ function endGame(isVictory) {
 
 function fullResizeAndRedraw() {
     UI.resizeGameView();
-    if (State.state.player) {
-        UI.draw(State.state);
-    }
+    if (State.state.player) UI.draw(State.state);
 }
 
 async function init() {
@@ -342,18 +276,14 @@ async function init() {
         await UI.loadAssets(SPRITESHEET_PATHS);
         fullResizeAndRedraw();
         window.addEventListener('resize', fullResizeAndRedraw);
-        
         State.initializeGameState(CONFIG);
         setupEventListeners();
         updateAllUI();
         updatePossibleActions();
-        
         requestAnimationFrame(gameLoop);
-        
         State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
         State.state.gameIntervals.push(setInterval(() => npcChatter(State.state.npcs), CONFIG.CHAT_MESSAGE_INTERVAL_MS));
-        
-        console.log("Jeu initialisé avec inventaire drag-and-drop.");
+        console.log("Jeu initialisé avec les nouvelles règles de gameplay.");
     } catch (error) {
         console.error("ERREUR CRITIQUE lors de l'initialisation :", error);
         document.body.innerHTML = `<div style="color:white; padding: 20px;">Erreur critique au chargement : ${error.message}</div>`;

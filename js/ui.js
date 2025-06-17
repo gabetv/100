@@ -6,27 +6,48 @@ export const mainViewCanvas = document.getElementById('main-view-canvas'), mainV
 export const charactersCanvas = document.getElementById('characters-canvas'), charactersCtx = charactersCanvas.getContext('2d');
 const minimapCanvas = document.getElementById('minimap-canvas'), minimapCtx = minimapCanvas.getContext('2d');
 export const tileNameEl = document.getElementById('tile-name'), tileDescriptionEl = document.getElementById('tile-description'), actionsEl = document.getElementById('actions'), chatInputEl = document.getElementById('chat-input-field');
-const dayCounterEl = document.getElementById('day-counter'), healthBarEl = document.getElementById('health-bar'), thirstBarEl = document.getElementById('thirst-bar'), hungerBarEl = document.getElementById('hunger-bar'), sleepBarEl = document.getElementById('sleep-bar'), inventoryListEl = document.getElementById('inventory-list'), chatMessagesEl = document.getElementById('chat-messages');
+const dayCounterEl = document.getElementById('day-counter'), 
+      thirstBarEl = document.getElementById('thirst-bar'), 
+      hungerBarEl = document.getElementById('hunger-bar'), 
+      sleepBarEl = document.getElementById('sleep-bar'), 
+      inventoryListEl = document.getElementById('inventory-list'), 
+      chatMessagesEl = document.getElementById('chat-messages');
+
+// MODIFIÉ: Références pour la nouvelle barre de vie
+const healthBarSquaresEl = document.getElementById('health-bar-squares');
+const healthStatusEl = document.getElementById('health-status');
+
 export const hudCoordsEl = document.getElementById('hud-coords');
 const tileHarvestsInfoEl = document.getElementById('tile-harvests-info');
 const inventoryCapacityEl = document.getElementById('inventory-capacity-display');
-
 export const largeMapModal = document.getElementById('large-map-modal');
 export const largeMapCanvas = document.getElementById('large-map-canvas');
 const largeMapCtx = largeMapCanvas.getContext('2d');
 export const enlargeMapBtn = document.getElementById('enlarge-map-btn');
 export const closeLargeMapBtn = document.getElementById('close-large-map-btn');
 
-// NOUVEAU : Éléments de la modale d'inventaire
 export const inventoryModal = document.getElementById('inventory-modal');
 export const closeInventoryModalBtn = document.getElementById('close-inventory-modal-btn');
 const modalPlayerInventoryEl = document.getElementById('modal-player-inventory');
 const modalSharedInventoryEl = document.getElementById('modal-shared-inventory');
 const modalPlayerCapacityEl = document.getElementById('modal-player-capacity');
 
+export const quantityModal = document.getElementById('quantity-modal');
+const quantityModalTitle = document.getElementById('quantity-modal-title');
+const quantitySlider = document.getElementById('quantity-slider');
+const quantityInput = document.getElementById('quantity-input');
+const quantityConfirmBtn = document.getElementById('quantity-confirm-btn');
+const quantityCancelBtn = document.getElementById('quantity-cancel-btn');
+const quantityMaxBtn = document.getElementById('quantity-max-btn');
+const quantityShortcuts = document.getElementById('quantity-shortcuts');
 
 const loadedAssets = {};
-const ITEM_ICONS = { 'Bois': '🪵', 'Pierre': '🪨', 'Poisson': '🐟', 'Eau': '💧', 'Poisson Cuit': '🔥', 'default': '物品' };
+const ITEM_ICONS = { 
+    'Bois': '🪵', 'Pierre': '🪨', 'Poisson': '🐟', 'Eau': '💧', 'Poisson Cuit': '🔥', 
+    'Charbon': '⚫', 'Cuivre': '🟠', 'Fer': '🔩', 'Argent': '🥈', 'Or': '🥇',
+    'default': '物品' 
+};
+let quantityConfirmCallback = null;
 
 export function loadAssets(paths) {
     const promises = Object.entries(paths).map(([key, src]) => new Promise((resolve, reject) => {
@@ -64,10 +85,42 @@ function drawMinimap(gameState, config) { const { map, player, npcs } = gameStat
 export function drawLargeMap(gameState, config) { const { map, player, npcs } = gameState; const { MAP_WIDTH, MAP_HEIGHT } = config; const cellSize = Math.min(largeMapCanvas.parentElement.clientWidth / MAP_WIDTH, largeMapCanvas.parentElement.clientHeight / MAP_HEIGHT, 40); largeMapCanvas.width = MAP_WIDTH * cellSize; largeMapCanvas.height = MAP_HEIGHT * cellSize; largeMapCtx.clearRect(0, 0, largeMapCanvas.width, largeMapCanvas.height); for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { const tile = map[y][x]; largeMapCtx.fillStyle = tile.type.color || '#ff00ff'; largeMapCtx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); largeMapCtx.fillStyle = 'rgba(255, 255, 255, 0.8)'; largeMapCtx.font = `bold ${cellSize * 0.6}px Poppins`; largeMapCtx.textAlign = 'center'; largeMapCtx.textBaseline = 'middle'; largeMapCtx.fillText(tile.type.name.charAt(0), x * cellSize + cellSize / 2, y * cellSize + cellSize / 2); } } largeMapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)'; largeMapCtx.lineWidth = 1; for (let i = 0; i <= MAP_WIDTH; i++) { largeMapCtx.beginPath(); largeMapCtx.moveTo(i * cellSize, 0); largeMapCtx.lineTo(i * cellSize, largeMapCanvas.height); largeMapCtx.stroke(); } for (let i = 0; i <= MAP_HEIGHT; i++) { largeMapCtx.beginPath(); largeMapCtx.moveTo(0, i * cellSize); largeMapCtx.lineTo(largeMapCanvas.width, i * cellSize); largeMapCtx.stroke(); } npcs.forEach(npc => { largeMapCtx.fillStyle = npc.color; largeMapCtx.beginPath(); largeMapCtx.arc(npc.x * cellSize + cellSize / 2, npc.y * cellSize + cellSize / 2, cellSize * 0.35, 0, Math.PI * 2); largeMapCtx.fill(); }); largeMapCtx.fillStyle = player.color; largeMapCtx.beginPath(); largeMapCtx.arc(player.x * cellSize + cellSize / 2, player.y * cellSize + cellSize / 2, cellSize * 0.4, 0, Math.PI * 2); largeMapCtx.fill(); largeMapCtx.strokeStyle = 'white'; largeMapCtx.lineWidth = 3; largeMapCtx.stroke(); }
 
 function updateConsumeButtons(player) {
-    const inv = player.inventory; const canDrink = inv['Eau'] && inv['Eau'] > 0; const canEat = (inv['Poisson Cuit'] && inv['Poisson Cuit'] > 0) || (inv['Poisson'] && inv['Poisson'] > 0); const canHeal = inv['Poisson Cuit'] && inv['Poisson Cuit'] > 0; document.getElementById('consume-thirst-btn').disabled = !canDrink; document.getElementById('consume-hunger-btn').disabled = !canEat; document.getElementById('consume-health-btn').disabled = !canHeal;
+    const inv = player.inventory;
+    const canDrink = inv['Eau'] && inv['Eau'] > 0;
+    const canEat = (inv['Poisson Cuit'] && inv['Poisson Cuit'] > 0) || (inv['Poisson'] && inv['Poisson'] > 0);
+    const canHeal = (inv['Poisson Cuit'] && inv['Poisson Cuit'] > 0) && player.health < 10;
+    document.getElementById('consume-thirst-btn').disabled = !canDrink;
+    document.getElementById('consume-hunger-btn').disabled = !canEat;
+    document.getElementById('consume-health-btn').disabled = !canHeal;
 }
 
-function updateStatsPanel(player) { healthBarEl.style.width = `${player.health}%`; thirstBarEl.style.width = `${player.thirst}%`; hungerBarEl.style.width = `${player.hunger}%`; sleepBarEl.style.width = `${player.sleep}%`; healthBarEl.classList.toggle('pulsing', player.health <= 25); thirstBarEl.classList.toggle('pulsing', player.thirst <= 20); hungerBarEl.classList.toggle('pulsing', player.hunger <= 20); const vignetteEl = document.getElementById('survival-vignette'); vignetteEl.classList.toggle('active', player.health <= 35); updateConsumeButtons(player); }
+function updateStatsPanel(player) {
+    // Barre de vie en carrés
+    healthBarSquaresEl.innerHTML = '';
+    for (let i = 0; i < 10; i++) {
+        const square = document.createElement('div');
+        square.classList.add('health-square');
+        square.classList.toggle('filled', i < player.health);
+        square.classList.toggle('empty', i >= player.health);
+        healthBarSquaresEl.appendChild(square);
+    }
+    
+    // Statut
+    healthStatusEl.textContent = player.status;
+
+    // Autres barres
+    thirstBarEl.style.width = `${player.thirst}%`;
+    hungerBarEl.style.width = `${player.hunger}%`;
+    sleepBarEl.style.width = `${player.sleep}%`;
+    
+    // Effets visuels
+    healthBarSquaresEl.classList.toggle('pulsing', player.health <= 3);
+    thirstBarEl.parentElement.classList.toggle('pulsing', player.thirst <= 20);
+    hungerBarEl.parentElement.classList.toggle('pulsing', player.hunger <= 20);
+    document.getElementById('survival-vignette').classList.toggle('active', player.health <= 3);
+    
+    updateConsumeButtons(player);
+}
 
 function updateInventory(player) {
     inventoryListEl.innerHTML = ''; const inventory = player.inventory; const total = getTotalResources(inventory); inventoryCapacityEl.textContent = `(${total} / ${CONFIG.PLAYER_MAX_RESOURCES})`;
@@ -87,28 +140,19 @@ export function updateAllUI(gameState) {
     hudCoordsEl.textContent = `(${gameState.player.x}, ${gameState.player.y})`;
 }
 
-// ==========================================================================================
-// == NOUVEAU : Fonctions pour gérer la modale d'inventaire Drag-and-Drop                  ==
-// ==========================================================================================
-
 export function showInventoryModal(gameState) {
     const { player, map } = gameState;
     const tile = map[player.y][player.x];
-
     if (!tile.inventory) {
         addChatMessage("Ce lieu n'a pas de stockage.", "system");
         return;
     }
-
     modalPlayerInventoryEl.innerHTML = '';
     modalSharedInventoryEl.innerHTML = '';
-
     populateInventoryList(player.inventory, modalPlayerInventoryEl, 'player');
     populateInventoryList(tile.inventory, modalSharedInventoryEl, 'shared');
-
     const totalPlayerResources = getTotalResources(player.inventory);
     modalPlayerCapacityEl.textContent = `${totalPlayerResources} / ${CONFIG.PLAYER_MAX_RESOURCES}`;
-
     inventoryModal.classList.remove('hidden');
 }
 
@@ -126,13 +170,12 @@ function populateInventoryList(inventory, listElement, owner) {
         for (const itemName in inventory) {
             const count = inventory[itemName];
             if (count <= 0) continue;
-
             const li = document.createElement('li');
             li.className = 'inventory-item';
             li.setAttribute('draggable', 'true'); 
             li.dataset.itemName = itemName;
+            li.dataset.itemCount = count;
             li.dataset.owner = owner;
-
             const icon = ITEM_ICONS[itemName] || ITEM_ICONS.default;
             li.innerHTML = `
                 <span class="inventory-icon">${icon}</span>
@@ -143,6 +186,37 @@ function populateInventoryList(inventory, listElement, owner) {
         }
     }
 }
+
+export function showQuantityModal(itemName, maxAmount, callback) {
+    quantityModalTitle.textContent = `Transférer ${itemName}`;
+    quantitySlider.max = maxAmount;
+    quantitySlider.value = 1;
+    quantityInput.max = maxAmount;
+    quantityInput.value = 1;
+    quantityConfirmCallback = callback;
+    quantityModal.classList.remove('hidden');
+}
+
+export function hideQuantityModal() {
+    quantityModal.classList.add('hidden');
+    quantityConfirmCallback = null;
+}
+
+function setupQuantityModalListeners() {
+    quantitySlider.addEventListener('input', () => { quantityInput.value = quantitySlider.value; });
+    quantityInput.addEventListener('input', () => {
+        const val = parseInt(quantityInput.value, 10);
+        const max = parseInt(quantityInput.max, 10);
+        if (isNaN(val) || val < 1) { quantityInput.value = 1; } 
+        else if (val > max) { quantityInput.value = max; }
+        quantitySlider.value = quantityInput.value;
+    });
+    quantityConfirmBtn.addEventListener('click', () => { if (quantityConfirmCallback) { quantityConfirmCallback(parseInt(quantityInput.value, 10)); } hideQuantityModal(); });
+    quantityCancelBtn.addEventListener('click', hideQuantityModal);
+    quantityMaxBtn.addEventListener('click', () => { quantityInput.value = quantityInput.max; quantitySlider.value = quantitySlider.max; });
+    quantityShortcuts.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON' && e.target.dataset.amount) { const amount = Math.min(parseInt(e.target.dataset.amount, 10), quantityInput.max); quantityInput.value = amount; quantitySlider.value = amount; } });
+}
+setupQuantityModalListeners();
 
 export function updateAllButtonsState(gameState) {
     const isPlayerBusy = gameState.player.isBusy || gameState.player.animationState;
@@ -166,7 +240,5 @@ export function triggerActionFlash(type) { const flashEl = document.getElementBy
 export function triggerShake(element) {
     if (!element) return;
     element.classList.add('action-failed-shake');
-    setTimeout(() => {
-        element.classList.remove('action-failed-shake');
-    }, 500);
+    setTimeout(() => { element.classList.remove('action-failed-shake'); }, 500);
 }

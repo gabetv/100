@@ -17,12 +17,15 @@
                 <section id="player-stats">
                     <h3>Statut du Survivant</h3>
                     <div class="stat">
+                        <!-- MODIFIÉ: Structure de la barre de santé -->
                         <div class="stat-header">
                             <span class="stat-icon">❤️</span>
-                            <span>Santé</span>
-                            <button class="consume-btn" id="consume-health-btn" title="Consommer pour la santé">+</button>
+                            <span>Santé (<span id="health-status">Normal</span>)</span>
+                            <button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button>
                         </div>
-                        <div class="stat-bar-container"><div id="health-bar" class="stat-bar"></div></div>
+                        <div class="stat-bar-container-squares" id="health-bar-squares">
+                            <!-- Les carrés de vie seront générés ici par JS -->
+                        </div>
                     </div>
                     <div class="stat">
                         <div class="stat-header">
@@ -86,8 +89,6 @@
                     <p id="tile-description">Description du lieu...</p>
                     <p id="tile-harvests-info" class="tile-detail"></p>
                 </section>
-
-                <!-- L'ancien stockage commun est maintenant géré par la modale -->
                 <section id="interaction-panel">
                     <h3>Actions Possibles</h3>
                     <div id="actions"></div>
@@ -119,34 +120,43 @@
         </div>
     </div>
     
-    <!-- Modale pour la grande carte -->
     <div id="large-map-modal" class="hidden">
         <button id="close-large-map-btn">&times;</button>
         <canvas id="large-map-canvas"></canvas>
     </div>
 
-    <!-- ========================================================== -->
-    <!-- == NOUVEAU : Modale pour l'inventaire Drag-and-Drop       == -->
-    <!-- ========================================================== -->
     <div id="inventory-modal" class="hidden">
         <div id="inventory-modal-content">
             <button id="close-inventory-modal-btn">&times;</button>
             <h2>Gestion du Stockage</h2>
             <div id="inventory-modal-grid">
-                <!-- Section de l'inventaire du joueur -->
                 <div class="inventory-container">
                     <h3>Votre Inventaire (<span id="modal-player-capacity">0 / 0</span>)</h3>
-                    <ul id="modal-player-inventory" class="inventory-list droppable" data-owner="player">
-                        <!-- Les objets seront ajoutés ici par JS -->
-                    </ul>
+                    <ul id="modal-player-inventory" class="inventory-list droppable" data-owner="player"></ul>
                 </div>
-                <!-- Section de l'inventaire commun -->
                 <div class="inventory-container">
                     <h3>Stockage Commun</h3>
-                    <ul id="modal-shared-inventory" class="inventory-list droppable" data-owner="shared">
-                        <!-- Les objets seront ajoutés ici par JS -->
-                    </ul>
+                    <ul id="modal-shared-inventory" class="inventory-list droppable" data-owner="shared"></ul>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="quantity-modal" class="hidden">
+        <div id="quantity-modal-content">
+            <h3 id="quantity-modal-title">Transférer l'objet</h3>
+            <div id="quantity-controls">
+                <input type="range" id="quantity-slider" min="1" max="100" value="1">
+                <input type="number" id="quantity-input" min="1" max="100" value="1">
+            </div>
+            <div id="quantity-shortcuts">
+                <button data-amount="1">1</button>
+                <button data-amount="5">5</button>
+                <button id="quantity-max-btn">Max</button>
+            </div>
+            <div id="quantity-actions">
+                <button id="quantity-cancel-btn">Annuler</button>
+                <button id="quantity-confirm-btn">Confirmer</button>
             </div>
         </div>
     </div>
