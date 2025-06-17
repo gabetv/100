@@ -11,8 +11,12 @@
 </head>
 <body>
     <div id="game-container">
+        <!-- NOUVEAUX ÉLÉMENTS POUR LES EFFETS VISUELS -->
+        <div id="survival-vignette"></div>
+        <div id="action-flash"></div>
+
         <div id="main-area">
-            <!-- ### PANNEAU DE GAUCHE (SIMPLIFIÉ) ### -->
+            <!-- ### PANNEAU DE GAUCHE ### -->
             <div id="left-panel" class="ui-panel">
                 <header>
                     <h1>Île des 100 Jours</h1>
@@ -33,10 +37,9 @@
                 </section>
             </div>
 
-            <!-- ### VUE PRINCIPALE (AVEC SUPERPOSITION) ### -->
+            <!-- ### VUE PRINCIPALE ### -->
             <div id="main-view-container">
                 <canvas id="main-view-canvas"></canvas>
-                <!-- NOUVELLE SUPERPOSITION POUR LA NAVIGATION -->
                 <div id="main-view-overlay">
                     <div id="navigation-panel-overlay">
                         <div class="nav-grid-overlay">

@@ -1,5 +1,5 @@
 // js/ui.js
-import { SPRITESHEET_DATA, CONFIG } from './config.js';
+import { CONFIG } from './config.js';
 
 export const mainViewCanvas = document.getElementById('main-view-canvas'), mainViewCtx = mainViewCanvas.getContext('2d');
 const minimapCanvas = document.getElementById('minimap-canvas'), minimapCtx = minimapCanvas.getContext('2d');
@@ -28,7 +28,18 @@ export function draw(gameState) {
 
 export function updateTileInfoPanel(tile) {
     tileNameEl.textContent = tile.type.name;
-    const descriptions = { 'Forêt': "L'air est lourd et humide. Des bruits d'insectes emplissent l'atmosphère.", 'Plaine': "Une plaine herbeuse balayée par le vent. Un bon endroit pour construire.", 'Sable Doré': "Le sable chaud vous brûle la plante des pieds. Le bruit des vagues est constant.", 'Lagon': "L'eau turquoise et cristalline vous invite à la baignade.", 'Friche': "Le sol est nu, marqué par les souches des arbres abattus.", 'Gisement de Pierre': "Des rochers affleurent, promettant des matériaux de construction solides.", 'Feu de Camp': "La chaleur rassurante des flammes danse devant vous.", 'Abri Individuel': "Un abri précaire mais qui protège du vent.", 'Abri Collectif': "Un campement bien établi. Un sentiment de sécurité vous envahit.", 'Mine': "L'entrée sombre de la mine sent la terre humide et le renfermé." };
+    const descriptions = {
+        'Forêt': "L'air est lourd et humide. Des bruits d'insectes emplissent l'atmosphère.",
+        'Plaine': "Une plaine herbeuse balayée par le vent. Un bon endroit pour construire.",
+        'Sable Doré': "Le sable chaud vous brûle la plante des pieds. Le bruit des vagues est constant.",
+        'Lagon': "L'eau turquoise et cristalline vous invite à la baignade.",
+        'Friche': "Le sol est nu, marqué par les souches des arbres abattus.",
+        'Gisement de Pierre': "Des rochers affleurent, promettant des matériaux de construction solides.",
+        'Feu de Camp': "La chaleur rassurante des flammes danse devant vous.",
+        'Abri Individuel': "Un abri précaire mais qui protège du vent.",
+        'Abri Collectif': "Un campement bien établi. Un sentiment de sécurité vous envahit.",
+        'Mine': "L'entrée sombre de la mine sent la terre humide et le renfermé."
+    };
     tileDescriptionEl.textContent = descriptions[tile.type.name] || "Un lieu étrange et inconnu...";
 }
 
@@ -47,11 +58,81 @@ function drawMinimap(gameState, config) {
     minimapCtx.strokeStyle = 'white'; minimapCtx.lineWidth = 2; minimapCtx.strokeRect(player.x * MINIMAP_DOT_SIZE -1, player.y * MINIMAP_DOT_SIZE -1, MINIMAP_DOT_SIZE + 2, MINIMAP_DOT_SIZE + 2);
 }
 
-export function updateAllUI(gameState, config) { if(!gameState || !gameState.player) return; updateStatsPanel(gameState.player); updateInventory(gameState.player); if(gameState.day) updateDayCounter(gameState.day); const currentTile = gameState.map[gameState.player.y][gameState.player.x]; updateTileInfoPanel(currentTile); drawMinimap(gameState, config); }
-function updateStatsPanel(player) { healthBarEl.style.width = `${player.health}%`; thirstBarEl.style.width = `${player.thirst}%`; hungerBarEl.style.width = `${player.hunger}%`; sleepBarEl.style.width = `${player.sleep}%`; }
-function updateInventory(player) { inventoryListEl.innerHTML = ''; const inventory = player.inventory; if (Object.keys(inventory).length === 0) { inventoryListEl.innerHTML = '<li>(Vide)</li>'; } else { for (const item in inventory) { const li = document.createElement('li'); li.textContent = `${item}: ${inventory[item]}`; li.classList.add('inventory-item'); li.dataset.itemName = item; inventoryListEl.appendChild(li); } } }
-function updateDayCounter(day) { dayCounterEl.textContent = day; }
-export function addChatMessage(message, type, author) { const msgDiv = document.createElement('div'); msgDiv.classList.add('chat-message', type); let content = author ? `<strong>${author}: </strong>` : ''; content += `<span>${message}</span>`; msgDiv.innerHTML = content; chatMessagesEl.appendChild(msgDiv); chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight; }
+function updateStatsPanel(player) {
+    healthBarEl.style.width = `${player.health}%`;
+    thirstBarEl.style.width = `${player.thirst}%`;
+    hungerBarEl.style.width = `${player.hunger}%`;
+    sleepBarEl.style.width = `${player.sleep}%`;
+
+    healthBarEl.classList.toggle('pulsing', player.health <= 25);
+    thirstBarEl.classList.toggle('pulsing', player.thirst <= 20);
+    hungerBarEl.classList.toggle('pulsing', player.hunger <= 20);
+
+    const vignetteEl = document.getElementById('survival-vignette');
+    vignetteEl.classList.toggle('active', player.health <= 35);
+}
+
+function updateInventory(player) {
+    inventoryListEl.innerHTML = '';
+    const inventory = player.inventory;
+    if (Object.keys(inventory).length === 0) {
+        inventoryListEl.innerHTML = '<li>(Vide)</li>';
+    } else {
+        for (const item in inventory) {
+            const li = document.createElement('li');
+            li.textContent = `${item}: ${inventory[item]}`;
+            li.classList.add('inventory-item');
+            li.dataset.itemName = item;
+            inventoryListEl.appendChild(li);
+        }
+    }
+}
+
+function updateDayCounter(day) {
+    dayCounterEl.textContent = day;
+}
+
+export function updateAllUI(gameState, config) {
+    if (!gameState || !gameState.player) return;
+    updateStatsPanel(gameState.player);
+    updateInventory(gameState.player);
+    if (gameState.day) updateDayCounter(gameState.day);
+    const currentTile = gameState.map[gameState.player.y][gameState.player.x];
+    updateTileInfoPanel(currentTile);
+    drawMinimap(gameState, config);
+}
+
+export function updateAllButtonsState(gameState) {
+    const isPlayerBusy = gameState.player.isBusy;
+
+    // Gérer les boutons de navigation
+    const navButtons = document.querySelectorAll('.nav-button-overlay');
+    navButtons.forEach(button => {
+        button.disabled = isPlayerBusy;
+    });
+
+    // Gérer les boutons d'action (déjà géré par la logique des ressources, mais on ajoute la condition isBusy)
+    const actionButtons = actionsEl.querySelectorAll('button');
+    actionButtons.forEach(button => {
+        if (isPlayerBusy) {
+            button.disabled = true;
+        }
+    });
+
+    // Gérer les autres éléments interactifs
+    document.getElementById('inventory-list').style.pointerEvents = isPlayerBusy ? 'none' : 'auto';
+    document.getElementById('quick-chat-button').disabled = isPlayerBusy;
+}
+
+export function addChatMessage(message, type, author) {
+    const msgDiv = document.createElement('div');
+    msgDiv.classList.add('chat-message', type);
+    let content = author ? `<strong>${author}: </strong>` : '';
+    content += `<span>${message}</span>`;
+    msgDiv.innerHTML = content;
+    chatMessagesEl.appendChild(msgDiv);
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+}
 
 export function showFloatingText(text, type) {
     const mainView = document.getElementById('main-view-container');
@@ -63,4 +144,11 @@ export function showFloatingText(text, type) {
     textEl.style.top = `${rect.top + rect.height / 3}px`;
     document.body.appendChild(textEl);
     setTimeout(() => { textEl.remove(); }, 2000);
+}
+
+export function triggerActionFlash(type) {
+    const flashEl = document.getElementById('action-flash');
+    flashEl.className = '';
+    void flashEl.offsetWidth; 
+    flashEl.classList.add(type === 'gain' ? 'flash-gain' : 'flash-cost');
 }
