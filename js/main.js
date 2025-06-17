@@ -204,10 +204,12 @@ function setupEventListeners() {
     quickChatMenu.addEventListener('click', (e) => { if (e.target.classList.contains('quick-chat-item')) { UI.addChatMessage(e.target.textContent, 'player', 'Vous'); quickChatMenu.classList.remove('visible'); } });
     document.addEventListener('click', (e) => { if (!quickChatMenu.contains(e.target) && e.target !== quickChatButton) { quickChatMenu.classList.remove('visible'); } });
     
-    // CORRIGÉ: Utilisation d'un écouteur standard pour éviter les conflits
+    // CORRIGÉ : On affiche la modale AVANT de dessiner dedans
     UI.enlargeMapBtn.addEventListener('click', () => {
-        UI.drawLargeMap(State.state, CONFIG);
+        // 1. On affiche la modale en PREMIER pour qu'elle ait une taille
         UI.largeMapModal.classList.remove('hidden');
+        // 2. ENSUITE, on dessine la carte, qui peut maintenant lire la taille de la modale
+        UI.drawLargeMap(State.state, CONFIG);
     });
     UI.closeLargeMapBtn.addEventListener('click', () => { 
         UI.largeMapModal.classList.add('hidden'); 
