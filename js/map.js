@@ -2,25 +2,93 @@
 import { TILE_TYPES } from './config.js';
 
 export function generateMap(config) {
-    console.log("Starting map generation...");
-    const { MAP_WIDTH, MAP_HEIGHT } = config, map = Array(MAP_HEIGHT).fill(null).map(() => Array(MAP_WIDTH).fill(null)), centerX = MAP_WIDTH / 2, centerY = MAP_HEIGHT / 2, maxRadius = Math.min(MAP_WIDTH, MAP_HEIGHT) / 2.5;
+    console.log("Starting map generation with controlled stone deposits...");
+    const { MAP_WIDTH, MAP_HEIGHT } = config, map = Array(MAP_HEIGHT).fill(null).map(() => Array(MAP_WIDTH).fill(null)), centerX = MAP_WIDTH / 2, centerY = MAP_HEIGHT / 2;
     const baseLayout = Array.from({ length: MAP_HEIGHT }, () => Array(MAP_WIDTH).fill(null));
-    for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2)); baseLayout[y][x] = (distance < maxRadius - Math.random() * 2.5) ? 'land' : 'water'; } }
-    for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { if (baseLayout[y][x] === 'water') { map[y][x] = { type: TILE_TYPES.WATER_LAGOON }; continue; } let isCoastal = false; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { const nx = x + dx, ny = y + dy; if (baseLayout[ny] && baseLayout[ny][nx] === 'water') { isCoastal = true; break; } } if (isCoastal) { map[y][x] = { type: TILE_TYPES.SAND_GOLDEN }; } else { map[y][x] = { type: (Math.random() < 0.7) ? TILE_TYPES.FOREST : TILE_TYPES.PLAINS }; } } }
-    const shelterX = Math.floor(centerX), shelterY = Math.floor(centerY); if (map[shelterY] && map[shelterY][shelterX].type.accessible) { map[shelterY][shelterX].type = TILE_TYPES.SHELTER_COLLECTIVE; }
 
+    // Génération de la bordure d'eau
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
-            const tile = map[y][x];
-            if (tile.type === TILE_TYPES.PLAINS || tile.type === TILE_TYPES.WASTELAND) {
-                if (Math.random() < 0.30) {
-                    map[y][x].type = TILE_TYPES.STONE_DEPOSIT;
-                }
+            if (y === 0 || y === MAP_HEIGHT - 1 || x === 0 || x === MAP_WIDTH - 1) {
+                baseLayout[y][x] = 'water';
+            } else if (y === 1 || y === MAP_HEIGHT - 2 || x === 1 || x === MAP_WIDTH - 2) {
+                baseLayout[y][x] = (Math.random() < 0.6) ? 'water' : 'land';
+            } else {
+                baseLayout[y][x] = 'land';
             }
         }
     }
+
+    // Placement des biomes de base
+    for (let y = 0; y < MAP_HEIGHT; y++) {
+        for (let x = 0; x < MAP_WIDTH; x++) {
+            if (baseLayout[y][x] === 'water') {
+                map[y][x] = { type: TILE_TYPES.WATER_LAGOON };
+                continue;
+            }
+            let isCoastal = false;
+            for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                const nx = x + dx, ny = y + dy;
+                if (baseLayout[ny] && baseLayout[ny][nx] === 'water') {
+                    isCoastal = true;
+                    break;
+                }
+            }
+            if (isCoastal) {
+                map[y][x] = { type: TILE_TYPES.SAND_GOLDEN };
+            } else {
+                // On va générer plus de plaines pour avoir plus de lieux d'apparition possibles pour la pierre
+                map[y][x] = { type: (Math.random() < 0.6) ? TILE_TYPES.FOREST : TILE_TYPES.PLAINS };
+            }
+        }
+    }
+    const shelterX = Math.floor(centerX), shelterY = Math.floor(centerY); if (map[shelterY] && map[shelterY][shelterX].type.accessible) { map[shelterY][shelterX].type = TILE_TYPES.SHELTER_COLLECTIVE; }
+
+    // MODIFIÉ : Algorithme pour placer exactement 2 gisements de pierre non adjacents
+    const possibleStoneLocations = [];
+    for (let y = 0; y < MAP_HEIGHT; y++) {
+        for (let x = 0; x < MAP_WIDTH; x++) {
+            // Un gisement ne peut apparaître que sur une Plaine ou une Friche (si vous en ajoutez)
+            // et ne peut pas être la case de départ de l'abri collectif.
+            if ((map[y][x].type === TILE_TYPES.PLAINS || map[y][x].type === TILE_TYPES.WASTELAND) && map[y][x].type !== TILE_TYPES.SHELTER_COLLECTIVE) {
+                possibleStoneLocations.push({ x, y });
+            }
+        }
+    }
+
+    let stonePlacedCount = 0;
+    const maxStones = 2;
+    const placedCoordinates = []; // Pour stocker les coordonnées des gisements placés
+
+    // On mélange les lieux possibles pour garantir l'aléatoire
+    for (let i = possibleStoneLocations.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [possibleStoneLocations[i], possibleStoneLocations[j]] = [possibleStoneLocations[j], possibleStoneLocations[i]];
+    }
+
+    for (const loc of possibleStoneLocations) {
+        if (stonePlacedCount >= maxStones) break;
+
+        let isAdjacent = false;
+        // Vérifier si le lieu est adjacent à un gisement déjà placé
+        for (const placedLoc of placedCoordinates) {
+            const dx = Math.abs(loc.x - placedLoc.x);
+            const dy = Math.abs(loc.y - placedLoc.y);
+            // Si c'est la même case, ou une case voisine (diagonales incluses)
+            if (dx <= 1 && dy <= 1) {
+                isAdjacent = true;
+                break;
+            }
+        }
+
+        if (!isAdjacent) {
+            map[loc.y][loc.x].type = TILE_TYPES.STONE_DEPOSIT;
+            placedCoordinates.push(loc);
+            stonePlacedCount++;
+        }
+    }
     
-    // MODIFIÉ : Finalisation des tuiles avec une logique anti-répétition
+    // Finalisation des tuiles avec une logique anti-répétition
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             const type = map[y][x].type;
@@ -28,36 +96,21 @@ export function generateMap(config) {
             let chosenBackground = null;
 
             if (backgroundOptions.length > 0) {
-                // On commence avec toutes les options possibles
                 let allowedBackgrounds = [...backgroundOptions];
-
-                // Si on a plus d'une option, on essaie d'éviter les répétitions
                 if (allowedBackgrounds.length > 1) {
-                    // Vérifier le voisin de GAUCHE (west)
                     if (x > 0 && map[y][x - 1].type === type) {
-                        const westKey = map[y][x - 1].backgroundKey;
-                        // On filtre pour retirer la clé du voisin
-                        allowedBackgrounds = allowedBackgrounds.filter(key => key !== westKey);
+                        allowedBackgrounds = allowedBackgrounds.filter(key => key !== map[y][x - 1].backgroundKey);
                     }
-
-                    // Vérifier le voisin du HAUT (north)
                     if (y > 0 && map[y - 1][x].type === type) {
-                        const northKey = map[y - 1][x].backgroundKey;
-                        // On filtre à nouveau
-                        allowedBackgrounds = allowedBackgrounds.filter(key => key !== northKey);
+                        allowedBackgrounds = allowedBackgrounds.filter(key => key !== map[y - 1][x].backgroundKey);
                     }
                 }
-
-                // S'il ne reste plus d'options après filtrage (cas rare), on utilise la liste originale
                 if (allowedBackgrounds.length === 0) {
                     allowedBackgrounds = backgroundOptions;
                 }
-
-                // On choisit une image au hasard parmi les options autorisées
                 chosenBackground = allowedBackgrounds[Math.floor(Math.random() * allowedBackgrounds.length)];
             }
             
-            // On crée l'objet final de la tuile
             map[y][x] = { 
                 type, 
                 x, 
@@ -70,7 +123,7 @@ export function generateMap(config) {
         }
     }
     
-    console.log("Map generation finished with non-repeating adjacent backgrounds.");
+    console.log(`Map generation finished with ${stonePlacedCount} non-adjacent stone deposits.`);
     return map;
 }
 
