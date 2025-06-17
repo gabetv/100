@@ -37,50 +37,39 @@ export function generateMap(config) {
             if (isCoastal) {
                 map[y][x] = { type: TILE_TYPES.SAND_GOLDEN };
             } else {
-                // On va générer plus de plaines pour avoir plus de lieux d'apparition possibles pour la pierre
                 map[y][x] = { type: (Math.random() < 0.6) ? TILE_TYPES.FOREST : TILE_TYPES.PLAINS };
             }
         }
     }
     const shelterX = Math.floor(centerX), shelterY = Math.floor(centerY); if (map[shelterY] && map[shelterY][shelterX].type.accessible) { map[shelterY][shelterX].type = TILE_TYPES.SHELTER_COLLECTIVE; }
 
-    // MODIFIÉ : Algorithme pour placer exactement 2 gisements de pierre non adjacents
+    // Algorithme pour placer exactement 2 gisements de pierre non adjacents
     const possibleStoneLocations = [];
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
-            // Un gisement ne peut apparaître que sur une Plaine ou une Friche (si vous en ajoutez)
-            // et ne peut pas être la case de départ de l'abri collectif.
             if ((map[y][x].type === TILE_TYPES.PLAINS || map[y][x].type === TILE_TYPES.WASTELAND) && map[y][x].type !== TILE_TYPES.SHELTER_COLLECTIVE) {
                 possibleStoneLocations.push({ x, y });
             }
         }
     }
-
     let stonePlacedCount = 0;
     const maxStones = 2;
-    const placedCoordinates = []; // Pour stocker les coordonnées des gisements placés
-
-    // On mélange les lieux possibles pour garantir l'aléatoire
+    const placedCoordinates = [];
     for (let i = possibleStoneLocations.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [possibleStoneLocations[i], possibleStoneLocations[j]] = [possibleStoneLocations[j], possibleStoneLocations[i]];
     }
-
     for (const loc of possibleStoneLocations) {
         if (stonePlacedCount >= maxStones) break;
-
         let isAdjacent = false;
-        // Vérifier si le lieu est adjacent à un gisement déjà placé
         for (const placedLoc of placedCoordinates) {
             const dx = Math.abs(loc.x - placedLoc.x);
             const dy = Math.abs(loc.y - placedLoc.y);
-            // Si c'est la même case, ou une case voisine (diagonales incluses)
             if (dx <= 1 && dy <= 1) {
                 isAdjacent = true;
                 break;
             }
         }
-
         if (!isAdjacent) {
             map[loc.y][loc.x].type = TILE_TYPES.STONE_DEPOSIT;
             placedCoordinates.push(loc);
@@ -88,7 +77,7 @@ export function generateMap(config) {
         }
     }
     
-    // Finalisation des tuiles avec une logique anti-répétition
+    // Finalisation des tuiles avec une logique anti-répétition et copie de l'inventaire
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             const type = map[y][x].type;
@@ -111,6 +100,7 @@ export function generateMap(config) {
                 chosenBackground = allowedBackgrounds[Math.floor(Math.random() * allowedBackgrounds.length)];
             }
             
+            // CORRECTION PRINCIPALE ICI
             map[y][x] = { 
                 type, 
                 x, 
@@ -118,12 +108,16 @@ export function generateMap(config) {
                 backgroundKey: chosenBackground, 
                 harvestsLeft: type.harvests || 0, 
                 resources: type.resource ? { type: type.resource.type, yield: type.resource.yield } : null, 
-                occupant: null 
+                occupant: null,
+                // On copie l'inventaire S'IL EXISTE sur le type de tuile.
+                // On utilise JSON.parse(JSON.stringify(...)) pour faire une copie profonde
+                // et éviter que toutes les tuiles partagent la même référence d'objet.
+                inventory: type.inventory ? JSON.parse(JSON.stringify(type.inventory)) : undefined
             };
         }
     }
     
-    console.log(`Map generation finished with ${stonePlacedCount} non-adjacent stone deposits.`);
+    console.log(`Map generation finished with corrected shared inventory. Placed ${stonePlacedCount} stones.`);
     return map;
 }
 

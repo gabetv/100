@@ -11,16 +11,11 @@
 </head>
 <body>
     <div id="game-container">
-        <!-- ÉLÉMENTS POUR LES EFFETS VISUELS -->
-        <div id="survival-vignette"></div>
-        <div id="action-flash"></div>
-
         <div id="main-area">
             <!-- ### PANNEAU DE GAUCHE ### -->
             <div id="left-panel" class="ui-panel">
                 <section id="player-stats">
                     <h3>Statut du Survivant</h3>
-                    <!-- MODIFIÉ : Ajout des boutons de consommation rapide -->
                     <div class="stat">
                         <div class="stat-header">
                             <span class="stat-icon">❤️</span>
@@ -49,7 +44,6 @@
                         <div class="stat-header">
                             <span class="stat-icon">🌙</span>
                             <span>Sommeil</span>
-                            <!-- Pas de bouton pour le sommeil, c'est une action -->
                         </div>
                         <div class="stat-bar-container"><div id="sleep-bar" class="stat-bar"></div></div>
                     </div>
@@ -65,11 +59,17 @@
             <!-- ### VUE PRINCIPALE ### -->
             <div id="main-view-wrapper">
                 <div id="main-view-container">
+                    <!-- CORRECTION: Les overlays sont maintenant DANS le conteneur de la vue principale -->
+                    <div id="survival-vignette"></div>
+                    <div id="action-flash"></div>
+                    
                     <canvas id="main-view-canvas"></canvas>
                     <canvas id="characters-canvas"></canvas>
+                    
                     <div id="hud-overlay">
                         <span id="day-display">Jour <span id="day-counter">1</span> / 100</span>
                     </div>
+                    
                     <div id="main-view-overlay">
                         <div id="navigation-edge-panel">
                             <button class="nav-button-overlay" id="nav-north">↑</button>
@@ -88,14 +88,21 @@
                         <span>Lieu: <span id="tile-name">Forêt</span> <span id="hud-coords" class="coords-display">(7,10)</span></span>
                     </h3>
                     <p id="tile-description">Description du lieu...</p>
+                    <p id="tile-harvests-info" class="tile-detail"></p>
                 </section>
+
+                <section id="shared-inventory-section" class="hidden">
+                    <h3>Stockage Commun</h3>
+                    <ul id="shared-inventory-list"></ul>
+                </section>
+
                 <section id="interaction-panel">
                     <h3>Actions Possibles</h3>
                     <div id="actions"></div>
                 </section>
                 <section id="inventory-section">
-                    <h3>Inventaire</h3>
-                    <ul id="inventory-list"><li>(Vide)</li></ul>
+                    <h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3>
+                    <ul id="inventory-list"></ul>
                 </section>
             </div>
         </div>
