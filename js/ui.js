@@ -1,5 +1,5 @@
 // js/ui.js
-import { CONFIG, TILE_TYPES } from './config.js';
+import { CONFIG, TILE_TYPES, ENEMY_TYPES } from './config.js';
 import { getTotalResources } from './player.js';
 
 // NOUVEAU: Icônes pour les types de tuiles sur la grande carte
@@ -29,7 +29,6 @@ const inventoryCapacityEl = document.getElementById('inventory-capacity-display'
 export const largeMapModal = document.getElementById('large-map-modal');
 export const largeMapCanvas = document.getElementById('large-map-canvas');
 const largeMapCtx = largeMapCanvas.getContext('2d');
-// NOUVEAU: Référence à la légende
 const largeMapLegendEl = document.getElementById('large-map-legend');
 export const enlargeMapBtn = document.getElementById('enlarge-map-btn');
 export const closeLargeMapBtn = document.getElementById('close-large-map-btn');
@@ -48,6 +47,16 @@ const quantityConfirmBtn = document.getElementById('quantity-confirm-btn');
 const quantityCancelBtn = document.getElementById('quantity-cancel-btn');
 const quantityMaxBtn = document.getElementById('quantity-max-btn');
 const quantityShortcuts = document.getElementById('quantity-shortcuts');
+
+// NOUVEAU: Références pour la modale de combat
+export const combatModal = document.getElementById('combat-modal');
+const combatLogEl = document.getElementById('combat-log');
+const combatActionsEl = document.getElementById('combat-actions');
+const combatPlayerHealthBar = document.getElementById('combat-player-health-bar');
+const combatPlayerHealthText = document.getElementById('combat-player-health-text');
+const combatEnemyName = document.getElementById('combat-enemy-name');
+const combatEnemyHealthBar = document.getElementById('combat-enemy-health-bar');
+const combatEnemyHealthText = document.getElementById('combat-enemy-health-text');
 
 const loadedAssets = {};
 const ITEM_ICONS = { 
@@ -80,7 +89,57 @@ function drawCharacter(ctx, character, x, y, isPlayer = false) {
 }
 
 export function drawSceneCharacters(gameState) {
-    const { player, npcs } = gameState; charactersCtx.clearRect(0, 0, charactersCanvas.width, charactersCanvas.height); const canvasWidth = charactersCanvas.width; const canvasHeight = charactersCanvas.height; const centerX = canvasWidth / 2; const centerY = canvasHeight / 2 + 100; const visibleNpcs = npcs.filter(npc => npc.x === player.x && npc.y === player.y); const characterPositions = [{ char: player, x: centerX, y: centerY, isPlayer: true }]; if (visibleNpcs.length > 0) characterPositions.push({ char: visibleNpcs[0], x: centerX - 120, y: centerY }); if (visibleNpcs.length > 1) characterPositions.push({ char: visibleNpcs[1], x: centerX + 120, y: centerY }); if (player.animationState) { const { type, direction, progress } = player.animationState; const easeOut = 1 - Math.pow(1 - progress, 3); characterPositions.forEach(p => { let modX = 0, modY = 0; let distance = canvasWidth / 1.5 * easeOut; if (type === 'out') { if(direction === 'east') modX = distance; else if(direction === 'west') modX = -distance; else if(direction === 'south') modY = distance; else if(direction === 'north') modY = -distance; charactersCtx.globalAlpha = 1 - easeOut; } else { distance = canvasWidth / 1.5 * (1 - easeOut); if(direction === 'east') modX = -distance; else if(direction === 'west') modX = distance; else if(direction === 'south') modY = -distance; else if(direction === 'north') modY = distance; charactersCtx.globalAlpha = easeOut; } drawCharacter(charactersCtx, p.char, p.x + modX, p.y + modY, p.isPlayer); }); charactersCtx.globalAlpha = 1; } else { characterPositions.forEach(p => { drawCharacter(charactersCtx, p.char, p.x, p.y, p.isPlayer); }); }
+    const { player, npcs, enemies } = gameState;
+    charactersCtx.clearRect(0, 0, charactersCanvas.width, charactersCanvas.height);
+    const canvasWidth = charactersCanvas.width;
+    const canvasHeight = charactersCanvas.height;
+    
+    // Position et dessin des PNJ et du joueur
+    const centerX = canvasWidth / 2;
+    const centerY = canvasHeight / 2 + 100;
+    const visibleNpcs = npcs.filter(npc => npc.x === player.x && npc.y === player.y);
+    const characterPositions = [{ char: player, x: centerX, y: centerY, isPlayer: true }];
+    if (visibleNpcs.length > 0) characterPositions.push({ char: visibleNpcs[0], x: centerX - 120, y: centerY, isPlayer: false });
+    if (visibleNpcs.length > 1) characterPositions.push({ char: visibleNpcs[1], x: centerX + 120, y: centerY, isPlayer: false });
+
+    if (player.animationState) {
+        const { type, direction, progress } = player.animationState;
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        characterPositions.forEach(p => {
+            let modX = 0, modY = 0;
+            let distance = canvasWidth / 1.5 * easeOut;
+            if (type === 'out') {
+                if(direction === 'east') modX = distance; else if(direction === 'west') modX = -distance;
+                else if(direction === 'south') modY = distance; else if(direction === 'north') modY = -distance;
+                charactersCtx.globalAlpha = 1 - easeOut;
+            } else {
+                distance = canvasWidth / 1.5 * (1 - easeOut);
+                if(direction === 'east') modX = -distance; else if(direction === 'west') modX = distance;
+                else if(direction === 'south') modY = -distance; else if(direction === 'north') modY = distance;
+                charactersCtx.globalAlpha = easeOut;
+            }
+            drawCharacter(charactersCtx, p.char, p.x + modX, p.y + modY, p.isPlayer);
+        });
+        charactersCtx.globalAlpha = 1;
+    } else {
+        characterPositions.forEach(p => {
+            drawCharacter(charactersCtx, p.char, p.x, p.y, p.isPlayer);
+        });
+    }
+
+    // Dessiner les ennemis sur la case actuelle
+    const visibleEnemies = enemies.filter(e => e.x === player.x && e.y === player.y && !gameState.combatState);
+    if (visibleEnemies.length > 0) {
+        const enemy = visibleEnemies[0];
+        const enemyX = canvasWidth / 2;
+        const enemyY = canvasHeight / 2 - 100;
+        charactersCtx.save();
+        charactersCtx.fillStyle = enemy.color;
+        charactersCtx.font = "80px sans-serif";
+        charactersCtx.textAlign = 'center';
+        charactersCtx.fillText(enemy.icon, enemyX, enemyY);
+        charactersCtx.restore();
+    }
 }
 
 export function updateTileInfoPanel(tile) {
@@ -88,36 +147,63 @@ export function updateTileInfoPanel(tile) {
     if (tile.type.resource && tile.harvestsLeft > 0 && tile.type.harvests !== Infinity) { tileHarvestsInfoEl.textContent = `Récoltes restantes: ${tile.harvestsLeft}`; tileHarvestsInfoEl.style.display = 'block'; } else { tileHarvestsInfoEl.style.display = 'none'; }
 }
 
-function drawMinimap(gameState, config) { const { map, player, npcs } = gameState; const { MAP_WIDTH, MAP_HEIGHT, MINIMAP_DOT_SIZE } = config; minimapCanvas.width = MAP_WIDTH * MINIMAP_DOT_SIZE; minimapCanvas.height = MAP_HEIGHT * MINIMAP_DOT_SIZE; minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height); for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { minimapCtx.fillStyle = map[y][x].type.color || '#ff00ff'; minimapCtx.fillRect(x * MINIMAP_DOT_SIZE, y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE); } } minimapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)'; minimapCtx.lineWidth = 1; for (let x = 0; x <= MAP_WIDTH; x++) { minimapCtx.beginPath(); minimapCtx.moveTo(x * MINIMAP_DOT_SIZE, 0); minimapCtx.lineTo(x * MINIMAP_DOT_SIZE, minimapCanvas.height); minimapCtx.stroke(); } for (let y = 0; y <= MAP_HEIGHT; y++) { minimapCtx.beginPath(); minimapCtx.moveTo(0, y * MINIMAP_DOT_SIZE); minimapCtx.lineTo(minimapCanvas.width, y * MINIMAP_DOT_SIZE); minimapCtx.stroke(); } npcs.forEach(npc => { minimapCtx.fillStyle = npc.color; minimapCtx.fillRect(npc.x * MINIMAP_DOT_SIZE, npc.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE); }); minimapCtx.fillStyle = player.color || 'yellow'; minimapCtx.fillRect(player.x * MINIMAP_DOT_SIZE, player.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE); minimapCtx.strokeStyle = 'white'; minimapCtx.lineWidth = 2; minimapCtx.strokeRect(player.x * MINIMAP_DOT_SIZE -1, player.y * MINIMAP_DOT_SIZE -1, MINIMAP_DOT_SIZE + 2, MINIMAP_DOT_SIZE + 2); }
+function drawMinimap(gameState, config) {
+    const { map, player, npcs, enemies } = gameState;
+    const { MAP_WIDTH, MAP_HEIGHT, MINIMAP_DOT_SIZE } = config;
+    minimapCanvas.width = MAP_WIDTH * MINIMAP_DOT_SIZE;
+    minimapCanvas.height = MAP_HEIGHT * MINIMAP_DOT_SIZE;
+    minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+    for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { minimapCtx.fillStyle = map[y][x].type.color || '#ff00ff'; minimapCtx.fillRect(x * MINIMAP_DOT_SIZE, y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE); } }
+    minimapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+    minimapCtx.lineWidth = 1;
+    for (let x = 0; x <= MAP_WIDTH; x++) { minimapCtx.beginPath(); minimapCtx.moveTo(x * MINIMAP_DOT_SIZE, 0); minimapCtx.lineTo(x * MINIMAP_DOT_SIZE, minimapCanvas.height); minimapCtx.stroke(); }
+    for (let y = 0; y <= MAP_HEIGHT; y++) { minimapCtx.beginPath(); minimapCtx.moveTo(0, y * MINIMAP_DOT_SIZE); minimapCtx.lineTo(minimapCanvas.width, y * MINIMAP_DOT_SIZE); minimapCtx.stroke(); }
+    
+    npcs.forEach(npc => {
+        minimapCtx.fillStyle = npc.color;
+        minimapCtx.fillRect(npc.x * MINIMAP_DOT_SIZE, npc.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
+    });
+    
+    enemies.forEach(enemy => {
+        minimapCtx.fillStyle = enemy.color;
+        const x = enemy.x * MINIMAP_DOT_SIZE;
+        const y = enemy.y * MINIMAP_DOT_SIZE;
+        minimapCtx.beginPath();
+        minimapCtx.moveTo(x, y + MINIMAP_DOT_SIZE);
+        minimapCtx.lineTo(x + MINIMAP_DOT_SIZE / 2, y);
+        minimapCtx.lineTo(x + MINIMAP_DOT_SIZE, y + MINIMAP_DOT_SIZE);
+        minimapCtx.closePath();
+        minimapCtx.fill();
+    });
 
-// MODIFIÉ: Fonction de dessin de la grande carte entièrement réécrite
+    minimapCtx.fillStyle = player.color || 'yellow';
+    minimapCtx.fillRect(player.x * MINIMAP_DOT_SIZE, player.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
+    minimapCtx.strokeStyle = 'white';
+    minimapCtx.lineWidth = 2;
+    minimapCtx.strokeRect(player.x * MINIMAP_DOT_SIZE -1, player.y * MINIMAP_DOT_SIZE -1, MINIMAP_DOT_SIZE + 2, MINIMAP_DOT_SIZE + 2);
+}
+
 export function drawLargeMap(gameState, config) {
-    const { map, player, npcs } = gameState;
+    const { map, player, npcs, enemies } = gameState;
     const { MAP_WIDTH, MAP_HEIGHT } = config;
-    const headerSize = 30; // Espace en pixels pour les coordonnées
-
-    // La taille de la cellule est calculée en fonction de la hauteur du conteneur
-    const availableHeight = largeMapCanvas.parentElement.clientHeight - 40; // 40px de padding
+    const headerSize = 30;
+    const availableHeight = largeMapCanvas.parentElement.clientHeight - 40;
     const canvasSize = availableHeight;
     largeMapCanvas.width = canvasSize;
     largeMapCanvas.height = canvasSize;
-    
     const cellSize = (canvasSize - headerSize) / Math.max(MAP_WIDTH, MAP_HEIGHT);
 
     largeMapCtx.clearRect(0, 0, largeMapCanvas.width, largeMapCanvas.height);
-    largeMapCtx.fillStyle = '#1d3557'; // Fond pour les zones non dessinées
+    largeMapCtx.fillStyle = '#1d3557';
     largeMapCtx.fillRect(0, 0, largeMapCanvas.width, largeMapCanvas.height);
 
-    // --- Dessin des tuiles et des icônes ---
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             const tile = map[y][x];
             const drawX = headerSize + x * cellSize;
             const drawY = headerSize + y * cellSize;
-
             largeMapCtx.fillStyle = tile.type.color || '#ff00ff';
             largeMapCtx.fillRect(drawX, drawY, cellSize, cellSize);
-
             const icon = TILE_ICONS[tile.type.name] || TILE_ICONS.default;
             largeMapCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
             largeMapCtx.font = `bold ${cellSize * 0.6}px Poppins`;
@@ -127,7 +213,6 @@ export function drawLargeMap(gameState, config) {
         }
     }
 
-    // --- Dessin de la grille et des coordonnées ---
     largeMapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
     largeMapCtx.lineWidth = 1;
     largeMapCtx.fillStyle = '#f1faee';
@@ -137,95 +222,115 @@ export function drawLargeMap(gameState, config) {
 
     for (let i = 0; i < MAP_WIDTH; i++) {
         const x = headerSize + (i + 0.5) * cellSize;
-        largeMapCtx.fillText(i, x, headerSize / 2); // Coordonnées X (en haut)
+        largeMapCtx.fillText(i, x, headerSize / 2);
         const lineX = headerSize + i * cellSize;
-        largeMapCtx.beginPath();
-        largeMapCtx.moveTo(lineX, headerSize);
-        largeMapCtx.lineTo(lineX, headerSize + MAP_HEIGHT * cellSize);
-        largeMapCtx.stroke();
+        largeMapCtx.beginPath(); largeMapCtx.moveTo(lineX, headerSize); largeMapCtx.lineTo(lineX, headerSize + MAP_HEIGHT * cellSize); largeMapCtx.stroke();
     }
     for (let i = 0; i < MAP_HEIGHT; i++) {
         const y = headerSize + (i + 0.5) * cellSize;
-        largeMapCtx.fillText(i, headerSize / 2, y); // Coordonnées Y (à gauche)
+        largeMapCtx.fillText(i, headerSize / 2, y);
         const lineY = headerSize + i * cellSize;
-        largeMapCtx.beginPath();
-        largeMapCtx.moveTo(headerSize, lineY);
-        largeMapCtx.lineTo(headerSize + MAP_WIDTH * cellSize, lineY);
-        largeMapCtx.stroke();
+        largeMapCtx.beginPath(); largeMapCtx.moveTo(headerSize, lineY); largeMapCtx.lineTo(headerSize + MAP_WIDTH * cellSize, lineY); largeMapCtx.stroke();
     }
     largeMapCtx.strokeRect(headerSize, headerSize, MAP_WIDTH * cellSize, MAP_HEIGHT * cellSize);
 
-    // --- Dessin des personnages (PNJ et Joueur) en temps réel ---
     npcs.forEach(npc => {
         const drawX = headerSize + npc.x * cellSize + cellSize / 2;
         const drawY = headerSize + npc.y * cellSize + cellSize / 2;
         largeMapCtx.fillStyle = npc.color;
-        largeMapCtx.beginPath();
-        largeMapCtx.arc(drawX, drawY, cellSize * 0.35, 0, Math.PI * 2);
-        largeMapCtx.fill();
+        largeMapCtx.beginPath(); largeMapCtx.arc(drawX, drawY, cellSize * 0.35, 0, Math.PI * 2); largeMapCtx.fill();
+    });
+    
+    enemies.forEach(enemy => {
+        const drawX = headerSize + enemy.x * cellSize + cellSize / 2;
+        const drawY = headerSize + enemy.y * cellSize + cellSize / 2;
+        largeMapCtx.fillStyle = enemy.color;
+        largeMapCtx.font = `bold ${cellSize * 0.7}px Poppins`;
+        largeMapCtx.textAlign = 'center';
+        largeMapCtx.textBaseline = 'middle';
+        largeMapCtx.fillText(enemy.icon, drawX, drawY);
     });
 
     const playerDrawX = headerSize + player.x * cellSize + cellSize / 2;
     const playerDrawY = headerSize + player.y * cellSize + cellSize / 2;
     largeMapCtx.fillStyle = player.color;
-    largeMapCtx.beginPath();
-    largeMapCtx.arc(playerDrawX, playerDrawY, cellSize * 0.4, 0, Math.PI * 2);
-    largeMapCtx.fill();
+    largeMapCtx.beginPath(); largeMapCtx.arc(playerDrawX, playerDrawY, cellSize * 0.4, 0, Math.PI * 2); largeMapCtx.fill();
     largeMapCtx.strokeStyle = 'white';
     largeMapCtx.lineWidth = 3;
     largeMapCtx.stroke();
 }
 
-// NOUVEAU: Fonction pour remplir la légende de la carte
 export function populateLargeMapLegend() {
     largeMapLegendEl.innerHTML = '<h3>Légende</h3>';
     const addedTypes = new Set();
-
-    // Ajouter les types de tuiles
     for (const tileKey in TILE_TYPES) {
         const tileType = TILE_TYPES[tileKey];
         if (!addedTypes.has(tileType.name)) {
             const item = document.createElement('div');
             item.className = 'legend-item';
             const icon = TILE_ICONS[tileType.name] || TILE_ICONS.default;
-            item.innerHTML = `
-                <div class="legend-color-box" style="background-color: ${tileType.color};"></div>
-                <span>${icon} ${tileType.name}</span>
-            `;
+            item.innerHTML = `<div class="legend-color-box" style="background-color: ${tileType.color};"></div><span>${icon} ${tileType.name}</span>`;
             largeMapLegendEl.appendChild(item);
             addedTypes.add(tileType.name);
         }
     }
-
-    // Ajouter une séparation
     largeMapLegendEl.insertAdjacentHTML('beforeend', '<hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">');
-
-    // Ajouter le joueur et les PNJ
     const playerItem = document.createElement('div');
     playerItem.className = 'legend-item';
-    playerItem.innerHTML = `
-        <div class="legend-color-box legend-character-icon" style="color: #ffd700;">●</div>
-        <span>Vous</span>
-    `;
+    playerItem.innerHTML = `<div class="legend-color-box legend-character-icon" style="color: #ffd700;">●</div><span>Vous</span>`;
     largeMapLegendEl.appendChild(playerItem);
-
     const npcItem = document.createElement('div');
     npcItem.className = 'legend-item';
-    npcItem.innerHTML = `
-        <div class="legend-color-box legend-character-icon" style="color: #ff6347;">●</div>
-        <span>Survivants (PNJ)</span>
-    `;
+    npcItem.innerHTML = `<div class="legend-color-box legend-character-icon" style="color: #ff6347;">●</div><span>Survivants (PNJ)</span>`;
     largeMapLegendEl.appendChild(npcItem);
+}
+
+// NOUVEAU: Fonctions pour la modale de combat
+export function showCombatModal(combatState) {
+    if (!combatState) return;
+    updateCombatUI(combatState);
+    combatModal.classList.remove('hidden');
+}
+
+export function hideCombatModal() {
+    combatModal.classList.add('hidden');
+}
+
+export function updateCombatUI(combatState) {
+    if (!combatState || !combatModal) return;
+    const { enemy, isPlayerTurn, log } = combatState;
+    const player = window.gameState.player; // Accès global pour l'UI
+
+    // Mettre à jour les infos de l'ennemi
+    combatEnemyName.textContent = enemy.name;
+    combatEnemyHealthBar.style.width = `${(enemy.currentHealth / enemy.health) * 100}%`;
+    combatEnemyHealthText.textContent = `${enemy.currentHealth} / ${enemy.health}`;
+
+    // Mettre à jour les infos du joueur
+    combatPlayerHealthBar.style.width = `${(player.health / 10) * 100}%`;
+    combatPlayerHealthText.textContent = `${player.health} / 10`;
+
+    // Mettre à jour le log
+    combatLogEl.innerHTML = log.map(msg => `<p>${msg}</p>`).join('');
+
+    // Mettre à jour les actions
+    combatActionsEl.innerHTML = `
+        <button id="combat-attack-btn" ${!isPlayerTurn ? 'disabled' : ''}>⚔️ Attaquer</button>
+        <button id="combat-flee-btn" ${!isPlayerTurn ? 'disabled' : ''}>🏃‍♂️ Fuir</button>
+    `;
+
+    if (isPlayerTurn) {
+        document.getElementById('combat-attack-btn').onclick = () => window.handleCombatAction('attack');
+        document.getElementById('combat-flee-btn').onclick = () => window.handleCombatAction('flee');
+    }
 }
 
 function drawSquaresBar(container, value, maxValue) {
     container.innerHTML = '';
     const numSquares = 10;
     const filledCount = Math.ceil((value / maxValue) * numSquares);
-
     for (let i = 0; i < numSquares; i++) {
         const square = document.createElement('div');
-        // CORRECTION: Utilisation de la classe générique '.stat-square'
         square.classList.add('stat-square'); 
         square.classList.toggle('filled', i < filledCount);
         container.appendChild(square);
@@ -243,23 +348,16 @@ function updateConsumeButtons(player) {
 }
 
 function updateStatsPanel(player) {
-    // Dessiner les barres de carrés
     drawSquaresBar(healthBarSquaresEl, player.health, 10);
     drawSquaresBar(thirstBarSquaresEl, player.thirst, 100);
     drawSquaresBar(hungerBarSquaresEl, player.hunger, 100);
     drawSquaresBar(sleepBarSquaresEl, player.sleep, 100);
-    
-    // Mettre à jour le statut textuel
     healthStatusEl.textContent = player.status;
-
-    // Gérer les effets de pulsation pour avertir le joueur
     healthBarSquaresEl.classList.toggle('pulsing', player.health <= 3);
     thirstBarSquaresEl.classList.toggle('pulsing', player.thirst <= 20);
     hungerBarSquaresEl.classList.toggle('pulsing', player.hunger <= 20);
     sleepBarSquaresEl.classList.toggle('pulsing', player.sleep <= 20);
-    
     document.getElementById('survival-vignette').classList.toggle('active', player.health <= 3);
-    
     updateConsumeButtons(player);
 }
 

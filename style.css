@@ -125,7 +125,6 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
 
 .stat-bar-container-squares.pulsing { animation: pulse-warning 1.5s infinite ease-in-out; } @keyframes pulse-warning { 0% { filter: brightness(100%); } 50% { filter: brightness(130%); } 100% { filter: brightness(100%); } }
 
-/* MODIFIÉ: Anciens styles de la modale de carte */
 #large-map-modal { 
     position: fixed; inset: 0; z-index: 2000; 
     background-color: rgba(0, 0, 0, 0.8); 
@@ -133,7 +132,7 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
     display: flex; 
     justify-content: center; 
     align-items: center; 
-    padding: 0; /* Changé de 20px à 0 */
+    padding: 0;
     opacity: 0; 
     transition: opacity 0.3s ease; 
     pointer-events: none; 
@@ -143,7 +142,6 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
 #close-large-map-btn { position: absolute; top: 20px; right: 20px; background: var(--accent-color); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 2em; line-height: 40px; text-align: center; cursor: pointer; transition: transform 0.2s; z-index: 10; }
 #close-large-map-btn:hover { transform: scale(1.1) rotate(90deg); }
 
-/* NOUVEAU: Wrapper pour le contenu de la carte (canevas + légende) */
 #large-map-content-wrapper {
     display: flex;
     justify-content: center;
@@ -154,7 +152,6 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
     padding: 20px;
 }
 
-/* MODIFIÉ: Nouveaux styles pour le canvas de la carte */
 #large-map-canvas {
     max-width: initial;
     max-height: 100%;
@@ -165,7 +162,6 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
     border: 2px solid var(--text-secondary);
 }
 
-/* NOUVEAU: Styles pour la légende de la carte */
 #large-map-legend {
     background-color: var(--bg-panel);
     border: 1px solid rgba(255, 255, 255, 0.15);
@@ -249,3 +245,147 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
 #quantity-cancel-btn:hover { background-color: var(--accent-color); color: var(--text-light); }
 #quantity-confirm-btn { background-color: var(--deposit-color); color: var(--text-light); }
 #quantity-confirm-btn:hover { background-color: #3bc6b6; }
+
+/* === MODALE DE COMBAT === */
+#combat-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    background-color: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+#combat-modal.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#combat-modal-content {
+    background: #1a2a32;
+    border: 2px solid var(--accent-color);
+    border-radius: var(--border-radius);
+    padding: 25px;
+    width: 100%;
+    max-width: 700px;
+    box-shadow: 0 0 40px rgba(230, 57, 70, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+#combat-modal h2 {
+    text-align: center;
+    color: var(--accent-color);
+    letter-spacing: 4px;
+    border-bottom: 1px solid rgba(230, 57, 70, 0.4);
+    padding-bottom: 15px;
+}
+
+#combat-participants {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 20px;
+}
+
+.combatant-info {
+    background: rgba(0,0,0,0.3);
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.combatant-info h3 {
+    margin: 0 0 10px 0;
+    padding: 0;
+    border: none;
+}
+
+#vs-text {
+    font-size: 2em;
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
+.combat-health-bar-container {
+    background-color: #111;
+    border-radius: 5px;
+    height: 25px;
+    padding: 3px;
+    margin-bottom: 5px;
+}
+
+.combat-health-bar {
+    background-color: #22c55e; /* Vert santé */
+    height: 100%;
+    width: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease-out;
+}
+
+#combat-enemy-info .combat-health-bar {
+    background-color: #ef4444; /* Rouge ennemi */
+}
+
+#combat-log {
+    background-color: rgba(0,0,0,0.4);
+    border-radius: 8px;
+    padding: 15px;
+    height: 120px;
+    overflow-y: auto;
+    font-size: 0.9em;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column-reverse; /* Les nouveaux messages en bas */
+}
+
+#combat-log p {
+    margin: 0;
+    padding: 2px 0;
+}
+
+#combat-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+#combat-actions button {
+    padding: 15px;
+    font-size: 1.1em;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#combat-actions button#combat-attack-btn {
+    background-color: var(--accent-color);
+    color: var(--text-light);
+}
+
+#combat-actions button#combat-attack-btn:hover {
+    background-color: #fb7185;
+}
+
+#combat-actions button#combat-flee-btn {
+    background-color: var(--action-color);
+    color: var(--text-light);
+}
+
+#combat-actions button#combat-flee-btn:hover {
+    background-color: #5e9ac4;
+}
+
+#combat-actions button:disabled {
+    background-color: #4b5563;
+    cursor: not-allowed;
+    opacity: 0.5;
+}

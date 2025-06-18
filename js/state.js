@@ -1,19 +1,21 @@
 // js/state.js
 import { generateMap } from './map.js';
-// CORRECTION ICI : 'transferItem' a été retiré de la liste d'importation.
 import { initPlayer, getTotalResources, hasResources as playerHasResources, deductResources, consumeItem as playerConsumeItem, transferItems } from './player.js';
 import { initNpcs } from './npc.js';
+import { initEnemies } from './enemy.js';
 import { TILE_TYPES, CONFIG } from './config.js';
 
 const gameState = {
     map: [],
     player: null,
     npcs: [],
+    enemies: [],
     day: 1,
     gameIntervals: [],
     activeEvent: { type: 'none', duration: 0, data: null },
     shelterLocation: null,
     isGameOver: false,
+    combatState: null,
 };
 
 export const state = gameState;
@@ -22,6 +24,7 @@ export function initializeGameState(config) {
     gameState.map = generateMap(config);
     gameState.player = initPlayer(config);
     gameState.npcs = initNpcs(config, gameState.map);
+    gameState.enemies = initEnemies(config, gameState.map);
     
     const shelterTile = gameState.map.flat().find(tile => tile.type.name === TILE_TYPES.SHELTER_COLLECTIVE.name);
     if (shelterTile) {
@@ -73,6 +76,42 @@ export function applyBulkInventoryTransfer(itemName, amount, transferType) {
     return { success: false, message: "Type de transfert inconnu." };
 }
 
+export function startCombat(player, enemy) {
+    if (gameState.combatState) return;
+    player.isBusy = true;
+    gameState.combatState = {
+        enemy: enemy,
+        isPlayerTurn: true,
+        log: [`Un ${enemy.name} vous attaque !`],
+    };
+    console.log("Combat started with:", enemy.name);
+}
+
+export function endCombat(victory) {
+    const { combatState, player } = gameState;
+    if (!combatState) return;
+    
+    if (victory) {
+        const enemy = combatState.enemy;
+        Object.keys(enemy.loot).forEach(resource => {
+            addResourceToPlayer(resource, enemy.loot[resource]);
+        });
+        
+        gameState.enemies = gameState.enemies.filter(e => e.id !== enemy.id);
+    }
+
+    player.isBusy = false;
+    gameState.combatState = null;
+    console.log("Combat ended.");
+}
+
+// NOUVEAU: Fonction pour ajouter un ennemi à l'état
+export function addEnemy(enemy) {
+    if (enemy) {
+        gameState.enemies.push(enemy);
+    }
+}
+
 export function addResourceToPlayer(resourceType, amount) {
     const player = gameState.player;
     player.inventory[resourceType] = (player.inventory[resourceType] || 0) + amount;
@@ -82,10 +121,8 @@ export function updateTileType(x, y, newType) {
     const tile = gameState.map[y][x];
     tile.type = newType;
     if (newType.background && newType.background.length > 0) {
-        // Pour éviter une erreur si une nouvelle tuile n'a pas de fond défini
         tile.backgroundKey = newType.background[Math.floor(Math.random() * newType.background.length)];
     }
-    // S'assurer que les propriétés de la nouvelle tuile sont bien appliquées
     tile.harvestsLeft = newType.harvests === Infinity ? Infinity : (newType.harvests || 0);
     tile.resources = newType.resource ? { ...newType.resource } : null;
 }

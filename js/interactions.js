@@ -1,5 +1,5 @@
 // js/interactions.js
-import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ORE_TYPES } from './config.js';
+import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ORE_TYPES, COMBAT_CONFIG } from './config.js';
 import * as UI from './ui.js';
 import * as State from './state.js';
 import { getTotalResources } from './player.js';
@@ -21,16 +21,104 @@ function performTimedAction(player, duration, onStart, onComplete, updateUICallb
     }, duration);
 }
 
+// NOUVEAU: Gestion des actions de combat
+export function handleCombatAction(action) {
+    const { combatState, player } = State.state;
+    if (!combatState || !combatState.isPlayerTurn) return;
+
+    combatState.isPlayerTurn = false; // Le joueur a agi, ce n'est plus son tour
+    UI.updateCombatUI(combatState); // Désactive les boutons immédiatement
+
+    setTimeout(() => { // Délai pour l'action du joueur
+        if (action === 'attack') {
+            playerAttack();
+        } else if (action === 'flee') {
+            playerFlee();
+        }
+
+        // Si le combat n'est pas terminé après l'action du joueur, l'ennemi attaque
+        if (State.state.combatState) {
+            setTimeout(() => { // Délai pour l'action de l'ennemi
+                enemyAttack();
+                // Si le combat n'est pas terminé après l'attaque de l'ennemi, c'est de nouveau le tour du joueur
+                if (State.state.combatState) {
+                    State.state.combatState.isPlayerTurn = true;
+                    UI.updateCombatUI(State.state.combatState);
+                }
+            }, 1000);
+        }
+    }, 500);
+}
+
+function playerAttack() {
+    const { combatState } = State.state;
+    const damage = COMBAT_CONFIG.PLAYER_BASE_DAMAGE;
+    combatState.enemy.currentHealth = Math.max(0, combatState.enemy.currentHealth - damage);
+    combatState.log.unshift(`Vous infligez ${damage} dégâts.`);
+
+    if (combatState.enemy.currentHealth <= 0) {
+        combatState.log.unshift(`Vous avez vaincu ${combatState.enemy.name} !`);
+        UI.addChatMessage(`Vous avez vaincu ${combatState.enemy.name} !`, 'gain');
+        Object.keys(combatState.enemy.loot).forEach(item => {
+            const amount = combatState.enemy.loot[item];
+            if (amount > 0) {
+                UI.showFloatingText(`+${amount} ${item}`, 'gain');
+            }
+        });
+        State.endCombat(true);
+        UI.hideCombatModal();
+        UI.updateAllUI(State.state);
+        UI.updatePossibleActions();
+    } else {
+        UI.updateCombatUI(combatState);
+    }
+}
+
+function playerFlee() {
+    const { combatState } = State.state;
+    if (Math.random() < COMBAT_CONFIG.FLEE_CHANCE) {
+        combatState.log.unshift("Vous avez réussi à fuir !");
+        UI.addChatMessage("Vous avez pris la fuite.", "system");
+        State.endCombat(false);
+        UI.hideCombatModal();
+        UI.updatePossibleActions();
+    } else {
+        combatState.log.unshift("Votre tentative de fuite a échoué !");
+        UI.updateCombatUI(combatState);
+    }
+}
+
+function enemyAttack() {
+    const { combatState, player } = State.state;
+    if (!combatState) return; // Le joueur a pu fuir entre temps
+    const damage = combatState.enemy.damage;
+    player.health = Math.max(0, player.health - damage);
+    combatState.log.unshift(`${combatState.enemy.name} vous inflige ${damage} dégâts.`);
+
+    if (player.health <= 0) {
+        combatState.log.unshift("Vous avez été vaincu...");
+        // La boucle de jeu principale gérera le Game Over
+    }
+    
+    UI.updateCombatUI(combatState);
+    UI.updateAllUI(State.state); // Mettre à jour la barre de vie principale
+}
+
+
 export function handlePlayerAction(actionId, data, updateUICallbacks) {
-    const { player, map, activeEvent } = State.state;
+    const { player, map, activeEvent, combatState } = State.state;
+    if (combatState) {
+        UI.addChatMessage("Impossible d'agir, vous êtes en combat !", 'system');
+        return;
+    }
     const tile = map[player.y][player.x];
 
     switch(actionId) {
         case 'harvest': {
             const { type, yield: baseYield, thirstCost, hungerCost } = tile.type.resource;
             // Déduction des coûts en stats
-            player.thirst = Math.max(0, player.thirst - thirstCost);
-            player.hunger = Math.max(0, player.hunger - hungerCost);
+            player.thirst = Math.max(0, player.thirst - (thirstCost || 0));
+            player.hunger = Math.max(0, player.hunger - (hungerCost || 0));
             
             performTimedAction(player, ACTION_DURATIONS.HARVEST, 
                 () => UI.addChatMessage("Récolte...", "system"), 

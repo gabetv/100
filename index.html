@@ -135,7 +135,6 @@
     
     <div id="large-map-modal" class="hidden">
         <button id="close-large-map-btn">&times;</button>
-        <!-- MODIFIÉ: Ajout d'un wrapper pour le canvas et la légende -->
         <div id="large-map-content-wrapper">
             <canvas id="large-map-canvas"></canvas>
             <div id="large-map-legend">
@@ -180,9 +179,43 @@
         </div>
     </div>
 
+    <div id="combat-modal" class="hidden">
+        <div id="combat-modal-content">
+            <h2>COMBAT</h2>
+            <div id="combat-participants">
+                <!-- Info Joueur -->
+                <div class="combatant-info" id="combat-player-info">
+                    <h3>Vous</h3>
+                    <div class="combat-health-bar-container">
+                        <div id="combat-player-health-bar" class="combat-health-bar"></div>
+                    </div>
+                    <span id="combat-player-health-text">10 / 10</span>
+                </div>
+                <span id="vs-text">VS</span>
+                <!-- Info Ennemi -->
+                <div class="combatant-info" id="combat-enemy-info">
+                    <h3 id="combat-enemy-name">Loup Agressif</h3>
+                    <div class="combat-health-bar-container">
+                        <div id="combat-enemy-health-bar" class="combat-health-bar"></div>
+                    </div>
+                    <span id="combat-enemy-health-text">10 / 10</span>
+                </div>
+            </div>
+
+            <div id="combat-log">
+                <!-- Les messages de combat apparaîtront ici -->
+            </div>
+
+            <div id="combat-actions">
+                <!-- Les actions de combat seront générées ici -->
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="js/main.js"></script>
     <script type="module" src="js/state.js"></script>
     <script type="module" src="js/ui.js"></script>
     <script type="module" src="js/interactions.js"></script>
+    <script type="module" src="js/enemy.js"></script>
 </body>
 </html>

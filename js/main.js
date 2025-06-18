@@ -4,6 +4,7 @@ import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES } from './confi
 import * as State from './state.js';
 import { decayStats, getTotalResources } from './player.js';
 import { updateNpcs, npcChatter } from './npc.js';
+import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js';
 import * as Interactions from './interactions.js';
 
 let lastFrameTimestamp = 0;
@@ -11,9 +12,20 @@ let lastStatDecayTimestamp = 0;
 
 function updatePossibleActions() {
     UI.actionsEl.innerHTML = '';
-    const { player, map } = State.state;
+    const { player, map, combatState } = State.state;
     const tile = map[player.y][player.x];
     const tileType = tile.type;
+    
+    if (combatState) {
+        const combatInfo = document.createElement('div');
+        combatInfo.textContent = "EN COMBAT !";
+        combatInfo.style.textAlign = 'center';
+        combatInfo.style.padding = '12px';
+        combatInfo.style.color = 'var(--accent-color)';
+        combatInfo.style.fontWeight = 'bold';
+        UI.actionsEl.appendChild(combatInfo);
+        return;
+    }
     
     if (player.isBusy || player.animationState) {
         const busyAction = document.createElement('div');
@@ -33,7 +45,6 @@ function updatePossibleActions() {
         UI.actionsEl.appendChild(button);
     };
 
-    // Actions de récolte
     if (tileType.resource && tile.harvestsLeft > 0) {
         let actionText = `Récolter ${tileType.resource.type}`;
         if (tileType.name === 'Forêt') actionText = `Couper du bois (+5 Bois, -2 Soif, -3 Faim)`;
@@ -44,7 +55,6 @@ function updatePossibleActions() {
         createButton(actionText, action, {}, isPlayerInventoryFull, isPlayerInventoryFull ? "Votre inventaire est plein !" : "");
     }
     
-    // Actions de construction et d'aménagement
     if (tileType.name === TILE_TYPES.PLAINS.name || tileType.name === TILE_TYPES.WASTELAND.name) {
         const canBuildShelterInd = State.hasResources({ 'Bois': 20 }).success;
         createButton("Abri Individuel (-20 Bois)", 'build', { structure: 'shelter_individual' }, !canBuildShelterInd, !canBuildShelterInd ? "Ressources manquantes" : "");
@@ -56,24 +66,20 @@ function updatePossibleActions() {
         createButton("Creuser une Mine (-100 Bois)", 'dig_mine', {}, !canDigMine, !canDigMine ? "Ressources manquantes" : "");
     }
     
-    // Action d'arrosage sur une friche
     if (tileType.name === TILE_TYPES.WASTELAND.name && tileType.regeneration) {
         const canRegenerate = State.hasResources(tileType.regeneration.cost).success;
         createButton("Arroser (-5 Eau)", 'regenerate_forest', {}, !canRegenerate, !canRegenerate ? "Ressources manquantes" : "");
     }
     
-    // Actions de Feu de Camp
     if (tileType.name === TILE_TYPES.CAMPFIRE.name) {
         const canCook = State.hasResources({ 'Poisson': 1, 'Bois': 1 }).success;
         createButton("Cuisiner (-1 Poisson, -1 Bois)", 'cook', {}, !canCook, !canCook ? "Ressources manquantes" : "");
     }
     
-    // Action de dormir
     if (tileType.sleepEffect) {
         createButton("Dormir (10h)", 'sleep');
     }
 
-    // Action d'ouvrir l'inventaire partagé
     if (tileType.inventory) {
         const openChestButton = document.createElement('button');
         openChestButton.textContent = "🧰 Ouvrir le coffre";
@@ -110,19 +116,25 @@ function handleEvents() {
 }
 
 function gameLoop(currentTime) {
-    const { player, isGameOver } = State.state;
+    const { player, isGameOver, combatState } = State.state;
     if (isGameOver) return;
     if (player.health <= 0) { endGame(false); return; }
     if (lastFrameTimestamp === 0) lastFrameTimestamp = currentTime;
     const deltaTime = currentTime - lastFrameTimestamp;
     lastFrameTimestamp = currentTime;
 
-    if (currentTime - lastStatDecayTimestamp > CONFIG.STAT_DECAY_INTERVAL_MS) {
-        const decayResult = decayStats(State.state);
-        if(decayResult && decayResult.message) UI.addChatMessage(decayResult.message, 'system');
-        lastStatDecayTimestamp = currentTime;
+    if (!combatState) {
+        if (currentTime - lastStatDecayTimestamp > CONFIG.STAT_DECAY_INTERVAL_MS) {
+            const decayResult = decayStats(State.state);
+            if(decayResult && decayResult.message) UI.addChatMessage(decayResult.message, 'system');
+            lastStatDecayTimestamp = currentTime;
+        }
+        if (!player.animationState) { 
+            updateNpcs(State.state, deltaTime); 
+            updateEnemies(State.state, deltaTime);
+        }
     }
-    if (!player.animationState) { updateNpcs(State.state, deltaTime); }
+    
     if (player.animationState) {
         const anim = player.animationState;
         const safeDeltaTime = Math.min(deltaTime, 50); 
@@ -148,8 +160,8 @@ function gameLoop(currentTime) {
 }
 
 function handleNavigation(direction) {
-    const { player, map } = State.state;
-    if (player.isBusy || player.animationState) return;
+    const { player, map, enemies, combatState } = State.state;
+    if (player.isBusy || player.animationState || combatState) return;
     const { x, y } = player;
     let newX = x, newY = y;
     if (direction === 'north') newY--;
@@ -160,6 +172,14 @@ function handleNavigation(direction) {
         UI.addChatMessage("Vous ne pouvez pas aller dans cette direction.", "system");
         return;
     }
+
+    const enemyOnTile = findEnemyOnTile(newX, newY, enemies);
+    if (enemyOnTile) {
+        State.startCombat(player, enemyOnTile);
+        UI.showCombatModal(State.state.combatState);
+        return;
+    }
+
     player.isBusy = true;
     player.animationState = { type: 'out', direction: direction, progress: 0 };
     updatePossibleActions();
@@ -184,8 +204,21 @@ function updateAllUI() { UI.updateAllUI(State.state); }
 function updateAllButtonsState() { UI.updateAllButtonsState(State.state); }
 
 function dailyUpdate() {
-    if (++State.state.day > 100) endGame(true);
+    if (++State.state.day > 100) {
+        endGame(true);
+        return;
+    }
     handleEvents();
+
+    if (State.state.day % CONFIG.ENEMY_SPAWN_CHECK_DAYS === 0) {
+        if (State.state.enemies.length < CONFIG.MAX_ENEMIES) {
+            const newEnemy = spawnSingleEnemy(State.state.map);
+            if (newEnemy) {
+                State.addEnemy(newEnemy);
+                UI.addChatMessage("Vous sentez une présence hostile non loin...", "system");
+            }
+        }
+    }
 }
 
 function setupEventListeners() {
@@ -204,21 +237,18 @@ function setupEventListeners() {
     quickChatMenu.addEventListener('click', (e) => { if (e.target.classList.contains('quick-chat-item')) { UI.addChatMessage(e.target.textContent, 'player', 'Vous'); quickChatMenu.classList.remove('visible'); } });
     document.addEventListener('click', (e) => { if (!quickChatMenu.contains(e.target) && e.target !== quickChatButton) { quickChatMenu.classList.remove('visible'); } });
     
-    // CORRIGÉ ET AMÉLIORÉ : On affiche la modale, dessine la carte ET la légende
     UI.enlargeMapBtn.addEventListener('click', () => {
         UI.largeMapModal.classList.remove('hidden');
         UI.drawLargeMap(State.state, CONFIG);
-        UI.populateLargeMapLegend(); // NOUVEAU: On appelle la fonction de légende
+        UI.populateLargeMapLegend();
     });
     UI.closeLargeMapBtn.addEventListener('click', () => { 
         UI.largeMapModal.classList.add('hidden'); 
     });
     
-    // --- MODALE D'INVENTAIRE ---
     UI.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
     UI.inventoryModal.addEventListener('click', (e) => { if (e.target.id === 'inventory-modal') UI.hideInventoryModal(); });
 
-    // --- LOGIQUE DRAG AND DROP ---
     let draggedItem = null;
     UI.inventoryModal.addEventListener('dragstart', (e) => { if (e.target.classList.contains('inventory-item')) { draggedItem = e.target; setTimeout(() => e.target.classList.add('dragging'), 0); } });
     UI.inventoryModal.addEventListener('dragend', () => { if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; } });
@@ -265,12 +295,18 @@ function setupEventListeners() {
             if (!UI.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
         }
     });
+    
+    window.handleCombatAction = Interactions.handleCombatAction;
+    window.gameState = State.state;
 }
 
 function endGame(isVictory) {
     if (State.state.isGameOver) return;
     State.state.isGameOver = true;
     State.state.gameIntervals.forEach(clearInterval);
+    if(State.state.combatState) {
+        UI.hideCombatModal();
+    }
     const finalMessage = isVictory ? "Félicitations ! Vous avez survécu 100 jours !" : "Vous n'avez pas survécu...";
     UI.addChatMessage(finalMessage, 'system');
     document.querySelectorAll('button').forEach(b => b.disabled = true);
@@ -294,7 +330,7 @@ async function init() {
         requestAnimationFrame(gameLoop);
         State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
         State.state.gameIntervals.push(setInterval(() => npcChatter(State.state.npcs), CONFIG.CHAT_MESSAGE_INTERVAL_MS));
-        console.log("Jeu initialisé avec les nouvelles règles de gameplay et l'UI en carrés.");
+        console.log("Jeu initialisé avec le système d'apparition d'ennemis.");
     } catch (error) {
         console.error("ERREUR CRITIQUE lors de l'initialisation :", error);
         document.body.innerHTML = `<div style="color:white; padding: 20px;">Erreur critique au chargement : ${error.message}</div>`;
