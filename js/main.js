@@ -182,6 +182,12 @@ function handleNavigation(direction) {
         return;
     }
 
+    // Coûts de déplacement
+    player.thirst = Math.max(0, player.thirst - 2);
+    player.hunger = Math.max(0, player.hunger - 1);
+    player.sleep = Math.max(0, player.sleep - 1);
+    UI.showFloatingText('-2💧 -1🍗 -1🌙', 'cost');
+
     player.isBusy = true;
     player.animationState = { type: 'out', direction: direction, progress: 0 };
     updatePossibleActions();

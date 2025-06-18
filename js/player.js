@@ -42,33 +42,46 @@ export function movePlayer(direction, player) {
 export function decayStats(gameState) {
     const { player, activeEvent } = gameState;
     if (player.isBusy || player.animationState) return null;
-    let decayMultiplier = 1;
-    if (activeEvent.type === 'Tempête') { decayMultiplier = 1.5; }
+    let stormEffect = activeEvent.type === 'Tempête';
 
-    let message = null;
+    let messages = [];
+
+    // Les effets des états (malus passifs)
     switch (player.status) {
         case 'Malade':
-            decayMultiplier *= 1.5;
-            message = "Vous vous sentez fiévreux...";
+            player.hunger = Math.max(0, player.hunger - 1);
+            player.thirst = Math.max(0, player.thirst - 1);
+            messages.push("Vous vous sentez fiévreux (-1 faim, -1 soif).");
             break;
         case 'Empoisonné':
             player.health = Math.max(0, player.health - 1);
-            message = "Le poison vous ronge ! (-1 Santé)";
+            messages.push("Le poison vous ronge ! (-1 Santé).");
             break;
         case 'Blessé':
-            player.sleep = Math.max(0, player.sleep - (1 * decayMultiplier));
+            player.sleep = Math.max(0, player.sleep - 1);
+            messages.push("Votre blessure vous fatigue (-1 sommeil).");
             break;
     }
     
-    player.thirst = Math.max(0, player.thirst - (2 * decayMultiplier));
-    player.hunger = Math.max(0, player.hunger - (1 * decayMultiplier));
-    player.sleep = Math.max(0, player.sleep - (0.5 * decayMultiplier));
-    
-    if (player.thirst <= 0 || player.hunger <= 0) {
-        player.health = Math.max(0, player.health - 1);
-        message = (message ? message + " " : "") + "Votre santé se dégrade !";
+    // Le malus de la tempête reste, mais il agit directement
+    if (stormEffect) {
+        player.sleep = Math.max(0, player.sleep - 2);
+        messages.push("La tempête vous épuise (-2 sommeil).");
     }
-    return message ? { message } : null;
+    
+    // Sanction si la faim ou la soif sont à zéro
+    if (player.thirst <= 0) {
+        player.health = Math.max(0, player.health - 1);
+        messages.push("La déshydratation vous affaiblit ! (-1 Santé).");
+    }
+    if (player.hunger <= 0) {
+        player.health = Math.max(0, player.health - 1);
+        messages.push("La faim vous tiraille ! (-1 Santé).");
+    }
+    
+    if (messages.length === 0) return null;
+    
+    return { message: messages.join(' ') };
 }
 
 export function transferItems(itemName, amount, from, to, toCapacity = Infinity) {
