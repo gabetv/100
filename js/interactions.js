@@ -1,368 +1,267 @@
-// js/main.js
+// js/interactions.js
+import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ORE_TYPES, COMBAT_CONFIG, ITEM_TYPES } from './config.js';
 import * as UI from './ui.js';
-import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES } from './config.js';
 import * as State from './state.js';
-import { decayStats, getTotalResources } from './player.js';
-import { updateNpcs, npcChatter } from './npc.js';
-import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js';
-import * as Interactions from './interactions.js';
+import { getTotalResources } from './player.js';
 
-let lastFrameTimestamp = 0;
-let lastStatDecayTimestamp = 0;
-
-function updatePossibleActions() {
-    UI.actionsEl.innerHTML = '';
-    const { player, map, combatState } = State.state;
-    const tile = map[player.y][player.x];
-    const tileType = tile.type;
-    
-    if (combatState) {
-        const combatInfo = document.createElement('div');
-        combatInfo.textContent = "EN COMBAT !";
-        combatInfo.style.textAlign = 'center';
-        combatInfo.style.padding = '12px';
-        combatInfo.style.color = 'var(--accent-color)';
-        combatInfo.style.fontWeight = 'bold';
-        UI.actionsEl.appendChild(combatInfo);
-        return;
-    }
-    
-    if (player.isBusy || player.animationState) {
-        const busyAction = document.createElement('div');
-        busyAction.textContent = player.animationState ? "Déplacement..." : "Action en cours...";
-        busyAction.style.textAlign = 'center';
-        busyAction.style.padding = '12px';
-        UI.actionsEl.appendChild(busyAction);
-        return;
-    }
-    
-    const createButton = (text, actionId, data = {}, disabled = false, title = '') => {
-        const button = document.createElement('button');
-        button.textContent = text;
-        button.disabled = disabled;
-        button.title = title;
-        button.onclick = () => Interactions.handlePlayerAction(actionId, data, { updateAllUI, updatePossibleActions, updateAllButtonsState });
-        UI.actionsEl.appendChild(button);
-    };
-
-    if (tileType.resource && tile.harvestsLeft > 0) {
-        let actionText = `Récolter ${tileType.resource.type}`;
-        if (tileType.name === 'Forêt') actionText = `Couper du bois (+5 Bois, -2 Soif, -3 Faim)`;
-        if (tileType.name === 'Mine') actionText = `Extraire du minerai (-1 Soif, -3 Faim)`;
-        
-        const isPlayerInventoryFull = getTotalResources(player.inventory) >= CONFIG.PLAYER_MAX_RESOURCES;
-        const action = tileType.name === 'Mine' ? 'harvest_ore' : 'harvest';
-        createButton(actionText, action, {}, isPlayerInventoryFull, isPlayerInventoryFull ? "Votre inventaire est plein !" : "");
-    }
-    
-    if (tileType.name === TILE_TYPES.PLAINS.name || tileType.name === TILE_TYPES.WASTELAND.name) {
-        const canBuildShelterInd = State.hasResources({ 'Bois': 20 }).success;
-        createButton("Abri Individuel (-20 Bois)", 'build', { structure: 'shelter_individual' }, !canBuildShelterInd, !canBuildShelterInd ? "Ressources manquantes" : "");
-        
-        const canBuildShelterCol = State.hasResources({ 'Bois': 600 }).success;
-        createButton("Abri Collectif (-600 Bois)", 'build', { structure: 'shelter_collective' }, !canBuildShelterCol, !canBuildShelterCol ? "Ressources manquantes" : "");
-    
-        const canDigMine = State.hasResources({ 'Bois': 100 }).success;
-        createButton("Creuser une Mine (-100 Bois)", 'dig_mine', {}, !canDigMine, !canDigMine ? "Ressources manquantes" : "");
-    }
-    
-    if (tileType.name === TILE_TYPES.WASTELAND.name && tileType.regeneration) {
-        const canRegenerate = State.hasResources(tileType.regeneration.cost).success;
-        createButton("Arroser (-5 Eau)", 'regenerate_forest', {}, !canRegenerate, !canRegenerate ? "Ressources manquantes" : "");
-    }
-    
-    if (tileType.name === TILE_TYPES.CAMPFIRE.name) {
-        const canCook = State.hasResources({ 'Poisson': 1, 'Bois': 1 }).success;
-        createButton("Cuisiner (-1 Poisson, -1 Bois)", 'cook', {}, !canCook, !canCook ? "Ressources manquantes" : "");
-    }
-    
-    if (tileType.sleepEffect) {
-        createButton("Dormir (10h)", 'sleep');
-    }
-
-    if (tileType.inventory) {
-        const openChestButton = document.createElement('button');
-        openChestButton.textContent = "🧰 Ouvrir le coffre";
-        openChestButton.onclick = () => UI.showInventoryModal(State.state);
-        UI.actionsEl.appendChild(openChestButton);
-    }
-}
-
-function handleEvents() {
-    const { activeEvent } = State.state;
-    if (activeEvent.duration > 0) {
-        activeEvent.duration--;
-        if (activeEvent.duration === 0) {
-            UI.addChatMessage(`L'événement "${activeEvent.type}" est terminé.`, "system");
-            activeEvent.type = 'none';
-            activeEvent.data = null;
-        }
-        return;
-    }
-    if (Math.random() > 0.95) {
-        const eventType = Math.random() < 0.5 ? 'Tempête' : 'Abondance';
-        if (eventType === 'Tempête') {
-            activeEvent.type = 'Tempête';
-            activeEvent.duration = 1;
-            UI.addChatMessage("Une tempête approche ! Il sera plus difficile de survivre.", "system");
-        } else {
-            const abundantResource = Math.random() < 0.5 ? 'Bois' : 'Poisson';
-            activeEvent.type = 'Abondance';
-            activeEvent.duration = 2;
-            activeEvent.data = { resource: abundantResource };
-            UI.addChatMessage(`Les ${abundantResource.toLowerCase()}s sont étrangement abondants !`, "system");
-        }
-    }
-}
-
-function gameLoop(currentTime) {
-    const { player, isGameOver, combatState } = State.state;
-    if (isGameOver) return;
-    if (player.health <= 0) { endGame(false); return; }
-    if (lastFrameTimestamp === 0) lastFrameTimestamp = currentTime;
-    const deltaTime = currentTime - lastFrameTimestamp;
-    lastFrameTimestamp = currentTime;
-
-    if (!combatState) {
-        if (currentTime - lastStatDecayTimestamp > CONFIG.STAT_DECAY_INTERVAL_MS) {
-            const decayResult = decayStats(State.state);
-            if(decayResult && decayResult.message) UI.addChatMessage(decayResult.message, 'system');
-            lastStatDecayTimestamp = currentTime;
-        }
-        if (!player.animationState) { 
-            updateNpcs(State.state, deltaTime); 
-            updateEnemies(State.state, deltaTime);
-        }
-    }
-    
-    if (player.animationState) {
-        const anim = player.animationState;
-        const safeDeltaTime = Math.min(deltaTime, 50); 
-        anim.progress += safeDeltaTime / ACTION_DURATIONS.MOVE_TRANSITION;
-        if (anim.progress >= 1) {
-            if (anim.type === 'out') {
-                State.applyPlayerMove(anim.direction);
-                UI.draw(State.state);
-                anim.type = 'in';
-                anim.progress = 0;
-            } else {
-                player.animationState = null;
-                player.isBusy = false;
-                updateAllUI();
-                updatePossibleActions();
-                updateAllButtonsState();
-            }
-        }
-    }
-    UI.updateAllUI(State.state);
-    UI.drawSceneCharacters(State.state);
-    requestAnimationFrame(gameLoop);
-}
-
-function handleNavigation(direction) {
-    const { player, map, enemies, combatState } = State.state;
-    if (player.isBusy || player.animationState || combatState) return;
-    const { x, y } = player;
-    let newX = x, newY = y;
-    if (direction === 'north') newY--;
-    else if (direction === 'south') newY++;
-    else if (direction === 'west') newX--;
-    else if (direction === 'east') newX++;
-    if (newX < 0 || newX >= CONFIG.MAP_WIDTH || newY < 0 || newY >= CONFIG.MAP_HEIGHT || !map[newY][newX].type.accessible) {
-        UI.addChatMessage("Vous ne pouvez pas aller dans cette direction.", "system");
-        return;
-    }
-
-    const enemyOnTile = findEnemyOnTile(newX, newY, enemies);
-    if (enemyOnTile) {
-        State.startCombat(player, enemyOnTile);
-        UI.showCombatModal(State.state.combatState);
-        return;
-    }
+function performTimedAction(player, duration, onStart, onComplete, updateUICallbacks) {
+    if (player.isBusy || player.animationState) return;
 
     player.isBusy = true;
-    player.animationState = { type: 'out', direction: direction, progress: 0 };
-    updatePossibleActions();
-    updateAllButtonsState();
+    onStart();
+    updateUICallbacks.updatePossibleActions();
+    updateUICallbacks.updateAllButtonsState();
+
+    setTimeout(() => {
+        onComplete();
+        player.isBusy = false;
+        updateUICallbacks.updateAllUI();
+        updateUICallbacks.updatePossibleActions();
+        updateUICallbacks.updateAllButtonsState();
+    }, duration);
 }
 
-function handleConsumeClick(itemOrNeed) {
-    const { player } = State.state;
-    if (player.isBusy || player.animationState) { UI.addChatMessage("Vous êtes occupé.", "system"); return; }
-    const result = State.consumeItem(itemOrNeed);
-    UI.addChatMessage(result.message, 'system');
-    if(result.success) {
-        UI.triggerActionFlash('gain');
-        result.floatingTexts.forEach(text => { UI.showFloatingText(text, text.startsWith('-') ? 'cost' : 'gain'); });
-        updateAllUI(); updatePossibleActions(); updateAllButtonsState();
+export function handleCombatAction(action) {
+    const { combatState, player } = State.state;
+    if (!combatState || !combatState.isPlayerTurn) return;
+
+    combatState.isPlayerTurn = false;
+    UI.updateCombatUI(combatState);
+
+    setTimeout(() => {
+        if (action === 'attack') {
+            playerAttack();
+        } else if (action === 'flee') {
+            playerFlee();
+        }
+
+        if (State.state.combatState) {
+            setTimeout(() => {
+                enemyAttack();
+                if (State.state.combatState) {
+                    State.state.combatState.isPlayerTurn = true;
+                    UI.updateCombatUI(State.state.combatState);
+                }
+            }, 1000);
+        }
+    }, 500);
+}
+
+function playerAttack() {
+    const { combatState, player } = State.state;
+    const weapon = player.equipment.weapon;
+    // LA CORRECTION EST ICI
+    const damage = weapon ? weapon.stats.damage : COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE;
+    
+    combatState.enemy.currentHealth = Math.max(0, combatState.enemy.currentHealth - damage);
+    combatState.log.unshift(`Vous infligez ${damage} dégâts avec ${weapon ? weapon.name : 'vos poings'}.`);
+
+    if (combatState.enemy.currentHealth <= 0) {
+        combatState.log.unshift(`Vous avez vaincu ${combatState.enemy.name} !`);
+        UI.addChatMessage(`Vous avez vaincu ${combatState.enemy.name} !`, 'gain');
+        Object.keys(combatState.enemy.loot).forEach(item => {
+            const amount = combatState.enemy.loot[item];
+            if (amount > 0) {
+                UI.showFloatingText(`+${amount} ${item}`, 'gain');
+            }
+        });
+        State.endCombat(true);
+        UI.hideCombatModal();
+        UI.updateAllUI(State.state);
+        UI.updatePossibleActions();
     } else {
-        UI.triggerShake(document.getElementById('inventory-list'));
+        UI.updateCombatUI(combatState);
     }
 }
 
-function updateAllUI() { UI.updateAllUI(State.state); }
-function updateAllButtonsState() { UI.updateAllButtonsState(State.state); }
+function playerFlee() {
+    const { combatState } = State.state;
+    if (Math.random() < COMBAT_CONFIG.FLEE_CHANCE) {
+        combatState.log.unshift("Vous avez réussi à fuir !");
+        UI.addChatMessage("Vous avez pris la fuite.", "system");
+        State.endCombat(false);
+        UI.hideCombatModal();
+        UI.updatePossibleActions();
+    } else {
+        combatState.log.unshift("Votre tentative de fuite a échoué !");
+        UI.updateCombatUI(combatState);
+    }
+}
 
-function dailyUpdate() {
-    if (++State.state.day > 100) {
-        endGame(true);
+function enemyAttack() {
+    const { combatState, player } = State.state;
+    if (!combatState) return;
+    
+    const defense = player.equipment.armor ? player.equipment.armor.stats.defense : 0;
+    const damageTaken = Math.max(0, combatState.enemy.damage - defense);
+
+    player.health = Math.max(0, player.health - damageTaken);
+    combatState.log.unshift(`${combatState.enemy.name} vous inflige ${damageTaken} dégâts.`);
+
+    if (player.health <= 0) {
+        combatState.log.unshift("Vous avez été vaincu...");
+    }
+    
+    UI.updateCombatUI(combatState);
+    UI.updateAllUI(State.state);
+}
+
+
+export function handlePlayerAction(actionId, data, updateUICallbacks) {
+    const { player, map, activeEvent, combatState } = State.state;
+    if (combatState) {
+        UI.addChatMessage("Impossible d'agir, vous êtes en combat !", 'system');
         return;
     }
-    handleEvents();
+    const tile = map[player.y][player.x];
 
-    if (State.state.day % CONFIG.ENEMY_SPAWN_CHECK_DAYS === 0) {
-        if (State.state.enemies.length < CONFIG.MAX_ENEMIES) {
-            const newEnemy = spawnSingleEnemy(State.state.map);
-            if (newEnemy) {
-                State.addEnemy(newEnemy);
-                UI.addChatMessage("Vous sentez une présence hostile non loin...", "system");
-            }
-        }
-    }
-}
+    switch(actionId) {
+        case 'harvest': {
+            const { type, yield: baseYield, thirstCost, hungerCost } = tile.type.resource;
+            player.thirst = Math.max(0, player.thirst - (thirstCost || 0));
+            player.hunger = Math.max(0, player.hunger - (hungerCost || 0));
+            
+            performTimedAction(player, ACTION_DURATIONS.HARVEST, 
+                () => UI.addChatMessage("Récolte...", "system"), 
+                () => {
+                    let finalYield = activeEvent.type === 'Abondance' && activeEvent.data.resource === type ? baseYield * 2 : baseYield;
+                    const availableSpace = CONFIG.PLAYER_MAX_RESOURCES - getTotalResources(player.inventory);
+                    const amountToHarvest = Math.min(finalYield, availableSpace);
 
-function setupEventListeners() {
-    document.getElementById('nav-north').addEventListener('click', () => handleNavigation('north'));
-    document.getElementById('nav-south').addEventListener('click', () => handleNavigation('south'));
-    document.getElementById('nav-east').addEventListener('click', () => handleNavigation('east'));
-    document.getElementById('nav-west').addEventListener('click', () => handleNavigation('west'));
-    
-    document.getElementById('consume-health-btn').addEventListener('click', () => handleConsumeClick('health'));
-    document.getElementById('consume-thirst-btn').addEventListener('click', () => handleConsumeClick('thirst'));
-    document.getElementById('consume-hunger-btn').addEventListener('click', () => handleConsumeClick('hunger'));
-    
-    const quickChatButton = document.getElementById('quick-chat-button');
-    const quickChatMenu = document.getElementById('quick-chat-menu');
-    quickChatButton.addEventListener('click', () => quickChatMenu.classList.toggle('visible'));
-    quickChatMenu.addEventListener('click', (e) => { if (e.target.classList.contains('quick-chat-item')) { UI.addChatMessage(e.target.textContent, 'player', 'Vous'); quickChatMenu.classList.remove('visible'); } });
-    document.addEventListener('click', (e) => { if (!quickChatMenu.contains(e.target) && e.target !== quickChatButton) { quickChatMenu.classList.remove('visible'); } });
-    
-    UI.enlargeMapBtn.addEventListener('click', () => {
-        UI.largeMapModal.classList.remove('hidden');
-        UI.drawLargeMap(State.state, CONFIG);
-        UI.populateLargeMapLegend();
-    });
-    UI.closeLargeMapBtn.addEventListener('click', () => { 
-        UI.largeMapModal.classList.add('hidden'); 
-    });
-    
-    UI.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
-    UI.inventoryModal.addEventListener('click', (e) => { if (e.target.id === 'inventory-modal') UI.hideInventoryModal(); });
-
-    document.getElementById('open-equipment-btn').addEventListener('click', () => UI.showEquipmentModal(State.state));
-    UI.closeEquipmentModalBtn.addEventListener('click', UI.hideEquipmentModal);
-    UI.equipmentModal.addEventListener('click', (e) => { if (e.target.id === 'equipment-modal') UI.hideEquipmentModal(); });
-
-    let draggedItem = null;
-    
-    function handleDragStart(e) { if (e.target.classList.contains('inventory-item')) { draggedItem = e.target; setTimeout(() => e.target.classList.add('dragging'), 0); } }
-    function handleDragEnd() { if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; } }
-    function handleDragOver(e) { e.preventDefault(); const dropZone = e.target.closest('.droppable'); if (dropZone) { document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over')); dropZone.classList.add('drag-over'); } }
-    function handleDragLeave(e) { const dropZone = e.target.closest('.droppable'); if (dropZone) { dropZone.classList.remove('drag-over'); } }
-    
-    function handleDrop(e) {
-        e.preventDefault();
-        const dropZone = e.target.closest('.droppable');
-        document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over'));
-        if (!dropZone || !draggedItem) return;
-
-        const itemName = draggedItem.dataset.itemName;
-        const sourceOwner = draggedItem.dataset.owner;
-
-        if (dropZone.classList.contains('equipment-slot') && sourceOwner === 'player-inventory') {
-            const itemDef = ITEM_TYPES[itemName];
-            const slotType = dropZone.dataset.slotType;
-            if (itemDef && itemDef.slot === slotType) {
-                const result = State.equipItem(itemName);
-                UI.addChatMessage(result.message, 'system');
-                UI.updateEquipmentModal(State.state);
-                updateAllUI();
-            }
-        }
-        
-        else if (dropZone.id === 'equipment-player-inventory' && sourceOwner === 'equipment') {
-            const slotType = draggedItem.dataset.slotType;
-            const result = State.unequipItem(slotType);
-             if (!result.success) UI.triggerShake(dropZone);
-            UI.addChatMessage(result.message, 'system');
-            UI.updateEquipmentModal(State.state);
-            updateAllUI();
-        }
-        
-        else if (dropZone.dataset.owner === 'shared' || dropZone.dataset.owner === 'player') {
-            const destOwner = dropZone.dataset.owner;
-             if (sourceOwner !== destOwner && (sourceOwner === 'player' || sourceOwner === 'shared')) {
-                const transferType = (destOwner === 'shared') ? 'deposit' : 'withdraw';
-                const maxAmount = parseInt(draggedItem.dataset.itemCount, 10);
-                
-                UI.showQuantityModal(itemName, maxAmount, (chosenAmount) => {
-                    if (chosenAmount > 0) {
-                        const result = State.applyBulkInventoryTransfer(itemName, chosenAmount, transferType);
-                        UI.addChatMessage(result.message, 'system');
-                        if (result.success) { UI.showInventoryModal(State.state); updateAllUI(); } 
-                        else { UI.triggerShake(draggedItem); }
+                    if (amountToHarvest > 0) {
+                        State.addResourceToPlayer(type, amountToHarvest);
+                        tile.harvestsLeft--;
+                        UI.showFloatingText(`+${amountToHarvest} ${type}`, 'gain');
+                        UI.triggerActionFlash('gain');
+                        if (amountToHarvest < finalYield) UI.addChatMessage("Inventaire plein, récolte partielle.", "system");
+                        if (tile.harvestsLeft <= 0 && tile.type.harvests !== Infinity) {
+                            State.updateTileType(player.x, player.y, TILE_TYPES.WASTELAND);
+                            UI.addChatMessage("Les ressources de cette zone sont épuisées.", "system");
+                        }
+                    } else { 
+                        UI.addChatMessage("Votre inventaire est plein !", "system"); 
+                        UI.triggerShake(document.getElementById('inventory-capacity-display'));
                     }
-                });
+                }, 
+                updateUICallbacks
+            );
+            break;
+        }
+
+        case 'harvest_ore': {
+            const { thirstCost, hungerCost } = tile.type.resource;
+            player.thirst = Math.max(0, player.thirst - thirstCost);
+            player.hunger = Math.max(0, player.hunger - hungerCost);
+
+            performTimedAction(player, ACTION_DURATIONS.HARVEST,
+                () => UI.addChatMessage("Vous minez...", "system"),
+                () => {
+                    const randomOre = ORE_TYPES[Math.floor(Math.random() * ORE_TYPES.length)];
+                    State.addResourceToPlayer(randomOre, 1);
+                    UI.showFloatingText(`+1 ${randomOre}`, 'gain');
+                    UI.triggerActionFlash('gain');
+                },
+                updateUICallbacks
+            );
+            break;
+        }
+
+        case 'build': {
+            const costs = data.structure === 'shelter_individual' 
+                ? { 'Bois': 20 } 
+                : { 'Bois': 600 };
+            if (!State.hasResources(costs).success) {
+                UI.addChatMessage("Ressources insuffisantes.", "system");
+                UI.triggerShake(document.getElementById('inventory-list'));
+                return;
             }
+            performTimedAction(player, ACTION_DURATIONS.CRAFT, 
+                () => UI.addChatMessage(`Construction...`, "system"), 
+                () => {
+                    State.applyResourceDeduction(costs);
+                    UI.showFloatingText(`-${costs['Bois']} Bois`, 'cost');
+                    const newStructure = data.structure === 'shelter_individual' ? TILE_TYPES.SHELTER_INDIVIDUAL : TILE_TYPES.SHELTER_COLLECTIVE;
+                    State.updateTileType(player.x, player.y, newStructure);
+                },
+                updateUICallbacks
+            );
+            break;
+        }
+        
+        case 'dig_mine': {
+            const costs = { 'Bois': 100 };
+            if (!State.hasResources(costs).success) {
+                UI.addChatMessage("Pas assez de bois pour étayer la mine.", "system");
+                return;
+            }
+            
+            player.thirst = Math.max(0, player.thirst - 10);
+            player.hunger = Math.max(0, player.hunger - 10);
+
+            performTimedAction(player, ACTION_DURATIONS.DIG,
+                () => UI.addChatMessage("Vous creusez une entrée de mine...", "system"),
+                () => {
+                    State.applyResourceDeduction(costs);
+                    UI.showFloatingText("-100 Bois", 'cost');
+                    State.updateTileType(player.x, player.y, TILE_TYPES.MINE);
+                    UI.addChatMessage("La mine est prête !", "system");
+                },
+                updateUICallbacks
+            );
+            break;
+        }
+
+        case 'regenerate_forest': {
+            const costs = TILE_TYPES.WASTELAND.regeneration.cost;
+            if (!State.hasResources(costs).success) {
+                UI.addChatMessage("Vous n'avez pas assez d'eau.", "system");
+                return;
+            }
+            performTimedAction(player, ACTION_DURATIONS.CRAFT,
+                () => UI.addChatMessage("Vous arrosez la terre...", "system"),
+                () => {
+                    State.applyResourceDeduction(costs);
+                    UI.showFloatingText("-5 Eau", "cost");
+                    State.updateTileType(player.x, player.y, TILE_TYPES.FOREST);
+                    UI.addChatMessage("La terre redevient fertile.", "system");
+                },
+                updateUICallbacks
+            );
+            break;
+        }
+
+        case 'sleep': {
+            const sleepEffect = tile.type.sleepEffect;
+            if (!sleepEffect) return;
+
+            performTimedAction(player, ACTION_DURATIONS.SLEEP, 
+                () => UI.addChatMessage("Vous vous endormez pour 10 heures...", "system"), 
+                () => {
+                    player.sleep = Math.min(100, player.sleep + sleepEffect.sleep); 
+                    player.health = Math.min(10, player.health + sleepEffect.health);
+                    UI.addChatMessage("Vous vous réveillez reposé.", "system");
+                },
+                updateUICallbacks
+            );
+            break;
+        }
+
+        case 'cook': {
+             if (!State.hasResources({ 'Poisson': 1, 'Bois': 1 }).success) {
+                UI.addChatMessage("Ressources insuffisantes pour cuisiner.", "system");
+                UI.triggerShake(document.getElementById('inventory-list'));
+                return;
+            }
+            performTimedAction(player, ACTION_DURATIONS.CRAFT, 
+                () => UI.addChatMessage("Cuisson...", "system"), 
+                () => {
+                    State.applyResourceDeduction({ 'Poisson': 1, 'Bois': 1 });
+                    State.addResourceToPlayer('Poisson Cuit', 1);
+                    UI.showFloatingText("+1 Poisson Cuit", "gain"); UI.triggerActionFlash('gain');
+                },
+                updateUICallbacks
+            );
+            break;
         }
     }
-    
-    [UI.inventoryModal, UI.equipmentModal].forEach(modal => {
-        if(modal) {
-            modal.addEventListener('dragstart', handleDragStart);
-            modal.addEventListener('dragend', handleDragEnd);
-            modal.addEventListener('dragover', handleDragOver);
-            modal.addEventListener('dragleave', handleDragLeave);
-            modal.addEventListener('drop', handleDrop);
-        }
-    });
-
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            if (!UI.largeMapModal.classList.contains('hidden')) UI.largeMapModal.classList.add('hidden');
-            if (!UI.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
-            if (!UI.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
-            if (!UI.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
-        }
-    });
-    
-    window.handleCombatAction = Interactions.handleCombatAction;
-    window.gameState = State.state;
 }
-
-function endGame(isVictory) {
-    if (State.state.isGameOver) return;
-    State.state.isGameOver = true;
-    State.state.gameIntervals.forEach(clearInterval);
-    if(State.state.combatState) UI.hideCombatModal();
-    const finalMessage = isVictory ? "Félicitations ! Vous avez survécu 100 jours !" : "Vous n'avez pas survécu...";
-    UI.addChatMessage(finalMessage, 'system');
-    document.querySelectorAll('button').forEach(b => b.disabled = true);
-    document.getElementById('chat-input-field').disabled = true;
-}
-
-function fullResizeAndRedraw() {
-    UI.resizeGameView();
-    if (State.state.player) UI.draw(State.state);
-}
-
-async function init() {
-    try {
-        await UI.loadAssets(SPRITESHEET_PATHS);
-        fullResizeAndRedraw();
-        window.addEventListener('resize', fullResizeAndRedraw);
-        State.initializeGameState(CONFIG);
-        setupEventListeners();
-        updateAllUI();
-        updatePossibleActions();
-        requestAnimationFrame(gameLoop);
-        State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
-        State.state.gameIntervals.push(setInterval(() => npcChatter(State.state.npcs), CONFIG.CHAT_MESSAGE_INTERVAL_MS));
-        console.log("Jeu initialisé avec le système d'équipement.");
-    } catch (error) {
-        console.error("ERREUR CRITIQUE lors de l'initialisation :", error);
-        document.body.innerHTML = `<div style="color:white; padding: 20px;">Erreur critique au chargement : ${error.message}</div>`;
-    }
-}
-
-window.addEventListener('load', init);
