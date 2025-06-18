@@ -135,7 +135,13 @@
     
     <div id="large-map-modal" class="hidden">
         <button id="close-large-map-btn">&times;</button>
-        <canvas id="large-map-canvas"></canvas>
+        <!-- MODIFIÉ: Ajout d'un wrapper pour le canvas et la légende -->
+        <div id="large-map-content-wrapper">
+            <canvas id="large-map-canvas"></canvas>
+            <div id="large-map-legend">
+                <!-- La légende sera générée ici par le JS -->
+            </div>
+        </div>
     </div>
 
     <div id="inventory-modal" class="hidden">

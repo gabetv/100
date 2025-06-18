@@ -1,6 +1,14 @@
 // js/ui.js
-import { CONFIG } from './config.js';
+import { CONFIG, TILE_TYPES } from './config.js';
 import { getTotalResources } from './player.js';
+
+// NOUVEAU: Icônes pour les types de tuiles sur la grande carte
+const TILE_ICONS = {
+    'Lagon': '🌊', 'Sable Doré': '🏖️', 'Forêt': '🌲', 'Friche': '🍂',
+    'Plaine': '🌳', 'Gisement de Pierre': '⛰️', 'Feu de Camp': '🔥',
+    'Abri Individuel': '⛺', 'Abri Collectif': '🏠', 'Mine': '⛏️',
+    'default': '❓'
+};
 
 export const mainViewCanvas = document.getElementById('main-view-canvas'), mainViewCtx = mainViewCanvas.getContext('2d');
 export const charactersCanvas = document.getElementById('characters-canvas'), charactersCtx = charactersCanvas.getContext('2d');
@@ -21,6 +29,8 @@ const inventoryCapacityEl = document.getElementById('inventory-capacity-display'
 export const largeMapModal = document.getElementById('large-map-modal');
 export const largeMapCanvas = document.getElementById('large-map-canvas');
 const largeMapCtx = largeMapCanvas.getContext('2d');
+// NOUVEAU: Référence à la légende
+const largeMapLegendEl = document.getElementById('large-map-legend');
 export const enlargeMapBtn = document.getElementById('enlarge-map-btn');
 export const closeLargeMapBtn = document.getElementById('close-large-map-btn');
 
@@ -80,7 +90,133 @@ export function updateTileInfoPanel(tile) {
 
 function drawMinimap(gameState, config) { const { map, player, npcs } = gameState; const { MAP_WIDTH, MAP_HEIGHT, MINIMAP_DOT_SIZE } = config; minimapCanvas.width = MAP_WIDTH * MINIMAP_DOT_SIZE; minimapCanvas.height = MAP_HEIGHT * MINIMAP_DOT_SIZE; minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height); for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { minimapCtx.fillStyle = map[y][x].type.color || '#ff00ff'; minimapCtx.fillRect(x * MINIMAP_DOT_SIZE, y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE); } } minimapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)'; minimapCtx.lineWidth = 1; for (let x = 0; x <= MAP_WIDTH; x++) { minimapCtx.beginPath(); minimapCtx.moveTo(x * MINIMAP_DOT_SIZE, 0); minimapCtx.lineTo(x * MINIMAP_DOT_SIZE, minimapCanvas.height); minimapCtx.stroke(); } for (let y = 0; y <= MAP_HEIGHT; y++) { minimapCtx.beginPath(); minimapCtx.moveTo(0, y * MINIMAP_DOT_SIZE); minimapCtx.lineTo(minimapCanvas.width, y * MINIMAP_DOT_SIZE); minimapCtx.stroke(); } npcs.forEach(npc => { minimapCtx.fillStyle = npc.color; minimapCtx.fillRect(npc.x * MINIMAP_DOT_SIZE, npc.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE); }); minimapCtx.fillStyle = player.color || 'yellow'; minimapCtx.fillRect(player.x * MINIMAP_DOT_SIZE, player.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE); minimapCtx.strokeStyle = 'white'; minimapCtx.lineWidth = 2; minimapCtx.strokeRect(player.x * MINIMAP_DOT_SIZE -1, player.y * MINIMAP_DOT_SIZE -1, MINIMAP_DOT_SIZE + 2, MINIMAP_DOT_SIZE + 2); }
 
-export function drawLargeMap(gameState, config) { const { map, player, npcs } = gameState; const { MAP_WIDTH, MAP_HEIGHT } = config; const cellSize = Math.min(largeMapCanvas.parentElement.clientWidth / MAP_WIDTH, largeMapCanvas.parentElement.clientHeight / MAP_HEIGHT, 40); largeMapCanvas.width = MAP_WIDTH * cellSize; largeMapCanvas.height = MAP_HEIGHT * cellSize; largeMapCtx.clearRect(0, 0, largeMapCanvas.width, largeMapCanvas.height); for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { const tile = map[y][x]; largeMapCtx.fillStyle = tile.type.color || '#ff00ff'; largeMapCtx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize); largeMapCtx.fillStyle = 'rgba(255, 255, 255, 0.8)'; largeMapCtx.font = `bold ${cellSize * 0.6}px Poppins`; largeMapCtx.textAlign = 'center'; largeMapCtx.textBaseline = 'middle'; largeMapCtx.fillText(tile.type.name.charAt(0), x * cellSize + cellSize / 2, y * cellSize + cellSize / 2); } } largeMapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)'; largeMapCtx.lineWidth = 1; for (let i = 0; i <= MAP_WIDTH; i++) { largeMapCtx.beginPath(); largeMapCtx.moveTo(i * cellSize, 0); largeMapCtx.lineTo(i * cellSize, largeMapCanvas.height); largeMapCtx.stroke(); } for (let i = 0; i <= MAP_HEIGHT; i++) { largeMapCtx.beginPath(); largeMapCtx.moveTo(0, i * cellSize); largeMapCtx.lineTo(largeMapCanvas.width, i * cellSize); largeMapCtx.stroke(); } npcs.forEach(npc => { largeMapCtx.fillStyle = npc.color; largeMapCtx.beginPath(); largeMapCtx.arc(npc.x * cellSize + cellSize / 2, npc.y * cellSize + cellSize / 2, cellSize * 0.35, 0, Math.PI * 2); largeMapCtx.fill(); }); largeMapCtx.fillStyle = player.color; largeMapCtx.beginPath(); largeMapCtx.arc(player.x * cellSize + cellSize / 2, player.y * cellSize + cellSize / 2, cellSize * 0.4, 0, Math.PI * 2); largeMapCtx.fill(); largeMapCtx.strokeStyle = 'white'; largeMapCtx.lineWidth = 3; largeMapCtx.stroke(); }
+// MODIFIÉ: Fonction de dessin de la grande carte entièrement réécrite
+export function drawLargeMap(gameState, config) {
+    const { map, player, npcs } = gameState;
+    const { MAP_WIDTH, MAP_HEIGHT } = config;
+    const headerSize = 30; // Espace en pixels pour les coordonnées
+
+    // La taille de la cellule est calculée en fonction de la hauteur du conteneur
+    const availableHeight = largeMapCanvas.parentElement.clientHeight - 40; // 40px de padding
+    const canvasSize = availableHeight;
+    largeMapCanvas.width = canvasSize;
+    largeMapCanvas.height = canvasSize;
+    
+    const cellSize = (canvasSize - headerSize) / Math.max(MAP_WIDTH, MAP_HEIGHT);
+
+    largeMapCtx.clearRect(0, 0, largeMapCanvas.width, largeMapCanvas.height);
+    largeMapCtx.fillStyle = '#1d3557'; // Fond pour les zones non dessinées
+    largeMapCtx.fillRect(0, 0, largeMapCanvas.width, largeMapCanvas.height);
+
+    // --- Dessin des tuiles et des icônes ---
+    for (let y = 0; y < MAP_HEIGHT; y++) {
+        for (let x = 0; x < MAP_WIDTH; x++) {
+            const tile = map[y][x];
+            const drawX = headerSize + x * cellSize;
+            const drawY = headerSize + y * cellSize;
+
+            largeMapCtx.fillStyle = tile.type.color || '#ff00ff';
+            largeMapCtx.fillRect(drawX, drawY, cellSize, cellSize);
+
+            const icon = TILE_ICONS[tile.type.name] || TILE_ICONS.default;
+            largeMapCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            largeMapCtx.font = `bold ${cellSize * 0.6}px Poppins`;
+            largeMapCtx.textAlign = 'center';
+            largeMapCtx.textBaseline = 'middle';
+            largeMapCtx.fillText(icon, drawX + cellSize / 2, drawY + cellSize / 2);
+        }
+    }
+
+    // --- Dessin de la grille et des coordonnées ---
+    largeMapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+    largeMapCtx.lineWidth = 1;
+    largeMapCtx.fillStyle = '#f1faee';
+    largeMapCtx.font = `600 ${headerSize * 0.5}px Poppins`;
+    largeMapCtx.textAlign = 'center';
+    largeMapCtx.textBaseline = 'middle';
+
+    for (let i = 0; i < MAP_WIDTH; i++) {
+        const x = headerSize + (i + 0.5) * cellSize;
+        largeMapCtx.fillText(i, x, headerSize / 2); // Coordonnées X (en haut)
+        const lineX = headerSize + i * cellSize;
+        largeMapCtx.beginPath();
+        largeMapCtx.moveTo(lineX, headerSize);
+        largeMapCtx.lineTo(lineX, headerSize + MAP_HEIGHT * cellSize);
+        largeMapCtx.stroke();
+    }
+    for (let i = 0; i < MAP_HEIGHT; i++) {
+        const y = headerSize + (i + 0.5) * cellSize;
+        largeMapCtx.fillText(i, headerSize / 2, y); // Coordonnées Y (à gauche)
+        const lineY = headerSize + i * cellSize;
+        largeMapCtx.beginPath();
+        largeMapCtx.moveTo(headerSize, lineY);
+        largeMapCtx.lineTo(headerSize + MAP_WIDTH * cellSize, lineY);
+        largeMapCtx.stroke();
+    }
+    largeMapCtx.strokeRect(headerSize, headerSize, MAP_WIDTH * cellSize, MAP_HEIGHT * cellSize);
+
+    // --- Dessin des personnages (PNJ et Joueur) en temps réel ---
+    npcs.forEach(npc => {
+        const drawX = headerSize + npc.x * cellSize + cellSize / 2;
+        const drawY = headerSize + npc.y * cellSize + cellSize / 2;
+        largeMapCtx.fillStyle = npc.color;
+        largeMapCtx.beginPath();
+        largeMapCtx.arc(drawX, drawY, cellSize * 0.35, 0, Math.PI * 2);
+        largeMapCtx.fill();
+    });
+
+    const playerDrawX = headerSize + player.x * cellSize + cellSize / 2;
+    const playerDrawY = headerSize + player.y * cellSize + cellSize / 2;
+    largeMapCtx.fillStyle = player.color;
+    largeMapCtx.beginPath();
+    largeMapCtx.arc(playerDrawX, playerDrawY, cellSize * 0.4, 0, Math.PI * 2);
+    largeMapCtx.fill();
+    largeMapCtx.strokeStyle = 'white';
+    largeMapCtx.lineWidth = 3;
+    largeMapCtx.stroke();
+}
+
+// NOUVEAU: Fonction pour remplir la légende de la carte
+export function populateLargeMapLegend() {
+    largeMapLegendEl.innerHTML = '<h3>Légende</h3>';
+    const addedTypes = new Set();
+
+    // Ajouter les types de tuiles
+    for (const tileKey in TILE_TYPES) {
+        const tileType = TILE_TYPES[tileKey];
+        if (!addedTypes.has(tileType.name)) {
+            const item = document.createElement('div');
+            item.className = 'legend-item';
+            const icon = TILE_ICONS[tileType.name] || TILE_ICONS.default;
+            item.innerHTML = `
+                <div class="legend-color-box" style="background-color: ${tileType.color};"></div>
+                <span>${icon} ${tileType.name}</span>
+            `;
+            largeMapLegendEl.appendChild(item);
+            addedTypes.add(tileType.name);
+        }
+    }
+
+    // Ajouter une séparation
+    largeMapLegendEl.insertAdjacentHTML('beforeend', '<hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">');
+
+    // Ajouter le joueur et les PNJ
+    const playerItem = document.createElement('div');
+    playerItem.className = 'legend-item';
+    playerItem.innerHTML = `
+        <div class="legend-color-box legend-character-icon" style="color: #ffd700;">●</div>
+        <span>Vous</span>
+    `;
+    largeMapLegendEl.appendChild(playerItem);
+
+    const npcItem = document.createElement('div');
+    npcItem.className = 'legend-item';
+    npcItem.innerHTML = `
+        <div class="legend-color-box legend-character-icon" style="color: #ff6347;">●</div>
+        <span>Survivants (PNJ)</span>
+    `;
+    largeMapLegendEl.appendChild(npcItem);
+}
 
 function drawSquaresBar(container, value, maxValue) {
     container.innerHTML = '';

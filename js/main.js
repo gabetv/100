@@ -204,12 +204,11 @@ function setupEventListeners() {
     quickChatMenu.addEventListener('click', (e) => { if (e.target.classList.contains('quick-chat-item')) { UI.addChatMessage(e.target.textContent, 'player', 'Vous'); quickChatMenu.classList.remove('visible'); } });
     document.addEventListener('click', (e) => { if (!quickChatMenu.contains(e.target) && e.target !== quickChatButton) { quickChatMenu.classList.remove('visible'); } });
     
-    // CORRIGÉ : On affiche la modale AVANT de dessiner dedans
+    // CORRIGÉ ET AMÉLIORÉ : On affiche la modale, dessine la carte ET la légende
     UI.enlargeMapBtn.addEventListener('click', () => {
-        // 1. On affiche la modale en PREMIER pour qu'elle ait une taille
         UI.largeMapModal.classList.remove('hidden');
-        // 2. ENSUITE, on dessine la carte, qui peut maintenant lire la taille de la modale
         UI.drawLargeMap(State.state, CONFIG);
+        UI.populateLargeMapLegend(); // NOUVEAU: On appelle la fonction de légende
     });
     UI.closeLargeMapBtn.addEventListener('click', () => { 
         UI.largeMapModal.classList.add('hidden'); 

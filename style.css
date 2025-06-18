@@ -124,9 +124,92 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
 #action-flash { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 99; pointer-events: none; opacity: 0; } #action-flash.flash-gain { animation: flash-green 0.4s ease-out; } #action-flash.flash-cost { animation: flash-red 0.4s ease-out; } @keyframes flash-green { from { opacity: 1; background-color: rgba(46, 204, 113, 0.2); } to { opacity: 0; background-color: rgba(46, 204, 113, 0); } } @keyframes flash-red { from { opacity: 1; background-color: rgba(231, 76, 60, 0.2); } to { opacity: 0; background-color: rgba(231, 76, 60, 0); } }
 
 .stat-bar-container-squares.pulsing { animation: pulse-warning 1.5s infinite ease-in-out; } @keyframes pulse-warning { 0% { filter: brightness(100%); } 50% { filter: brightness(130%); } 100% { filter: brightness(100%); } }
-#large-map-modal { position: fixed; inset: 0; z-index: 2000; background-color: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; padding: 20px; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
-#large-map-modal:not(.hidden) { opacity: 1; pointer-events: auto; } #large-map-canvas { max-width: 90vh; max-height: 90vh; image-rendering: pixelated; border-radius: 8px; border: 2px solid var(--text-secondary); }
-#close-large-map-btn { position: absolute; top: 20px; right: 20px; background: var(--accent-color); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 2em; line-height: 40px; text-align: center; cursor: pointer; transition: transform 0.2s; } #close-large-map-btn:hover { transform: scale(1.1) rotate(90deg); }
+
+/* MODIFIÉ: Anciens styles de la modale de carte */
+#large-map-modal { 
+    position: fixed; inset: 0; z-index: 2000; 
+    background-color: rgba(0, 0, 0, 0.8); 
+    backdrop-filter: blur(5px); 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    padding: 0; /* Changé de 20px à 0 */
+    opacity: 0; 
+    transition: opacity 0.3s ease; 
+    pointer-events: none; 
+}
+#large-map-modal:not(.hidden) { opacity: 1; pointer-events: auto; }
+
+#close-large-map-btn { position: absolute; top: 20px; right: 20px; background: var(--accent-color); color: white; border: none; width: 40px; height: 40px; border-radius: 50%; font-size: 2em; line-height: 40px; text-align: center; cursor: pointer; transition: transform 0.2s; z-index: 10; }
+#close-large-map-btn:hover { transform: scale(1.1) rotate(90deg); }
+
+/* NOUVEAU: Wrapper pour le contenu de la carte (canevas + légende) */
+#large-map-content-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    width: 95vw;
+    height: 95vh;
+    padding: 20px;
+}
+
+/* MODIFIÉ: Nouveaux styles pour le canvas de la carte */
+#large-map-canvas {
+    max-width: initial;
+    max-height: 100%;
+    height: 100%;
+    aspect-ratio: 1 / 1;
+    image-rendering: pixelated;
+    border-radius: 8px;
+    border: 2px solid var(--text-secondary);
+}
+
+/* NOUVEAU: Styles pour la légende de la carte */
+#large-map-legend {
+    background-color: var(--bg-panel);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    width: 100%;
+    max-width: 280px;
+    max-height: 90%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+#large-map-legend h3 {
+    margin: 0 0 10px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    text-align: center;
+    font-size: 1.2em;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.95em;
+}
+
+.legend-color-box {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.2);
+}
+
+.legend-item .legend-character-icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5em;
+}
+
 @media (max-width: 1200px) { #main-area { grid-template-columns: 250px 1fr 250px; } } @media (max-width: 900px) { body { padding: 5px; overflow: auto; } #game-container { gap: 10px; } #main-area { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; } #main-view-wrapper { grid-row: 1; height: 50vh; } #right-panel { grid-row: 2; } #left-panel { grid-row: 3; } .ui-panel { overflow-y: visible; padding: 15px; } .ui-panel section { padding: 12px; } .nav-button-overlay { width: 45px; height: 45px; font-size: 1.2em; } #bottom-bar { height: 200px; } }
 
 .action-failed-shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
