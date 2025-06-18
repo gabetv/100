@@ -1,5 +1,5 @@
 // js/player.js
-import { TILE_TYPES, CONFIG, ACTION_DURATIONS } from './config.js';
+import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ITEM_TYPES } from './config.js';
 
 export function getTotalResources(inventory) {
     return Object.values(inventory).reduce((sum, count) => sum + count, 0);
@@ -13,8 +13,12 @@ export function initPlayer(config) {
         thirst: 100, 
         hunger: 100, 
         sleep: 100,
-        inventory: { 'Bois': 20, 'Poisson': 10, 'Eau': 10 },
-        // NOUVEAU: Emplacements d'équipement
+        inventory: { 
+            'Bois': 10,
+            'Kit de Secours': 1,
+            'Barre Énergétique': 2,
+            'Ration d\'eau pure': 1
+        },
         equipment: {
             weapon: null,
             armor: null,
@@ -87,44 +91,75 @@ export function deductResources(player, costs) {
 
 export function consumeItem(itemOrNeed, player) {
     let itemName = itemOrNeed;
+    let itemDef = ITEM_TYPES[itemName];
+    let floatingTexts = [];
+
     if (itemOrNeed === 'hunger') {
-        if (player.inventory['Poisson Cuit'] > 0) itemName = 'Poisson Cuit';
-        else if (player.inventory['Poisson'] > 0) itemName = 'Poisson';
-        else return { success: false, message: "Vous n'avez rien à manger." };
+        itemName = player.inventory['Barre Énergétique'] > 0 ? 'Barre Énergétique' : 
+                   player.inventory['Poisson Cuit'] > 0 ? 'Poisson Cuit' : 
+                   player.inventory['Poisson'] > 0 ? 'Poisson' : null;
+        if (!itemName) return { success: false, message: "Vous n'avez rien à manger." };
     } else if (itemOrNeed === 'thirst') {
-        if (player.inventory['Eau'] > 0) itemName = 'Eau';
-        else return { success: false, message: "Vous n'avez rien à boire." };
+        itemName = player.inventory['Ration d\'eau pure'] > 0 ? 'Ration d\'eau pure' :
+                   player.inventory['Eau'] > 0 ? 'Eau' : null;
+        if (!itemName) return { success: false, message: "Vous n'avez rien à boire." };
     } else if (itemOrNeed === 'health') {
-        if (player.inventory['Poisson Cuit'] > 0) itemName = 'Poisson Cuit';
-        else return { success: false, message: "Vous n'avez rien pour vous soigner." };
+        itemName = player.inventory['Kit de Secours'] > 0 ? 'Kit de Secours' :
+                   player.inventory['Poisson Cuit'] > 0 ? 'Poisson Cuit' : null;
+        if (!itemName) return { success: false, message: "Vous n'avez rien pour vous soigner." };
     }
+    
     if (!player.inventory[itemName] || player.inventory[itemName] <= 0) {
         return { success: false, message: `Vous n'avez plus de "${itemName}".` };
     }
-    let result = { success: false };
-    switch (itemName) {
-        case 'Eau':
-            player.thirst = Math.min(100, player.thirst + 30);
-            result = { success: true, message: "Vous buvez de l'eau fraîche.", floatingTexts: ["+30 Soif"] };
-            break;
-        case 'Poisson':
+    
+    itemDef = ITEM_TYPES[itemName];
+
+    if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.effects)) {
+        if (itemName === 'Poisson') {
             player.hunger = Math.min(100, player.hunger + 15);
-            player.health = Math.max(0, player.health - 1); // -1 point de vie
-            result = { success: true, message: "Manger du poisson cru n'est pas une bonne idée... (-1 Santé)", floatingTexts: ["+15 Faim", "-1 Santé"] };
-            break;
-        case 'Poisson Cuit':
-            player.hunger = Math.min(100, player.hunger + 40);
-            if(player.health < 10) { // On ne peut pas soigner au-delà du max
-                player.health = Math.min(10, player.health + 1); // +1 point de vie
-                result = { success: true, message: "Vous mangez un délicieux poisson cuit. (+1 Santé)", floatingTexts: ["+40 Faim", "+1 Santé"] };
-            } else {
-                result = { success: true, message: "Vous mangez un délicieux poisson cuit.", floatingTexts: ["+40 Faim"] };
+            player.health = Math.max(0, player.health - 1);
+            floatingTexts.push("+15 Faim", "-1 Santé");
+        } else if(itemName === 'Eau') {
+            player.thirst = Math.min(100, player.thirst + 30);
+            floatingTexts.push("+30 Soif");
+        } else {
+            return { success: false, message: `Vous ne pouvez pas consommer "${itemName}".` };
+        }
+    } else {
+        for (const effect in itemDef.effects) {
+            const value = itemDef.effects[effect];
+            switch (effect) {
+                case 'health':
+                    if (player.health < 10) {
+                        player.health = Math.min(10, player.health + value);
+                        floatingTexts.push(`+${value} Santé`);
+                    }
+                    break;
+                case 'thirst':
+                    player.thirst = Math.min(100, player.thirst + value);
+                    floatingTexts.push(`+${value} Soif`);
+                    break;
+                case 'hunger':
+                    player.hunger = Math.min(100, player.hunger + value);
+                    floatingTexts.push(`+${value} Faim`);
+                    break;
+                case 'sleep':
+                    player.sleep = Math.min(100, player.sleep + value);
+                    floatingTexts.push(`+${value} Sommeil`);
+                    break;
+                case 'status':
+                    player.status = value;
+                    floatingTexts.push(`Statut: ${value}`);
+                    break;
             }
-            break;
+        }
     }
-    if (result.success) {
-        player.inventory[itemName]--;
-        if (player.inventory[itemName] <= 0) { delete player.inventory[itemName]; }
+
+    player.inventory[itemName]--;
+    if (player.inventory[itemName] <= 0) {
+        delete player.inventory[itemName];
     }
-    return result;
+    
+    return { success: true, message: `Vous utilisez: ${itemName}.`, floatingTexts };
 }

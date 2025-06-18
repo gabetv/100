@@ -57,7 +57,30 @@ export const ITEM_TYPES = {
     'Peau de bête': { type: 'resource', icon: '🟤', description: "Une peau épaisse, utile pour l'artisanat." },
 
     // Consommables
-    'Poisson Cuit': { type: 'consumable', icon: '🔥' },
+    'Poisson Cuit': { 
+        type: 'consumable', 
+        icon: '🔥',
+        description: "Un repas chaud et revigorant.",
+        effects: { hunger: 40, health: 1 }
+    },
+    'Kit de Secours': {
+        type: 'consumable',
+        icon: '✚',
+        description: "Soigne les blessures et les maladies.",
+        effects: { status: 'Normal' }
+    },
+    'Barre Énergétique': {
+        type: 'consumable',
+        icon: '🍫',
+        description: "Un boost rapide pour la faim et le sommeil.",
+        effects: { hunger: 60, sleep: 40 }
+    },
+    'Ration d\'eau pure': {
+        type: 'consumable',
+        icon: '🍼',
+        description: "De l'eau purifiée, très désaltérante.",
+        effects: { thirst: 100 }
+    },
     
     // Équipement: Armes
     'Hache en Pierre': { 

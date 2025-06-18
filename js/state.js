@@ -111,7 +111,6 @@ export function addEnemy(enemy) {
     }
 }
 
-// NOUVEAU: Fonctions pour équiper/déséquiper
 export function equipItem(itemName) {
     const player = gameState.player;
     const itemDefinition = ITEM_TYPES[itemName];
@@ -119,20 +118,18 @@ export function equipItem(itemName) {
         return { success: false, message: "Objet introuvable." };
     }
     
-    const slotType = itemDefinition.slot; // 'weapon', 'armor', etc.
+    const slotType = itemDefinition.slot;
     if (!slotType || !player.equipment.hasOwnProperty(slotType)) {
         return { success: false, message: "Vous ne pouvez pas équiper cet objet." };
     }
     
-    // S'il y a déjà un objet, on le déséquipe d'abord
     if (player.equipment[slotType]) {
         const unequipResult = unequipItem(slotType);
         if (!unequipResult.success) {
-            return unequipResult; // Échec si l'inventaire est plein
+            return unequipResult;
         }
     }
 
-    // Équiper le nouvel objet
     player.inventory[itemName]--;
     if (player.inventory[itemName] <= 0) {
         delete player.inventory[itemName];
@@ -159,7 +156,6 @@ export function unequipItem(slot) {
     
     return { success: true, message: `${item.name} déséquipé.` };
 }
-
 
 export function addResourceToPlayer(resourceType, amount) {
     const player = gameState.player;

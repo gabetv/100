@@ -41,7 +41,7 @@ function updatePossibleActions() {
         button.textContent = text;
         button.disabled = disabled;
         button.title = title;
-        button.onclick = () => Interactions.handlePlayerAction(actionId, data, { updateAllUI, updatePossibleActions, updateAllButtonsState });
+        button.onclick = () => Interactions.handlePlayerAction(actionId, data, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
         UI.actionsEl.appendChild(button);
     };
 
@@ -142,15 +142,13 @@ function gameLoop(currentTime) {
         if (anim.progress >= 1) {
             if (anim.type === 'out') {
                 State.applyPlayerMove(anim.direction);
-                UI.draw(State.state);
+                UI.drawMainBackground(State.state);
                 anim.type = 'in';
                 anim.progress = 0;
             } else {
                 player.animationState = null;
                 player.isBusy = false;
-                updateAllUI();
-                updatePossibleActions();
-                updateAllButtonsState();
+                fullUIUpdate();
             }
         }
     }
@@ -183,7 +181,7 @@ function handleNavigation(direction) {
     player.isBusy = true;
     player.animationState = { type: 'out', direction: direction, progress: 0 };
     updatePossibleActions();
-    updateAllButtonsState();
+    UI.updateAllButtonsState(State.state);
 }
 
 function handleConsumeClick(itemOrNeed) {
@@ -193,15 +191,18 @@ function handleConsumeClick(itemOrNeed) {
     UI.addChatMessage(result.message, 'system');
     if(result.success) {
         UI.triggerActionFlash('gain');
-        result.floatingTexts.forEach(text => { UI.showFloatingText(text, text.startsWith('-') ? 'cost' : 'gain'); });
-        updateAllUI(); updatePossibleActions(); updateAllButtonsState();
+        result.floatingTexts.forEach(text => { UI.showFloatingText(text, text.startsWith('+') ? 'gain' : 'cost'); });
+        fullUIUpdate();
     } else {
         UI.triggerShake(document.getElementById('inventory-list'));
     }
 }
 
-function updateAllUI() { UI.updateAllUI(State.state); }
-function updateAllButtonsState() { UI.updateAllButtonsState(State.state); }
+function fullUIUpdate() {
+    UI.updateAllUI(State.state);
+    updatePossibleActions();
+    UI.updateAllButtonsState(State.state);
+}
 
 function dailyUpdate() {
     if (++State.state.day > 100) {
@@ -240,11 +241,9 @@ function setupEventListeners() {
     UI.enlargeMapBtn.addEventListener('click', () => {
         UI.largeMapModal.classList.remove('hidden');
         UI.drawLargeMap(State.state, CONFIG);
-        UI.populateLargeMapLegend();
+        UI.populateLargeMapLegend(); 
     });
-    UI.closeLargeMapBtn.addEventListener('click', () => { 
-        UI.largeMapModal.classList.add('hidden'); 
-    });
+    UI.closeLargeMapBtn.addEventListener('click', () => { UI.largeMapModal.classList.add('hidden'); });
     
     UI.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
     UI.inventoryModal.addEventListener('click', (e) => { if (e.target.id === 'inventory-modal') UI.hideInventoryModal(); });
@@ -276,7 +275,7 @@ function setupEventListeners() {
                 const result = State.equipItem(itemName);
                 UI.addChatMessage(result.message, 'system');
                 UI.updateEquipmentModal(State.state);
-                updateAllUI();
+                fullUIUpdate();
             }
         }
         
@@ -286,7 +285,7 @@ function setupEventListeners() {
              if (!result.success) UI.triggerShake(dropZone);
             UI.addChatMessage(result.message, 'system');
             UI.updateEquipmentModal(State.state);
-            updateAllUI();
+            fullUIUpdate();
         }
         
         else if (dropZone.dataset.owner === 'shared' || dropZone.dataset.owner === 'player') {
@@ -299,7 +298,7 @@ function setupEventListeners() {
                     if (chosenAmount > 0) {
                         const result = State.applyBulkInventoryTransfer(itemName, chosenAmount, transferType);
                         UI.addChatMessage(result.message, 'system');
-                        if (result.success) { UI.showInventoryModal(State.state); updateAllUI(); } 
+                        if (result.success) { UI.showInventoryModal(State.state); fullUIUpdate(); } 
                         else { UI.triggerShake(draggedItem); }
                     }
                 });
@@ -328,6 +327,8 @@ function setupEventListeners() {
     
     window.handleCombatAction = Interactions.handleCombatAction;
     window.gameState = State.state;
+    
+    UI.setupQuantityModalListeners();
 }
 
 function endGame(isVictory) {
@@ -343,7 +344,9 @@ function endGame(isVictory) {
 
 function fullResizeAndRedraw() {
     UI.resizeGameView();
-    if (State.state.player) UI.draw(State.state);
+    if (State.state.player) {
+        UI.renderScene(State.state);
+    }
 }
 
 async function init() {
@@ -352,13 +355,13 @@ async function init() {
         fullResizeAndRedraw();
         window.addEventListener('resize', fullResizeAndRedraw);
         State.initializeGameState(CONFIG);
+        State.state.config = CONFIG; 
         setupEventListeners();
-        updateAllUI();
-        updatePossibleActions();
+        fullUIUpdate();
         requestAnimationFrame(gameLoop);
         State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
         State.state.gameIntervals.push(setInterval(() => npcChatter(State.state.npcs), CONFIG.CHAT_MESSAGE_INTERVAL_MS));
-        console.log("Jeu initialisé avec le système d'équipement.");
+        console.log("Jeu initialisé avec la nouvelle structure UI.");
     } catch (error) {
         console.error("ERREUR CRITIQUE lors de l'initialisation :", error);
         document.body.innerHTML = `<div style="color:white; padding: 20px;">Erreur critique au chargement : ${error.message}</div>`;
