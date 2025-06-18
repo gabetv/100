@@ -208,7 +208,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
         
         case 'harvest_wood': {
-            applyActionCosts(player, { thirst: 4, hunger: 2, sleep: 3 });
+            applyActionCosts(player, { thirst: 2, hunger: 1, sleep: 2 });
             performToolAction(player, 'weapon', 'harvest_wood', (power) => {
                 State.addResourceToPlayer('Bois', power);
                 UI.showFloatingText(`+${power} Bois`, 'gain');
@@ -218,7 +218,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
 
         case 'fish': {
-            applyActionCosts(player, { thirst: 2, hunger: 1, sleep: 2 });
+            applyActionCosts(player, { thirst: 1, hunger: 1, sleep: 1 });
             performToolAction(player, 'weapon', 'fish', (power) => {
                 State.addResourceToPlayer('Poisson cru', power);
                 UI.showFloatingText(`+${power} Poisson cru`, 'gain');
@@ -234,7 +234,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                  return;
              }
              
-             applyActionCosts(player, { thirst: 5, hunger: 3, sleep: 4 });
+             applyActionCosts(player, { thirst: 2, hunger: 2, sleep: 2 });
              performTimedAction(player, ACTION_DURATIONS.CRAFT,
                 () => UI.addChatMessage(`Vous chassez avec ${weapon.name}...`, "system"),
                 () => {
@@ -267,7 +267,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 UI.triggerShake(document.getElementById('inventory-list'));
                 return;
             }
-            applyActionCosts(player, { thirst: 10, hunger: 5, sleep: 5 });
+            applyActionCosts(player, { thirst: 4, hunger: 2, sleep: 3 });
             performTimedAction(player, ACTION_DURATIONS.CRAFT, 
                 () => UI.addChatMessage(`Construction...`, "system"), 
                 () => {
@@ -288,7 +288,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 return;
             }
             
-            applyActionCosts(player, { thirst: 10, hunger: 10, sleep: 15 });
+            applyActionCosts(player, { thirst: 5, hunger: 5, sleep: 7 });
             performTimedAction(player, ACTION_DURATIONS.DIG,
                 () => UI.addChatMessage("Vous creusez une entrée de mine...", "system"),
                 () => {
@@ -308,7 +308,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 UI.addChatMessage("Vous n'avez pas assez d'eau.", "system");
                 return;
             }
-            applyActionCosts(player, { thirst: 3, hunger: 2, sleep: 2 });
+            applyActionCosts(player, { thirst: 1, hunger: 1, sleep: 1 });
             performTimedAction(player, ACTION_DURATIONS.CRAFT,
                 () => UI.addChatMessage("Vous arrosez la terre...", "system"),
                 () => {

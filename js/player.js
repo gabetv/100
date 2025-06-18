@@ -9,10 +9,10 @@ export function initPlayer(config) {
     return {
         x: Math.floor(config.MAP_WIDTH / 2) + 1, y: Math.floor(config.MAP_HEIGHT / 2),
         // Stats de base
-        health: 10, thirst: 100, hunger: 100, sleep: 100,
+        health: 10, thirst: 10, hunger: 10, sleep: 10,
         status: 'Normal', // Normal, Blessé, Malade, Empoisonné
         // Stats max (peuvent être modifiées par l'équipement)
-        maxHealth: 10, maxThirst: 100, maxHunger: 100, maxSleep: 100, maxInventory: CONFIG.PLAYER_BASE_MAX_RESOURCES,
+        maxHealth: 10, maxThirst: 10, maxHunger: 10, maxSleep: 10, maxInventory: CONFIG.PLAYER_BASE_MAX_RESOURCES,
         
         inventory: { 
             'Hache': 1,

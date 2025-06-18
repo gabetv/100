@@ -3,11 +3,9 @@
 export const CONFIG = {
     MAP_WIDTH: 20, MAP_HEIGHT: 20, TILE_SIZE: 192, MINIMAP_DOT_SIZE: 8,
     NUM_NPCS: 4, 
-    // NOUVEAU : STATS DE COMBAT POUR LES PNJ
     NPC_BASE_HEALTH: 8,
     NPC_BASE_DAMAGE: 1,
     NPC_AGGRO_RADIUS: 3, // Rayon dans lequel un PNJ détecte et attaque un ennemi
-    // FIN NOUVEAU
     INITIAL_ENEMIES: 1, MAX_ENEMIES: 6, ENEMY_SPAWN_CHECK_DAYS: 3,
     DAY_DURATION_MS: 120000, STAT_DECAY_INTERVAL_MS: 5000,
     NPC_ACTION_INTERVAL_MS: 3000, CHAT_MESSAGE_INTERVAL_MS: 25000,
@@ -41,17 +39,17 @@ export const ITEM_TYPES = {
     'Poisson cru': { type: 'resource', icon: '🐟' }, 'Sel': { type: 'resource', icon: '🧂' },
     'Sucre': { type: 'resource', icon: '🍬' }, 'Composants électroniques': {type: 'resource', icon: '⚙️'},
 
-    // === CONSOMMABLES ===
-    'Eau pure': { type: 'consumable', icon: '💧', effects: { thirst: 10 } },
-    'Eau salée': { type: 'consumable', icon: '🚱', effects: { thirst: 5, status: { name: 'Malade', chance: 0.5 } } },
-    'Insectes': { type: 'consumable', icon: '🦗', effects: { hunger: 2 } },
-    'Viande cuite': { type: 'consumable', icon: '🍖', effects: { hunger: 6 } },
-    'Poisson cuit': { type: 'consumable', icon: '🔥', effects: { hunger: 5 } },
-    'Banane': { type: 'consumable', icon: '🍌', effects: { hunger: 5, thirst: 1 } },
-    'Noix de coco': { type: 'consumable', icon: '🥥', effects: { thirst: 6 } },
-    'Canne à sucre': { type: 'consumable', icon: '🎋', effects: { hunger: 8, thirst: -1 } },
-    'Sucre': { type: 'consumable', icon: '🍬', effects: { hunger: 2, sleep: 3, thirst: -3 } },
-    'Barre Énergétique': { type: 'consumable', icon: '🍫', effects: { hunger: 60, sleep: 40 } },
+    // === CONSOMMABLES (valeurs ajustées pour une échelle de 10) ===
+    'Eau pure': { type: 'consumable', icon: '💧', effects: { thirst: 3 } },
+    'Eau salée': { type: 'consumable', icon: '🚱', effects: { thirst: 1, status: { name: 'Malade', chance: 0.5 } } },
+    'Insectes': { type: 'consumable', icon: '🦗', effects: { hunger: 1 } },
+    'Viande cuite': { type: 'consumable', icon: '🍖', effects: { hunger: 3 } },
+    'Poisson cuit': { type: 'consumable', icon: '🔥', effects: { hunger: 2 } },
+    'Banane': { type: 'consumable', icon: '🍌', effects: { hunger: 2, thirst: 1 } },
+    'Noix de coco': { type: 'consumable', icon: '🥥', effects: { thirst: 3 } },
+    'Canne à sucre': { type: 'consumable', icon: '🎋', effects: { hunger: 3, thirst: -1 } },
+    'Sucre': { type: 'consumable', icon: '🍬', effects: { hunger: 1, sleep: 1, thirst: -1 } },
+    'Barre Énergétique': { type: 'consumable', icon: '🍫', effects: { hunger: 6, sleep: 4 } },
     'Médicaments': { type: 'consumable', icon: '💊', effects: { ifStatus: 'Malade', status: 'Normal', health: 5 } },
     'Antiseptiques': { type: 'consumable', icon: '🧴', effects: { ifStatus: 'Empoisonné', status: 'Normal', health: 3 } },
     'Bandage': { type: 'consumable', icon: '🩹', effects: { ifStatus: 'Blessé', status: 'Normal', health: 4 } },
@@ -69,10 +67,10 @@ export const ITEM_TYPES = {
     'Bouclier en fer': {type: 'armor', slot: 'body', icon: '🛡️', durability: 20, stats: {defense: 4}},
     // ... plus d'armes ici
 
-    // === ÉQUIPEMENT ===
+    // === ÉQUIPEMENT (valeurs ajustées pour une échelle de 10) ===
     'Vêtements': { type: 'body', slot: 'body', icon: '👕', stats: { maxHealth: 2 } },
-    'Chaussures': { type: 'feet', slot: 'feet', icon: '👟', stats: { maxSleep: 20 } },
-    'Chapeau': { type: 'head', slot: 'head', icon: '👒', stats: { maxThirst: 20 } },
+    'Chaussures': { type: 'feet', slot: 'feet', icon: '👟', stats: { maxSleep: 2 } },
+    'Chapeau': { type: 'head', slot: 'head', icon: '👒', stats: { maxThirst: 2 } },
     'Petit Sac': { type: 'bag', slot: 'bag', icon: '🎒', stats: { maxInventory: 50 } },
     'Grand Sac': { type: 'bag', slot: 'bag', icon: '🛍️', stats: { maxInventory: 150 } },
 
@@ -98,12 +96,12 @@ export const SPRITESHEET_PATHS = {
 export const TILE_TYPES = {
     WATER_LAGOON: { name: 'Lagon', accessible: false, color: '#48cae4', background: ['bg_sand_1', 'bg_sand_2', 'bg_sand_3', 'bg_sand_4'], resource: { type: 'Eau salée', yield: 1 }, harvests: Infinity },
     SAND_GOLDEN: { name: 'Sable Doré', accessible: true, color: '#f4d35e', background: ['bg_sand_1', 'bg_sand_2', 'bg_sand_3', 'bg_sand_4'], resource: { type: 'Sable', yield: 5 }, harvests: 20 },
-    FOREST: { name: 'Forêt', resource: { type: 'Bois', yield: 5, thirstCost: 2, hungerCost: 3, sleepCost: 2 }, harvests: 10, accessible: true, color: '#2d6a4f', background: ['bg_forest_1', 'bg_forest_2', 'bg_forest_3', 'bg_forest_4'] },
+    FOREST: { name: 'Forêt', resource: { type: 'Bois', yield: 5, thirstCost: 1, hungerCost: 1, sleepCost: 1 }, harvests: 10, accessible: true, color: '#2d6a4f', background: ['bg_forest_1', 'bg_forest_2', 'bg_forest_3', 'bg_forest_4'] },
     WASTELAND: { name: 'Friche', accessible: true, color: '#9c6644', background: ['bg_wasteland_1', 'bg_wasteland_2', 'bg_wasteland_3', 'bg_wasteland_4'], regeneration: { cost: { 'Eau pure': 5 }, target: 'FOREST' } },
     PLAINS: { name: 'Plaine', accessible: true, color: '#80b918', background: ['bg_plains_1', 'bg_plains_2', 'bg_plains_3', 'bg_plains_4'] },
     STONE_DEPOSIT: { name: 'Gisement de Pierre', accessible: true, color: '#8d99ae', background: ['bg_stone_1', 'bg_stone_2'], resource: { type: 'Pierre', yield: 3 }, harvests: 15 },
     CAMPFIRE: { name: 'Feu de Camp', accessible: true, color: '#e76f51', background: ['bg_campfire'] },
     SHELTER_INDIVIDUAL: { name: 'Abri Individuel', accessible: true, color: '#fefae0', background: ['bg_shelter_individual'], sleepEffect: { sleep: 5, health: 3 } },
     SHELTER_COLLECTIVE: { name: 'Abri Collectif', accessible: true, color: '#ffffff', background: ['bg_shelter_collective'], inventory: {}, sleepEffect: { sleep: 3, health: 5 } },
-    MINE: { name: 'Mine', accessible: true, color: '#5e503f', background: ['bg_mine'], resource: { type: 'Minerai', yield: 1, thirstCost: 1, hungerCost: 3, sleepCost: 3 } }
+    MINE: { name: 'Mine', accessible: true, color: '#5e503f', background: ['bg_mine'], resource: { type: 'Minerai', yield: 1, thirstCost: 1, hungerCost: 1, sleepCost: 2 } }
 };
