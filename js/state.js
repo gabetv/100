@@ -3,7 +3,7 @@ import { generateMap } from './map.js';
 import { initPlayer, getTotalResources, hasResources as playerHasResources, deductResources, consumeItem as playerConsumeItem, transferItems } from './player.js';
 import { initNpcs } from './npc.js';
 import { initEnemies } from './enemy.js';
-import { TILE_TYPES, CONFIG } from './config.js';
+import { TILE_TYPES, CONFIG, ITEM_TYPES } from './config.js';
 
 const gameState = {
     map: [],
@@ -105,12 +105,61 @@ export function endCombat(victory) {
     console.log("Combat ended.");
 }
 
-// NOUVEAU: Fonction pour ajouter un ennemi à l'état
 export function addEnemy(enemy) {
     if (enemy) {
         gameState.enemies.push(enemy);
     }
 }
+
+// NOUVEAU: Fonctions pour équiper/déséquiper
+export function equipItem(itemName) {
+    const player = gameState.player;
+    const itemDefinition = ITEM_TYPES[itemName];
+    if (!itemDefinition || !player.inventory[itemName]) {
+        return { success: false, message: "Objet introuvable." };
+    }
+    
+    const slotType = itemDefinition.slot; // 'weapon', 'armor', etc.
+    if (!slotType || !player.equipment.hasOwnProperty(slotType)) {
+        return { success: false, message: "Vous ne pouvez pas équiper cet objet." };
+    }
+    
+    // S'il y a déjà un objet, on le déséquipe d'abord
+    if (player.equipment[slotType]) {
+        const unequipResult = unequipItem(slotType);
+        if (!unequipResult.success) {
+            return unequipResult; // Échec si l'inventaire est plein
+        }
+    }
+
+    // Équiper le nouvel objet
+    player.inventory[itemName]--;
+    if (player.inventory[itemName] <= 0) {
+        delete player.inventory[itemName];
+    }
+    player.equipment[slotType] = { name: itemName, ...itemDefinition };
+
+    return { success: true, message: `${itemName} équipé.` };
+}
+
+export function unequipItem(slot) {
+    const player = gameState.player;
+    if (!player.equipment[slot]) {
+        return { success: false, message: "Aucun objet dans cet emplacement." };
+    }
+    
+    const totalPlayerResources = getTotalResources(player.inventory);
+    if (totalPlayerResources >= CONFIG.PLAYER_MAX_RESOURCES) {
+        return { success: false, message: "Inventaire plein. Impossible de déséquiper." };
+    }
+
+    const item = player.equipment[slot];
+    addResourceToPlayer(item.name, 1);
+    player.equipment[slot] = null;
+    
+    return { success: true, message: `${item.name} déséquipé.` };
+}
+
 
 export function addResourceToPlayer(resourceType, amount) {
     const player = gameState.player;

@@ -8,13 +8,17 @@ export function getTotalResources(inventory) {
 export function initPlayer(config) {
     return {
         x: Math.floor(config.MAP_WIDTH / 2) + 1, y: Math.floor(config.MAP_HEIGHT / 2),
-        // MODIFIÉ: Santé sur 10 et ajout du statut
         health: 10,
-        status: 'Normal', // 'Normal', 'Blessé', 'Empoisonné', 'Malade', etc.
+        status: 'Normal',
         thirst: 100, 
         hunger: 100, 
         sleep: 100,
         inventory: { 'Bois': 20, 'Poisson': 10, 'Eau': 10 },
+        // NOUVEAU: Emplacements d'équipement
+        equipment: {
+            weapon: null,
+            armor: null,
+        },
         color: '#ffd700', isBusy: false, animationState: null,
     };
 }
@@ -39,7 +43,6 @@ export function decayStats(gameState) {
     player.hunger = Math.max(0, player.hunger - (1 * decayMultiplier));
     player.sleep = Math.max(0, player.sleep - (0.5 * decayMultiplier));
     
-    // MODIFIÉ: La perte de vie est maintenant gérée en points entiers (sur 10)
     if (player.thirst <= 0 || player.hunger <= 0) {
         player.health = Math.max(0, player.health - 1);
         return { message: "Votre santé se dégrade !" };

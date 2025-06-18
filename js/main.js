@@ -1,6 +1,6 @@
 // js/main.js
 import * as UI from './ui.js';
-import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES } from './config.js';
+import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES } from './config.js';
 import * as State from './state.js';
 import { decayStats, getTotalResources } from './player.js';
 import { updateNpcs, npcChatter } from './npc.js';
@@ -249,42 +249,71 @@ function setupEventListeners() {
     UI.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
     UI.inventoryModal.addEventListener('click', (e) => { if (e.target.id === 'inventory-modal') UI.hideInventoryModal(); });
 
+    document.getElementById('open-equipment-btn').addEventListener('click', () => UI.showEquipmentModal(State.state));
+    UI.closeEquipmentModalBtn.addEventListener('click', UI.hideEquipmentModal);
+    UI.equipmentModal.addEventListener('click', (e) => { if (e.target.id === 'equipment-modal') UI.hideEquipmentModal(); });
+
     let draggedItem = null;
-    UI.inventoryModal.addEventListener('dragstart', (e) => { if (e.target.classList.contains('inventory-item')) { draggedItem = e.target; setTimeout(() => e.target.classList.add('dragging'), 0); } });
-    UI.inventoryModal.addEventListener('dragend', () => { if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; } });
-    const modalGrid = document.getElementById('inventory-modal-grid');
-    modalGrid.addEventListener('dragover', (e) => { e.preventDefault(); const dropZone = e.target.closest('.droppable'); if (dropZone) { document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over')); dropZone.classList.add('drag-over'); } });
-    modalGrid.addEventListener('dragleave', (e) => { const dropZone = e.target.closest('.droppable'); if (dropZone) { dropZone.classList.remove('drag-over'); } });
     
-    modalGrid.addEventListener('drop', (e) => {
+    function handleDragStart(e) { if (e.target.classList.contains('inventory-item')) { draggedItem = e.target; setTimeout(() => e.target.classList.add('dragging'), 0); } }
+    function handleDragEnd() { if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; } }
+    function handleDragOver(e) { e.preventDefault(); const dropZone = e.target.closest('.droppable'); if (dropZone) { document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over')); dropZone.classList.add('drag-over'); } }
+    function handleDragLeave(e) { const dropZone = e.target.closest('.droppable'); if (dropZone) { dropZone.classList.remove('drag-over'); } }
+    
+    function handleDrop(e) {
         e.preventDefault();
         const dropZone = e.target.closest('.droppable');
         document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over'));
-        if (dropZone && draggedItem) {
-            const sourceOwner = draggedItem.dataset.owner;
-            const destOwner = dropZone.dataset.owner;
-            const itemName = draggedItem.dataset.itemName;
-            const maxAmount = parseInt(draggedItem.dataset.itemCount, 10);
-            
-            if (sourceOwner !== destOwner) {
-                const transferType = (destOwner === 'shared') ? 'deposit' : 'withdraw';
-                
-                if (e.shiftKey) {
-                    const result = State.applyBulkInventoryTransfer(itemName, maxAmount, transferType);
-                    UI.addChatMessage(result.message, 'system');
-                    if (result.success) { UI.showInventoryModal(State.state); updateAllUI(); } 
-                    else { UI.triggerShake(draggedItem); }
-                } else {
-                    UI.showQuantityModal(itemName, maxAmount, (chosenAmount) => {
-                        if (chosenAmount > 0) {
-                            const result = State.applyBulkInventoryTransfer(itemName, chosenAmount, transferType);
-                            UI.addChatMessage(result.message, 'system');
-                            if (result.success) { UI.showInventoryModal(State.state); updateAllUI(); } 
-                            else { UI.triggerShake(draggedItem); }
-                        }
-                    });
-                }
+        if (!dropZone || !draggedItem) return;
+
+        const itemName = draggedItem.dataset.itemName;
+        const sourceOwner = draggedItem.dataset.owner;
+
+        if (dropZone.classList.contains('equipment-slot') && sourceOwner === 'player-inventory') {
+            const itemDef = ITEM_TYPES[itemName];
+            const slotType = dropZone.dataset.slotType;
+            if (itemDef && itemDef.slot === slotType) {
+                const result = State.equipItem(itemName);
+                UI.addChatMessage(result.message, 'system');
+                UI.updateEquipmentModal(State.state);
+                updateAllUI();
             }
+        }
+        
+        else if (dropZone.id === 'equipment-player-inventory' && sourceOwner === 'equipment') {
+            const slotType = draggedItem.dataset.slotType;
+            const result = State.unequipItem(slotType);
+             if (!result.success) UI.triggerShake(dropZone);
+            UI.addChatMessage(result.message, 'system');
+            UI.updateEquipmentModal(State.state);
+            updateAllUI();
+        }
+        
+        else if (dropZone.dataset.owner === 'shared' || dropZone.dataset.owner === 'player') {
+            const destOwner = dropZone.dataset.owner;
+             if (sourceOwner !== destOwner && (sourceOwner === 'player' || sourceOwner === 'shared')) {
+                const transferType = (destOwner === 'shared') ? 'deposit' : 'withdraw';
+                const maxAmount = parseInt(draggedItem.dataset.itemCount, 10);
+                
+                UI.showQuantityModal(itemName, maxAmount, (chosenAmount) => {
+                    if (chosenAmount > 0) {
+                        const result = State.applyBulkInventoryTransfer(itemName, chosenAmount, transferType);
+                        UI.addChatMessage(result.message, 'system');
+                        if (result.success) { UI.showInventoryModal(State.state); updateAllUI(); } 
+                        else { UI.triggerShake(draggedItem); }
+                    }
+                });
+            }
+        }
+    }
+    
+    [UI.inventoryModal, UI.equipmentModal].forEach(modal => {
+        if(modal) {
+            modal.addEventListener('dragstart', handleDragStart);
+            modal.addEventListener('dragend', handleDragEnd);
+            modal.addEventListener('dragover', handleDragOver);
+            modal.addEventListener('dragleave', handleDragLeave);
+            modal.addEventListener('drop', handleDrop);
         }
     });
 
@@ -293,6 +322,7 @@ function setupEventListeners() {
             if (!UI.largeMapModal.classList.contains('hidden')) UI.largeMapModal.classList.add('hidden');
             if (!UI.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
             if (!UI.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
+            if (!UI.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
         }
     });
     
@@ -304,9 +334,7 @@ function endGame(isVictory) {
     if (State.state.isGameOver) return;
     State.state.isGameOver = true;
     State.state.gameIntervals.forEach(clearInterval);
-    if(State.state.combatState) {
-        UI.hideCombatModal();
-    }
+    if(State.state.combatState) UI.hideCombatModal();
     const finalMessage = isVictory ? "Félicitations ! Vous avez survécu 100 jours !" : "Vous n'avez pas survécu...";
     UI.addChatMessage(finalMessage, 'system');
     document.querySelectorAll('button').forEach(b => b.disabled = true);
@@ -330,7 +358,7 @@ async function init() {
         requestAnimationFrame(gameLoop);
         State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
         State.state.gameIntervals.push(setInterval(() => npcChatter(State.state.npcs), CONFIG.CHAT_MESSAGE_INTERVAL_MS));
-        console.log("Jeu initialisé avec le système d'apparition d'ennemis.");
+        console.log("Jeu initialisé avec le système d'équipement.");
     } catch (error) {
         console.error("ERREUR CRITIQUE lors de l'initialisation :", error);
         document.body.innerHTML = `<div style="color:white; padding: 20px;">Erreur critique au chargement : ${error.message}</div>`;

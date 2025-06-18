@@ -14,54 +14,40 @@
         <div id="main-area">
             <!-- ### PANNEAU DE GAUCHE ### -->
             <div id="left-panel" class="ui-panel">
+                <section id="player-status-header">
+                    <h3>Statut <button id="open-equipment-btn" title="Ouvrir l'équipement">🎒</button></h3>
+                </section>
                 <section id="player-stats">
-                    <h3>Statut du Survivant</h3>
-                    
-                    <!-- STAT DE SANTÉ -->
                     <div class="stat">
                         <div class="stat-header">
                             <span class="stat-icon">❤️</span>
                             <span>Santé (<span id="health-status">Normal</span>)</span>
                             <button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button>
                         </div>
-                        <div class="stat-bar-container-squares" id="health-bar-squares">
-                            <!-- Les carrés seront générés ici par JS -->
-                        </div>
+                        <div class="stat-bar-container-squares" id="health-bar-squares"></div>
                     </div>
-
-                    <!-- STAT DE SOIF -->
                     <div class="stat">
                         <div class="stat-header">
                             <span class="stat-icon">💧</span>
                             <span>Soif</span>
                             <button class="consume-btn" id="consume-thirst-btn" title="Boire de l'eau">+</button>
                         </div>
-                        <div class="stat-bar-container-squares" id="thirst-bar-squares">
-                            <!-- Les carrés seront générés ici par JS -->
-                        </div>
+                        <div class="stat-bar-container-squares" id="thirst-bar-squares"></div>
                     </div>
-
-                    <!-- STAT DE FAIM -->
                     <div class="stat">
                         <div class="stat-header">
                             <span class="stat-icon">🍗</span>
                             <span>Faim</span>
                             <button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button>
                         </div>
-                        <div class="stat-bar-container-squares" id="hunger-bar-squares">
-                            <!-- Les carrés seront générés ici par JS -->
-                        </div>
+                        <div class="stat-bar-container-squares" id="hunger-bar-squares"></div>
                     </div>
-
-                    <!-- STAT DE SOMMEIL -->
                     <div class="stat">
                         <div class="stat-header">
                             <span class="stat-icon">🌙</span>
                             <span>Sommeil</span>
                         </div>
-                        <div class="stat-bar-container-squares" id="sleep-bar-squares">
-                            <!-- Les carrés seront générés ici par JS -->
-                        </div>
+                        <div class="stat-bar-container-squares" id="sleep-bar-squares"></div>
                     </div>
                 </section>
                 <section id="minimap-section">
@@ -137,9 +123,7 @@
         <button id="close-large-map-btn">&times;</button>
         <div id="large-map-content-wrapper">
             <canvas id="large-map-canvas"></canvas>
-            <div id="large-map-legend">
-                <!-- La légende sera générée ici par le JS -->
-            </div>
+            <div id="large-map-legend"></div>
         </div>
     </div>
 
@@ -183,7 +167,6 @@
         <div id="combat-modal-content">
             <h2>COMBAT</h2>
             <div id="combat-participants">
-                <!-- Info Joueur -->
                 <div class="combatant-info" id="combat-player-info">
                     <h3>Vous</h3>
                     <div class="combat-health-bar-container">
@@ -192,7 +175,6 @@
                     <span id="combat-player-health-text">10 / 10</span>
                 </div>
                 <span id="vs-text">VS</span>
-                <!-- Info Ennemi -->
                 <div class="combatant-info" id="combat-enemy-info">
                     <h3 id="combat-enemy-name">Loup Agressif</h3>
                     <div class="combat-health-bar-container">
@@ -201,13 +183,41 @@
                     <span id="combat-enemy-health-text">10 / 10</span>
                 </div>
             </div>
-
-            <div id="combat-log">
-                <!-- Les messages de combat apparaîtront ici -->
-            </div>
-
-            <div id="combat-actions">
-                <!-- Les actions de combat seront générées ici -->
+            <div id="combat-log"></div>
+            <div id="combat-actions"></div>
+        </div>
+    </div>
+    
+    <div id="equipment-modal" class="hidden">
+        <div id="equipment-modal-content">
+            <button id="close-equipment-modal-btn">&times;</button>
+            <h2>Équipement & Inventaire</h2>
+            <div id="equipment-grid">
+                <div id="equipment-player-view">
+                    <div class="player-character-placeholder">
+                        <div class="player-head"></div>
+                        <div class="player-body"></div>
+                    </div>
+                    <div id="equipment-player-stats">
+                        <h3>Statistiques de Combat</h3>
+                        <p>Attaque: <span id="player-stat-attack">1</span></p>
+                        <p>Défense: <span id="player-stat-defense">0</span></p>
+                    </div>
+                </div>
+                <div id="equipment-slots">
+                    <div class="equipment-slot-container">
+                        <label>Arme</label>
+                        <div class="equipment-slot droppable" data-slot-type="weapon"></div>
+                    </div>
+                    <div class="equipment-slot-container">
+                        <label>Armure</label>
+                        <div class="equipment-slot droppable" data-slot-type="armor"></div>
+                    </div>
+                </div>
+                <div class="inventory-container">
+                    <h3>Votre Inventaire (<span id="equipment-player-capacity">0 / 0</span>)</h3>
+                    <ul id="equipment-player-inventory" class="inventory-list droppable" data-owner="player-inventory"></ul>
+                </div>
             </div>
         </div>
     </div>

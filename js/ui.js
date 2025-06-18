@@ -1,8 +1,7 @@
 // js/ui.js
-import { CONFIG, TILE_TYPES, ENEMY_TYPES } from './config.js';
+import { CONFIG, TILE_TYPES, ITEM_TYPES, COMBAT_CONFIG } from './config.js'; // MODIFIÉ: Ajout de COMBAT_CONFIG
 import { getTotalResources } from './player.js';
 
-// NOUVEAU: Icônes pour les types de tuiles sur la grande carte
 const TILE_ICONS = {
     'Lagon': '🌊', 'Sable Doré': '🏖️', 'Forêt': '🌲', 'Friche': '🍂',
     'Plaine': '🌳', 'Gisement de Pierre': '⛰️', 'Feu de Camp': '🔥',
@@ -16,7 +15,6 @@ const minimapCanvas = document.getElementById('minimap-canvas'), minimapCtx = mi
 export const tileNameEl = document.getElementById('tile-name'), tileDescriptionEl = document.getElementById('tile-description'), actionsEl = document.getElementById('actions'), chatInputEl = document.getElementById('chat-input-field');
 const dayCounterEl = document.getElementById('day-counter');
 
-// Références pour les conteneurs des barres de statut
 const healthBarSquaresEl = document.getElementById('health-bar-squares');
 const thirstBarSquaresEl = document.getElementById('thirst-bar-squares');
 const hungerBarSquaresEl = document.getElementById('hunger-bar-squares');
@@ -48,7 +46,6 @@ const quantityCancelBtn = document.getElementById('quantity-cancel-btn');
 const quantityMaxBtn = document.getElementById('quantity-max-btn');
 const quantityShortcuts = document.getElementById('quantity-shortcuts');
 
-// NOUVEAU: Références pour la modale de combat
 export const combatModal = document.getElementById('combat-modal');
 const combatLogEl = document.getElementById('combat-log');
 const combatActionsEl = document.getElementById('combat-actions');
@@ -58,12 +55,15 @@ const combatEnemyName = document.getElementById('combat-enemy-name');
 const combatEnemyHealthBar = document.getElementById('combat-enemy-health-bar');
 const combatEnemyHealthText = document.getElementById('combat-enemy-health-text');
 
+export const equipmentModal = document.getElementById('equipment-modal');
+export const closeEquipmentModalBtn = document.getElementById('close-equipment-modal-btn');
+const equipmentPlayerInventoryEl = document.getElementById('equipment-player-inventory');
+const equipmentPlayerCapacityEl = document.getElementById('equipment-player-capacity');
+const equipmentSlotsEl = document.getElementById('equipment-slots');
+const playerStatAttackEl = document.getElementById('player-stat-attack');
+const playerStatDefenseEl = document.getElementById('player-stat-defense');
+
 const loadedAssets = {};
-const ITEM_ICONS = { 
-    'Bois': '🪵', 'Pierre': '🪨', 'Poisson': '🐟', 'Eau': '💧', 'Poisson Cuit': '🔥', 
-    'Charbon': '⚫', 'Cuivre': '🟠', 'Fer': '🔩', 'Argent': '🥈', 'Or': '🥇',
-    'default': '物品' 
-};
 let quantityConfirmCallback = null;
 
 export function loadAssets(paths) {
@@ -94,7 +94,6 @@ export function drawSceneCharacters(gameState) {
     const canvasWidth = charactersCanvas.width;
     const canvasHeight = charactersCanvas.height;
     
-    // Position et dessin des PNJ et du joueur
     const centerX = canvasWidth / 2;
     const centerY = canvasHeight / 2 + 100;
     const visibleNpcs = npcs.filter(npc => npc.x === player.x && npc.y === player.y);
@@ -127,7 +126,6 @@ export function drawSceneCharacters(gameState) {
         });
     }
 
-    // Dessiner les ennemis sur la case actuelle
     const visibleEnemies = enemies.filter(e => e.x === player.x && e.y === player.y && !gameState.combatState);
     if (visibleEnemies.length > 0) {
         const enemy = visibleEnemies[0];
@@ -285,7 +283,6 @@ export function populateLargeMapLegend() {
     largeMapLegendEl.appendChild(npcItem);
 }
 
-// NOUVEAU: Fonctions pour la modale de combat
 export function showCombatModal(combatState) {
     if (!combatState) return;
     updateCombatUI(combatState);
@@ -299,21 +296,17 @@ export function hideCombatModal() {
 export function updateCombatUI(combatState) {
     if (!combatState || !combatModal) return;
     const { enemy, isPlayerTurn, log } = combatState;
-    const player = window.gameState.player; // Accès global pour l'UI
+    const player = window.gameState.player;
 
-    // Mettre à jour les infos de l'ennemi
     combatEnemyName.textContent = enemy.name;
     combatEnemyHealthBar.style.width = `${(enemy.currentHealth / enemy.health) * 100}%`;
     combatEnemyHealthText.textContent = `${enemy.currentHealth} / ${enemy.health}`;
 
-    // Mettre à jour les infos du joueur
     combatPlayerHealthBar.style.width = `${(player.health / 10) * 100}%`;
     combatPlayerHealthText.textContent = `${player.health} / 10`;
 
-    // Mettre à jour le log
     combatLogEl.innerHTML = log.map(msg => `<p>${msg}</p>`).join('');
 
-    // Mettre à jour les actions
     combatActionsEl.innerHTML = `
         <button id="combat-attack-btn" ${!isPlayerTurn ? 'disabled' : ''}>⚔️ Attaquer</button>
         <button id="combat-flee-btn" ${!isPlayerTurn ? 'disabled' : ''}>🏃‍♂️ Fuir</button>
@@ -323,6 +316,49 @@ export function updateCombatUI(combatState) {
         document.getElementById('combat-attack-btn').onclick = () => window.handleCombatAction('attack');
         document.getElementById('combat-flee-btn').onclick = () => window.handleCombatAction('flee');
     }
+}
+
+export function showEquipmentModal(gameState) {
+    updateEquipmentModal(gameState);
+    equipmentModal.classList.remove('hidden');
+}
+
+export function hideEquipmentModal() {
+    equipmentModal.classList.add('hidden');
+}
+
+export function updateEquipmentModal(gameState) {
+    const { player } = gameState;
+    
+    equipmentPlayerInventoryEl.innerHTML = '';
+    populateInventoryList(player.inventory, equipmentPlayerInventoryEl, 'player-inventory');
+    const totalPlayerResources = getTotalResources(player.inventory);
+    equipmentPlayerCapacityEl.textContent = `${totalPlayerResources} / ${CONFIG.PLAYER_MAX_RESOURCES}`;
+    
+    document.querySelectorAll('#equipment-slots .equipment-slot').forEach(slotEl => {
+        const slotType = slotEl.dataset.slotType;
+        const equippedItem = player.equipment[slotType];
+        slotEl.innerHTML = '';
+        if (equippedItem) {
+            const li = document.createElement('div');
+            li.className = 'inventory-item';
+            li.setAttribute('draggable', 'true');
+            li.dataset.itemName = equippedItem.name;
+            li.dataset.owner = 'equipment';
+            li.dataset.slotType = slotType;
+            li.innerHTML = `
+                <span class="inventory-icon">${equippedItem.icon}</span>
+                <span class="inventory-name">${equippedItem.name}</span>
+            `;
+            slotEl.appendChild(li);
+        }
+    });
+
+    // MODIFIÉ: Utilise la constante importée directement
+    const attack = (player.equipment.weapon?.stats?.damage || COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE);
+    const defense = (player.equipment.armor?.stats?.defense || 0);
+    playerStatAttackEl.textContent = attack;
+    playerStatDefenseEl.textContent = defense;
 }
 
 function drawSquaresBar(container, value, maxValue) {
@@ -373,8 +409,8 @@ function updateInventory(player) {
     } else { 
         for (const item in inventory) { 
             const li = document.createElement('li'); 
-            const icon = ITEM_ICONS[item] || ITEM_ICONS.default; 
-            li.innerHTML = `<span class="inventory-icon">${icon}</span><span class="inventory-name">${item}</span><span class="inventory-count">${inventory[item]}</span>`; 
+            const itemDef = ITEM_TYPES[item] || { icon: '❓' };
+            li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${item}</span><span class="inventory-count">${inventory[item]}</span>`; 
             li.classList.add('inventory-item'); 
             li.dataset.itemName = item; 
             inventoryListEl.appendChild(li); 
@@ -433,9 +469,9 @@ function populateInventoryList(inventory, listElement, owner) {
             li.dataset.itemName = itemName;
             li.dataset.itemCount = count;
             li.dataset.owner = owner;
-            const icon = ITEM_ICONS[itemName] || ITEM_ICONS.default;
+            const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
             li.innerHTML = `
-                <span class="inventory-icon">${icon}</span>
+                <span class="inventory-icon">${itemDef.icon}</span>
                 <span class="inventory-name">${itemName}</span>
                 <span class="inventory-count">${count}</span>
             `;
