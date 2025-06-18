@@ -76,7 +76,8 @@ export function handleCombatAction(action) {
 function playerAttack() {
     const { combatState, player } = State.state;
     const weapon = player.equipment.weapon;
-    const damage = weapon ? weapon.stats.damage : COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE;
+    
+    const damage = weapon && weapon.stats?.damage ? weapon.stats.damage : COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE;
     
     combatState.enemy.currentHealth = Math.max(0, combatState.enemy.currentHealth - damage);
     combatState.log.unshift(`Vous infligez ${damage} dégâts avec ${weapon ? weapon.name : 'vos poings'}.`);
@@ -214,7 +215,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 () => UI.addChatMessage(`Vous chassez avec ${weapon.name}...`, "system"),
                 () => {
                     if (Math.random() < 0.6) {
-                        const amount = weapon.stats?.damage || 1;
+                        const amount = weapon.stats?.damage || weapon.power || 1;
                         State.addResourceToPlayer('Viande crue', amount);
                         UI.showFloatingText(`+${amount} Viande crue`, "gain");
                     } else {
@@ -288,7 +289,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 () => UI.addChatMessage("Vous arrosez la terre...", "system"),
                 () => {
                     State.applyResourceDeduction(costs);
-                    UI.showFloatingText("-5 Eau pure", "cost");
+                    UI.showFloatingText(`-${Object.values(costs)[0]} ${Object.keys(costs)[0]}`, "cost");
                     State.updateTileType(player.x, player.y, TILE_TYPES.FOREST);
                     UI.addChatMessage("La terre redevient fertile.", "system");
                 },
