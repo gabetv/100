@@ -11,6 +11,8 @@ export const tileNameEl = document.getElementById('tile-name');
 export const tileDescriptionEl = document.getElementById('tile-description');
 export const actionsEl = document.getElementById('actions');
 export const chatInputEl = document.getElementById('chat-input-field');
+export const toggleChatSizeBtn = document.getElementById('toggle-chat-size-btn');
+export const bottomBarEl = document.getElementById('bottom-bar');
 export const dayCounterEl = document.getElementById('day-counter');
 
 // --- STATS JOUEUR ---

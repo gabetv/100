@@ -258,6 +258,17 @@ function setupEventListeners() {
     document.getElementById('consume-thirst-btn').addEventListener('click', () => handleConsumeClick('thirst'));
     document.getElementById('consume-hunger-btn').addEventListener('click', () => handleConsumeClick('hunger'));
     
+    UI.toggleChatSizeBtn.addEventListener('click', () => {
+        const isEnlarged = UI.bottomBarEl.classList.toggle('chat-enlarged');
+        if (isEnlarged) {
+            UI.toggleChatSizeBtn.textContent = '⌄'; // Flèche vers le bas
+            UI.toggleChatSizeBtn.title = "Réduire le chat";
+        } else {
+            UI.toggleChatSizeBtn.textContent = '⌃'; // Flèche vers le haut
+            UI.toggleChatSizeBtn.title = "Agrandir le chat";
+        }
+    });
+
     const quickChatButton = document.getElementById('quick-chat-button');
     const quickChatMenu = document.getElementById('quick-chat-menu');
     quickChatButton.addEventListener('click', () => quickChatMenu.classList.toggle('visible'));
