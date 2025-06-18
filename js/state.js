@@ -16,6 +16,7 @@ const gameState = {
     shelterLocation: null,
     isGameOver: false,
     combatState: null,
+    config: null, // Sera initialisé dans main.js
 };
 
 export const state = gameState;
@@ -67,7 +68,7 @@ export function applyBulkInventoryTransfer(itemName, amount, transferType) {
     if (transferType === 'withdraw') {
         from = tile.inventory;
         to = player.inventory;
-        toCapacity = CONFIG.PLAYER_MAX_RESOURCES;
+        toCapacity = player.maxInventory; // Utilise la stat max du joueur
         success = transferItems(itemName, amount, from, to, toCapacity);
         if (success) return { success: true, message: `Vous avez pris ${amount} ${itemName}.` };
         return { success: false, message: "Le retrait a échoué. Inventaire plein ou stock insuffisant ?" };
@@ -113,46 +114,60 @@ export function addEnemy(enemy) {
 
 export function equipItem(itemName) {
     const player = gameState.player;
-    const itemDefinition = ITEM_TYPES[itemName];
-    if (!itemDefinition || !player.inventory[itemName]) {
-        return { success: false, message: "Objet introuvable." };
-    }
+    const itemDef = ITEM_TYPES[itemName];
+    if (!itemDef || !player.inventory[itemName]) return { success: false, message: "Objet introuvable." };
     
-    const slotType = itemDefinition.slot;
-    if (!slotType || !player.equipment.hasOwnProperty(slotType)) {
-        return { success: false, message: "Vous ne pouvez pas équiper cet objet." };
-    }
-    
-    if (player.equipment[slotType]) {
-        const unequipResult = unequipItem(slotType);
-        if (!unequipResult.success) {
-            return unequipResult;
-        }
+    const slot = itemDef.slot;
+    if (!slot || !player.equipment.hasOwnProperty(slot)) return { success: false, message: "Vous ne pouvez pas équiper ceci." };
+
+    if (player.equipment[slot]) {
+        const unequipResult = unequipItem(slot);
+        if (!unequipResult.success) return unequipResult;
     }
 
     player.inventory[itemName]--;
-    if (player.inventory[itemName] <= 0) {
-        delete player.inventory[itemName];
-    }
-    player.equipment[slotType] = { name: itemName, ...itemDefinition };
+    if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
+    
+    const newEquip = { name: itemName, ...itemDef };
+    // Initialise la durabilité actuelle si l'objet en a une
+    if(newEquip.durability) newEquip.currentDurability = newEquip.durability;
+    player.equipment[slot] = newEquip;
 
+    if (itemDef.stats) {
+        for (const stat in itemDef.stats) {
+            if (player.hasOwnProperty(stat)) {
+                player[stat] += itemDef.stats[stat];
+            }
+        }
+    }
+    
     return { success: true, message: `${itemName} équipé.` };
 }
 
 export function unequipItem(slot) {
     const player = gameState.player;
-    if (!player.equipment[slot]) {
-        return { success: false, message: "Aucun objet dans cet emplacement." };
-    }
+    const item = player.equipment[slot];
+    if (!item) return { success: false, message: "Aucun objet dans cet emplacement." };
     
-    const totalPlayerResources = getTotalResources(player.inventory);
-    if (totalPlayerResources >= CONFIG.PLAYER_MAX_RESOURCES) {
-        return { success: false, message: "Inventaire plein. Impossible de déséquiper." };
+    if (getTotalResources(player.inventory) >= player.maxInventory) {
+        return { success: false, message: "Inventaire plein." };
     }
 
-    const item = player.equipment[slot];
     addResourceToPlayer(item.name, 1);
     player.equipment[slot] = null;
+    
+    if (item.stats) {
+        for (const stat in item.stats) {
+            if (player.hasOwnProperty(stat)) {
+                player[stat] -= item.stats[stat];
+                // S'assurer que la stat actuelle ne dépasse pas le nouveau max
+                const currentStat = stat.replace('max', '').toLowerCase();
+                if(player.hasOwnProperty(currentStat)) {
+                    player[currentStat] = Math.min(player[currentStat], player[stat]);
+                }
+            }
+        }
+    }
     
     return { success: true, message: `${item.name} déséquipé.` };
 }
@@ -172,8 +187,8 @@ export function updateTileType(x, y, newType) {
     tile.resources = newType.resource ? { ...newType.resource } : null;
 }
 
-export function consumeItem(itemOrNeed) {
-    return playerConsumeItem(itemOrNeed, gameState.player);
+export function consumeItem(itemName) {
+    return playerConsumeItem(itemName, gameState.player);
 }
 
 export function hasResources(costs) {

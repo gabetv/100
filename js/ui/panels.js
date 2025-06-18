@@ -1,15 +1,17 @@
 // js/ui/panels.js
-import { TILE_TYPES, ITEM_TYPES, CONFIG } from '../config.js';
+import { ITEM_TYPES, CONFIG } from '../config.js';
 import { getTotalResources } from '../player.js';
 import * as DOM from './dom.js';
 
-function drawSquaresBar(container, value, maxValue) {
+function drawSquaresBar(container, value, maxValue, baseMaxValue = 100) {
     container.innerHTML = '';
-    const numSquares = 10;
+    const numSquares = maxValue > baseMaxValue ? 12 : 10;
     const filledCount = Math.ceil((value / maxValue) * numSquares);
+
     for (let i = 0; i < numSquares; i++) {
         const square = document.createElement('div');
-        square.classList.add('stat-square'); 
+        square.classList.add('stat-square');
+        if (i >= 10) square.classList.add('bonus');
         square.classList.toggle('filled', i < filledCount);
         container.appendChild(square);
     }
@@ -17,28 +19,29 @@ function drawSquaresBar(container, value, maxValue) {
 
 function updateConsumeButtons(player) {
     const inv = player.inventory;
-    const canDrink = (inv['Ration d\'eau pure'] > 0) || (inv['Eau'] > 0);
-    const canEat = (inv['Barre Énergétique'] > 0) || (inv['Poisson Cuit'] > 0) || (inv['Poisson'] > 0);
-    const canHeal = (inv['Kit de Secours'] > 0) || (inv['Poisson Cuit'] > 0);
+    const canDrink = inv['Eau pure'] > 0 || inv['Eau salée'] > 0;
+    const canEat = inv['Viande cuite'] > 0 || inv['Poisson cuit'] > 0 || inv['Banane'] > 0;
+    const canHeal = inv['Médicaments'] > 0 || inv['Bandage'] > 0 || inv['Kit de Secours'] > 0 || player.status !== 'Normal';
+    
     document.getElementById('consume-thirst-btn').disabled = !canDrink;
     document.getElementById('consume-hunger-btn').disabled = !canEat;
     document.getElementById('consume-health-btn').disabled = !canHeal;
 }
 
 export function updateStatsPanel(player) {
-    drawSquaresBar(DOM.healthBarSquaresEl, player.health, 10);
-    drawSquaresBar(DOM.thirstBarSquaresEl, player.thirst, 100);
-    drawSquaresBar(DOM.hungerBarSquaresEl, player.hunger, 100);
-    drawSquaresBar(DOM.sleepBarSquaresEl, player.sleep, 100);
+    drawSquaresBar(DOM.healthBarSquaresEl, player.health, player.maxHealth, 10);
+    drawSquaresBar(DOM.thirstBarSquaresEl, player.thirst, player.maxThirst, 100);
+    drawSquaresBar(DOM.hungerBarSquaresEl, player.hunger, player.maxHunger, 100);
+    drawSquaresBar(DOM.sleepBarSquaresEl, player.sleep, player.maxSleep, 100);
     
     DOM.healthStatusEl.textContent = player.status;
 
-    DOM.healthBarSquaresEl.classList.toggle('pulsing', player.health <= 3);
-    DOM.thirstBarSquaresEl.classList.toggle('pulsing', player.thirst <= 20);
-    DOM.hungerBarSquaresEl.classList.toggle('pulsing', player.hunger <= 20);
-    DOM.sleepBarSquaresEl.classList.toggle('pulsing', player.sleep <= 20);
+    DOM.healthBarSquaresEl.classList.toggle('pulsing', player.health <= (player.maxHealth * 0.3));
+    DOM.thirstBarSquaresEl.classList.toggle('pulsing', player.thirst <= (player.maxThirst * 0.2));
+    DOM.hungerBarSquaresEl.classList.toggle('pulsing', player.hunger <= (player.maxHunger * 0.2));
+    DOM.sleepBarSquaresEl.classList.toggle('pulsing', player.sleep <= (player.maxSleep * 0.2));
     
-    document.getElementById('survival-vignette').classList.toggle('active', player.health <= 3);
+    document.getElementById('survival-vignette').classList.toggle('active', player.health <= (player.maxHealth * 0.3));
     
     updateConsumeButtons(player);
 }
@@ -48,7 +51,7 @@ export function updateInventory(player) {
     inventoryListEl.innerHTML = ''; 
     const inventory = player.inventory; 
     const total = getTotalResources(inventory); 
-    DOM.inventoryCapacityEl.textContent = `(${total} / ${CONFIG.PLAYER_MAX_RESOURCES})`;
+    DOM.inventoryCapacityEl.textContent = `(${total} / ${player.maxInventory})`;
 
     if (Object.keys(inventory).length === 0) { 
         inventoryListEl.innerHTML = '<li class="inventory-empty">(Vide)</li>'; 
@@ -81,6 +84,7 @@ export function updateTileInfoPanel(tile) {
     }
 }
 
+// LA CORRECTION EST ICI
 export function addChatMessage(message, type, author) {
     const chatMessagesEl = document.getElementById('chat-messages');
     const msgDiv = document.createElement('div');

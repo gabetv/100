@@ -10,15 +10,41 @@ function performTimedAction(player, duration, onStart, onComplete, updateUICallb
     player.isBusy = true;
     onStart();
     updateUICallbacks.updatePossibleActions();
-    updateUICallbacks.updateAllButtonsState();
+    UI.updateAllButtonsState(State.state);
 
     setTimeout(() => {
         onComplete();
         player.isBusy = false;
         updateUICallbacks.updateAllUI();
         updateUICallbacks.updatePossibleActions();
-        updateUICallbacks.updateAllButtonsState();
+        UI.updateAllButtonsState(State.state);
     }, duration);
+}
+
+function performToolAction(player, toolSlot, actionType, onComplete, updateUICallbacks) {
+    const tool = player.equipment[toolSlot];
+    if (!tool || tool.action !== actionType) {
+        UI.addChatMessage(`Vous n'avez pas le bon outil équipé pour cette action.`, 'system');
+        UI.triggerShake(document.getElementById('equipment-slots'));
+        return;
+    }
+
+    performTimedAction(player, ACTION_DURATIONS.HARVEST,
+        () => UI.addChatMessage(`Utilisation de ${tool.name}...`, 'system'),
+        () => {
+            onComplete(tool.power);
+
+            tool.currentDurability--;
+            if (tool.currentDurability <= 0) {
+                UI.addChatMessage(`${tool.name} s'est cassé !`, 'system');
+                State.state.player.equipment[toolSlot] = null;
+            }
+            if (!UI.equipmentModal.classList.contains('hidden')) {
+                UI.updateEquipmentModal(State.state);
+            }
+        },
+        updateUICallbacks
+    );
 }
 
 export function handleCombatAction(action) {
@@ -50,11 +76,18 @@ export function handleCombatAction(action) {
 function playerAttack() {
     const { combatState, player } = State.state;
     const weapon = player.equipment.weapon;
-    // LA CORRECTION EST ICI
     const damage = weapon ? weapon.stats.damage : COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE;
     
     combatState.enemy.currentHealth = Math.max(0, combatState.enemy.currentHealth - damage);
     combatState.log.unshift(`Vous infligez ${damage} dégâts avec ${weapon ? weapon.name : 'vos poings'}.`);
+    
+    if (weapon && weapon.hasOwnProperty('currentDurability')) {
+        weapon.currentDurability--;
+        if (weapon.currentDurability <= 0) {
+            combatState.log.unshift(`${weapon.name} s'est cassé !`);
+            player.equipment.weapon = null;
+        }
+    }
 
     if (combatState.enemy.currentHealth <= 0) {
         combatState.log.unshift(`Vous avez vaincu ${combatState.enemy.name} !`);
@@ -92,7 +125,7 @@ function enemyAttack() {
     const { combatState, player } = State.state;
     if (!combatState) return;
     
-    const defense = player.equipment.armor ? player.equipment.armor.stats.defense : 0;
+    const defense = player.equipment.body?.stats?.defense || 0;
     const damageTaken = Math.max(0, combatState.enemy.damage - defense);
 
     player.health = Math.max(0, player.health - damageTaken);
@@ -117,21 +150,25 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
 
     switch(actionId) {
         case 'harvest': {
-            const { type, yield: baseYield, thirstCost, hungerCost } = tile.type.resource;
-            player.thirst = Math.max(0, player.thirst - (thirstCost || 0));
-            player.hunger = Math.max(0, player.hunger - (hungerCost || 0));
+            const resource = tile.type.resource;
+            if (!resource) return;
+
+            const thirstCost = resource.thirstCost || 0;
+            const hungerCost = resource.hungerCost || 0;
+            player.thirst = Math.max(0, player.thirst - thirstCost);
+            player.hunger = Math.max(0, player.hunger - hungerCost);
             
             performTimedAction(player, ACTION_DURATIONS.HARVEST, 
                 () => UI.addChatMessage("Récolte...", "system"), 
                 () => {
-                    let finalYield = activeEvent.type === 'Abondance' && activeEvent.data.resource === type ? baseYield * 2 : baseYield;
-                    const availableSpace = CONFIG.PLAYER_MAX_RESOURCES - getTotalResources(player.inventory);
+                    let finalYield = activeEvent.type === 'Abondance' && activeEvent.data.resource === resource.type ? resource.yield * 2 : resource.yield;
+                    const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                     const amountToHarvest = Math.min(finalYield, availableSpace);
 
                     if (amountToHarvest > 0) {
-                        State.addResourceToPlayer(type, amountToHarvest);
+                        State.addResourceToPlayer(resource.type, amountToHarvest);
                         tile.harvestsLeft--;
-                        UI.showFloatingText(`+${amountToHarvest} ${type}`, 'gain');
+                        UI.showFloatingText(`+${amountToHarvest} ${resource.type}`, 'gain');
                         UI.triggerActionFlash('gain');
                         if (amountToHarvest < finalYield) UI.addChatMessage("Inventaire plein, récolte partielle.", "system");
                         if (tile.harvestsLeft <= 0 && tile.type.harvests !== Infinity) {
@@ -147,19 +184,49 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             );
             break;
         }
+        
+        case 'harvest_wood': {
+            performToolAction(player, 'weapon', 'harvest_wood', (power) => {
+                State.addResourceToPlayer('Bois', power);
+                UI.showFloatingText(`+${power} Bois`, 'gain');
+                UI.triggerActionFlash('gain');
+            }, updateUICallbacks);
+            break;
+        }
 
-        case 'harvest_ore': {
-            const { thirstCost, hungerCost } = tile.type.resource;
-            player.thirst = Math.max(0, player.thirst - thirstCost);
-            player.hunger = Math.max(0, player.hunger - hungerCost);
+        case 'fish': {
+            performToolAction(player, 'weapon', 'fish', (power) => {
+                State.addResourceToPlayer('Poisson cru', power);
+                UI.showFloatingText(`+${power} Poisson cru`, 'gain');
+                UI.triggerActionFlash('gain');
+            }, updateUICallbacks);
+            break;
+        }
 
-            performTimedAction(player, ACTION_DURATIONS.HARVEST,
-                () => UI.addChatMessage("Vous minez...", "system"),
+        case 'hunt': {
+             const weapon = player.equipment.weapon;
+             if (!weapon) {
+                 UI.addChatMessage("Vous ne pouvez pas chasser sans arme.", "system");
+                 return;
+             }
+             
+             performTimedAction(player, ACTION_DURATIONS.CRAFT,
+                () => UI.addChatMessage(`Vous chassez avec ${weapon.name}...`, "system"),
                 () => {
-                    const randomOre = ORE_TYPES[Math.floor(Math.random() * ORE_TYPES.length)];
-                    State.addResourceToPlayer(randomOre, 1);
-                    UI.showFloatingText(`+1 ${randomOre}`, 'gain');
-                    UI.triggerActionFlash('gain');
+                    if (Math.random() < 0.6) {
+                        const amount = weapon.stats?.damage || 1;
+                        State.addResourceToPlayer('Viande crue', amount);
+                        UI.showFloatingText(`+${amount} Viande crue`, "gain");
+                    } else {
+                        UI.addChatMessage("La chasse n'a rien donné.", "system");
+                    }
+                    if (weapon.hasOwnProperty('currentDurability')) {
+                        weapon.currentDurability--;
+                        if (weapon.currentDurability <= 0) {
+                            UI.addChatMessage(`${weapon.name} s'est cassé !`, 'system');
+                            player.equipment.weapon = null;
+                        }
+                    }
                 },
                 updateUICallbacks
             );
@@ -221,7 +288,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 () => UI.addChatMessage("Vous arrosez la terre...", "system"),
                 () => {
                     State.applyResourceDeduction(costs);
-                    UI.showFloatingText("-5 Eau", "cost");
+                    UI.showFloatingText("-5 Eau pure", "cost");
                     State.updateTileType(player.x, player.y, TILE_TYPES.FOREST);
                     UI.addChatMessage("La terre redevient fertile.", "system");
                 },
@@ -237,8 +304,8 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             performTimedAction(player, ACTION_DURATIONS.SLEEP, 
                 () => UI.addChatMessage("Vous vous endormez pour 10 heures...", "system"), 
                 () => {
-                    player.sleep = Math.min(100, player.sleep + sleepEffect.sleep); 
-                    player.health = Math.min(10, player.health + sleepEffect.health);
+                    player.sleep = Math.min(player.maxSleep, player.sleep + sleepEffect.sleep); 
+                    player.health = Math.min(player.maxHealth, player.health + sleepEffect.health);
                     UI.addChatMessage("Vous vous réveillez reposé.", "system");
                 },
                 updateUICallbacks
@@ -247,7 +314,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
 
         case 'cook': {
-             if (!State.hasResources({ 'Poisson': 1, 'Bois': 1 }).success) {
+             if (!State.hasResources({ 'Poisson cru': 1, 'Bois': 1 }).success) {
                 UI.addChatMessage("Ressources insuffisantes pour cuisiner.", "system");
                 UI.triggerShake(document.getElementById('inventory-list'));
                 return;
@@ -255,9 +322,9 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             performTimedAction(player, ACTION_DURATIONS.CRAFT, 
                 () => UI.addChatMessage("Cuisson...", "system"), 
                 () => {
-                    State.applyResourceDeduction({ 'Poisson': 1, 'Bois': 1 });
-                    State.addResourceToPlayer('Poisson Cuit', 1);
-                    UI.showFloatingText("+1 Poisson Cuit", "gain"); UI.triggerActionFlash('gain');
+                    State.applyResourceDeduction({ 'Poisson cru': 1, 'Bois': 1 });
+                    State.addResourceToPlayer('Poisson cuit', 1);
+                    UI.showFloatingText("+1 Poisson cuit", "gain"); UI.triggerActionFlash('gain');
                 },
                 updateUICallbacks
             );

@@ -16,23 +16,18 @@ function updatePossibleActions() {
     const tile = map[player.y][player.x];
     const tileType = tile.type;
     
-    if (combatState) {
-        const combatInfo = document.createElement('div');
-        combatInfo.textContent = "EN COMBAT !";
-        combatInfo.style.textAlign = 'center';
-        combatInfo.style.padding = '12px';
-        combatInfo.style.color = 'var(--accent-color)';
-        combatInfo.style.fontWeight = 'bold';
-        UI.actionsEl.appendChild(combatInfo);
-        return;
-    }
-    
-    if (player.isBusy || player.animationState) {
-        const busyAction = document.createElement('div');
-        busyAction.textContent = player.animationState ? "Déplacement..." : "Action en cours...";
-        busyAction.style.textAlign = 'center';
-        busyAction.style.padding = '12px';
-        UI.actionsEl.appendChild(busyAction);
+    if (combatState || player.isBusy || player.animationState) {
+        const statusDiv = document.createElement('div');
+        statusDiv.style.textAlign = 'center';
+        statusDiv.style.padding = '12px';
+        if (combatState) {
+            statusDiv.textContent = "EN COMBAT !";
+            statusDiv.style.color = 'var(--accent-color)';
+            statusDiv.style.fontWeight = 'bold';
+        } else {
+            statusDiv.textContent = player.animationState ? "Déplacement..." : "Action en cours...";
+        }
+        UI.actionsEl.appendChild(statusDiv);
         return;
     }
     
@@ -46,40 +41,49 @@ function updatePossibleActions() {
     };
 
     if (tileType.resource && tile.harvestsLeft > 0) {
-        let actionText = `Récolter ${tileType.resource.type}`;
-        if (tileType.name === 'Forêt') actionText = `Couper du bois (+5 Bois, -2 Soif, -3 Faim)`;
-        if (tileType.name === 'Mine') actionText = `Extraire du minerai (-1 Soif, -3 Faim)`;
-        
-        const isPlayerInventoryFull = getTotalResources(player.inventory) >= CONFIG.PLAYER_MAX_RESOURCES;
-        const action = tileType.name === 'Mine' ? 'harvest_ore' : 'harvest';
-        createButton(actionText, action, {}, isPlayerInventoryFull, isPlayerInventoryFull ? "Votre inventaire est plein !" : "");
+        const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
+        const tool = player.equipment.weapon;
+
+        if (tileType.name === 'Forêt') {
+            const canCutWood = tool && tool.action === 'harvest_wood';
+            createButton(`Couper du bois`, 'harvest_wood', {}, isInventoryFull || !canCutWood, 
+                isInventoryFull ? "Inventaire plein" : !canCutWood ? "Nécessite une hache ou une scie" : "");
+        } else {
+            let actionText = `Récolter ${tileType.resource.type}`;
+            createButton(actionText, 'harvest', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "");
+        }
+    }
+    
+    const equippedWeapon = player.equipment.weapon;
+    const canHunt = equippedWeapon && (equippedWeapon.type === 'weapon' || equippedWeapon.type === 'tool');
+    if (tileType.name === 'Forêt' || tileType.name === 'Plaine') {
+        createButton("Chasser", 'hunt', {}, !canHunt, !canHunt ? "Nécessite une arme équipée" : "");
+    }
+    
+    const canFish = equippedWeapon && equippedWeapon.action === 'fish';
+    if (tileType.name === 'Lagon' || tileType.name === 'Sable Doré') {
+         createButton("Pêcher", 'fish', {}, !canFish, !canFish ? "Nécessite une canne à pêche" : "");
     }
     
     if (tileType.name === TILE_TYPES.PLAINS.name || tileType.name === TILE_TYPES.WASTELAND.name) {
         const canBuildShelterInd = State.hasResources({ 'Bois': 20 }).success;
         createButton("Abri Individuel (-20 Bois)", 'build', { structure: 'shelter_individual' }, !canBuildShelterInd, !canBuildShelterInd ? "Ressources manquantes" : "");
-        
         const canBuildShelterCol = State.hasResources({ 'Bois': 600 }).success;
         createButton("Abri Collectif (-600 Bois)", 'build', { structure: 'shelter_collective' }, !canBuildShelterCol, !canBuildShelterCol ? "Ressources manquantes" : "");
-    
         const canDigMine = State.hasResources({ 'Bois': 100 }).success;
         createButton("Creuser une Mine (-100 Bois)", 'dig_mine', {}, !canDigMine, !canDigMine ? "Ressources manquantes" : "");
     }
-    
     if (tileType.name === TILE_TYPES.WASTELAND.name && tileType.regeneration) {
         const canRegenerate = State.hasResources(tileType.regeneration.cost).success;
-        createButton("Arroser (-5 Eau)", 'regenerate_forest', {}, !canRegenerate, !canRegenerate ? "Ressources manquantes" : "");
+        createButton(`Arroser (-${tileType.regeneration.cost['Eau pure']} Eau pure)`, 'regenerate_forest', {}, !canRegenerate, !canRegenerate ? "Ressources manquantes" : "");
     }
-    
     if (tileType.name === TILE_TYPES.CAMPFIRE.name) {
-        const canCook = State.hasResources({ 'Poisson': 1, 'Bois': 1 }).success;
+        const canCook = State.hasResources({ 'Poisson cru': 1, 'Bois': 1 }).success;
         createButton("Cuisiner (-1 Poisson, -1 Bois)", 'cook', {}, !canCook, !canCook ? "Ressources manquantes" : "");
     }
-    
     if (tileType.sleepEffect) {
         createButton("Dormir (10h)", 'sleep');
     }
-
     if (tileType.inventory) {
         const openChestButton = document.createElement('button');
         openChestButton.textContent = "🧰 Ouvrir le coffre";
@@ -106,7 +110,7 @@ function handleEvents() {
             activeEvent.duration = 1;
             UI.addChatMessage("Une tempête approche ! Il sera plus difficile de survivre.", "system");
         } else {
-            const abundantResource = Math.random() < 0.5 ? 'Bois' : 'Poisson';
+            const abundantResource = Math.random() < 0.5 ? 'Bois' : 'Poisson cru';
             activeEvent.type = 'Abondance';
             activeEvent.duration = 2;
             activeEvent.data = { resource: abundantResource };
@@ -187,7 +191,23 @@ function handleNavigation(direction) {
 function handleConsumeClick(itemOrNeed) {
     const { player } = State.state;
     if (player.isBusy || player.animationState) { UI.addChatMessage("Vous êtes occupé.", "system"); return; }
-    const result = State.consumeItem(itemOrNeed);
+
+    let itemToConsume = itemOrNeed;
+
+    if (itemOrNeed === 'hunger') {
+        itemToConsume = player.inventory['Barre Énergétique'] ? 'Barre Énergétique' : player.inventory['Viande cuite'] ? 'Viande cuite' : player.inventory['Poisson cuit'] ? 'Poisson cuit' : null;
+    } else if (itemOrNeed === 'thirst') {
+        itemToConsume = player.inventory['Eau pure'] ? 'Eau pure' : null;
+    } else if (itemOrNeed === 'health') {
+        itemToConsume = player.inventory['Kit de Secours'] ? 'Kit de Secours' : player.inventory['Bandage'] ? 'Bandage' : player.inventory['Médicaments'] ? 'Médicaments' : null;
+    }
+
+    if (!itemToConsume) {
+        UI.addChatMessage("Vous n'avez rien d'approprié à utiliser.", "system");
+        return;
+    }
+
+    const result = State.consumeItem(itemToConsume);
     UI.addChatMessage(result.message, 'system');
     if(result.success) {
         UI.triggerActionFlash('gain');
@@ -241,7 +261,7 @@ function setupEventListeners() {
     UI.enlargeMapBtn.addEventListener('click', () => {
         UI.largeMapModal.classList.remove('hidden');
         UI.drawLargeMap(State.state, CONFIG);
-        UI.populateLargeMapLegend(); 
+        UI.populateLargeMapLegend();
     });
     UI.closeLargeMapBtn.addEventListener('click', () => { UI.largeMapModal.classList.add('hidden'); });
     

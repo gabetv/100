@@ -45,7 +45,7 @@ export function showInventoryModal(gameState) {
     populateInventoryList(player.inventory, DOM.modalPlayerInventoryEl, 'player');
     populateInventoryList(tile.inventory, DOM.modalSharedInventoryEl, 'shared');
     const totalPlayerResources = getTotalResources(player.inventory);
-    DOM.modalPlayerCapacityEl.textContent = `${totalPlayerResources} / ${CONFIG.PLAYER_MAX_RESOURCES}`;
+    DOM.modalPlayerCapacityEl.textContent = `${totalPlayerResources} / ${player.maxInventory}`;
     DOM.inventoryModal.classList.remove('hidden');
 }
 
@@ -68,7 +68,7 @@ export function updateEquipmentModal(gameState) {
     
     populateInventoryList(player.inventory, DOM.equipmentPlayerInventoryEl, 'player-inventory');
     const totalPlayerResources = getTotalResources(player.inventory);
-    DOM.equipmentPlayerCapacityEl.textContent = `${totalPlayerResources} / ${CONFIG.PLAYER_MAX_RESOURCES}`;
+    DOM.equipmentPlayerCapacityEl.textContent = `${totalPlayerResources} / ${player.maxInventory}`;
     
     document.querySelectorAll('#equipment-slots .equipment-slot').forEach(slotEl => {
         const slotType = slotEl.dataset.slotType;
@@ -85,12 +85,15 @@ export function updateEquipmentModal(gameState) {
                 <span class="inventory-icon">${equippedItem.icon}</span>
                 <span class="inventory-name">${equippedItem.name}</span>
             `;
+            if (equippedItem.hasOwnProperty('currentDurability')) {
+                li.innerHTML += `<span class="item-durability">${equippedItem.currentDurability}/${equippedItem.durability}</span>`;
+            }
             slotEl.appendChild(li);
         }
     });
 
     const attack = (player.equipment.weapon?.stats?.damage || COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE);
-    const defense = (player.equipment.armor?.stats?.defense || 0);
+    const defense = (player.equipment.body?.stats?.defense || 0); // Armor is on body slot
     DOM.playerStatAttackEl.textContent = attack;
     DOM.playerStatDefenseEl.textContent = defense;
 }
@@ -115,8 +118,8 @@ export function updateCombatUI(combatState) {
     DOM.combatEnemyHealthBar.style.width = `${(enemy.currentHealth / enemy.health) * 100}%`;
     DOM.combatEnemyHealthText.textContent = `${enemy.currentHealth} / ${enemy.health}`;
 
-    DOM.combatPlayerHealthBar.style.width = `${(player.health / 10) * 100}%`;
-    DOM.combatPlayerHealthText.textContent = `${player.health} / 10`;
+    DOM.combatPlayerHealthBar.style.width = `${(player.health / player.maxHealth) * 100}%`;
+    DOM.combatPlayerHealthText.textContent = `${player.health} / ${player.maxHealth}`;
 
     DOM.combatLogEl.innerHTML = log.map(msg => `<p>${msg}</p>`).join('');
 

@@ -1,5 +1,5 @@
 // js/player.js
-import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ITEM_TYPES } from './config.js';
+import { CONFIG, ITEM_TYPES } from './config.js';
 
 export function getTotalResources(inventory) {
     return Object.values(inventory).reduce((sum, count) => sum + count, 0);
@@ -8,20 +8,21 @@ export function getTotalResources(inventory) {
 export function initPlayer(config) {
     return {
         x: Math.floor(config.MAP_WIDTH / 2) + 1, y: Math.floor(config.MAP_HEIGHT / 2),
-        health: 10,
-        status: 'Normal',
-        thirst: 100, 
-        hunger: 100, 
-        sleep: 100,
+        // Stats de base
+        health: 10, thirst: 100, hunger: 100, sleep: 100,
+        status: 'Normal', // Normal, Blessé, Malade, Empoisonné
+        // Stats max (peuvent être modifiées par l'équipement)
+        maxHealth: 10, maxThirst: 100, maxHunger: 100, maxSleep: 100, maxInventory: CONFIG.PLAYER_BASE_MAX_RESOURCES,
+        
         inventory: { 
-            'Bois': 10,
+            'Hache': 1,
+            'Canne à pêche': 1,
             'Kit de Secours': 1,
             'Barre Énergétique': 2,
-            'Ration d\'eau pure': 1
+            'Eau pure': 1,
         },
         equipment: {
-            weapon: null,
-            armor: null,
+            head: null, body: null, feet: null, weapon: null, bag: null,
         },
         color: '#ffd700', isBusy: false, animationState: null,
     };
@@ -43,15 +44,31 @@ export function decayStats(gameState) {
     if (player.isBusy || player.animationState) return null;
     let decayMultiplier = 1;
     if (activeEvent.type === 'Tempête') { decayMultiplier = 1.5; }
+
+    let message = null;
+    switch (player.status) {
+        case 'Malade':
+            decayMultiplier *= 1.5;
+            message = "Vous vous sentez fiévreux...";
+            break;
+        case 'Empoisonné':
+            player.health = Math.max(0, player.health - 1);
+            message = "Le poison vous ronge ! (-1 Santé)";
+            break;
+        case 'Blessé':
+            player.sleep = Math.max(0, player.sleep - (1 * decayMultiplier));
+            break;
+    }
+    
     player.thirst = Math.max(0, player.thirst - (2 * decayMultiplier));
     player.hunger = Math.max(0, player.hunger - (1 * decayMultiplier));
     player.sleep = Math.max(0, player.sleep - (0.5 * decayMultiplier));
     
     if (player.thirst <= 0 || player.hunger <= 0) {
         player.health = Math.max(0, player.health - 1);
-        return { message: "Votre santé se dégrade !" };
+        message = (message ? message + " " : "") + "Votre santé se dégrade !";
     }
-    return null;
+    return message ? { message } : null;
 }
 
 export function transferItems(itemName, amount, from, to, toCapacity = Infinity) {
@@ -89,77 +106,42 @@ export function deductResources(player, costs) {
     }
 }
 
-export function consumeItem(itemOrNeed, player) {
-    let itemName = itemOrNeed;
-    let itemDef = ITEM_TYPES[itemName];
+export function consumeItem(itemName, player) {
+    const itemDef = ITEM_TYPES[itemName];
+    if (!itemDef || itemDef.type !== 'consumable') {
+        return { success: false, message: `Vous ne pouvez pas consommer "${itemName}".` };
+    }
+    if (!player.inventory[itemName] || player.inventory[itemName] <= 0) {
+        return { success: false, message: "Vous n'en avez plus." };
+    }
+
     let floatingTexts = [];
 
-    if (itemOrNeed === 'hunger') {
-        itemName = player.inventory['Barre Énergétique'] > 0 ? 'Barre Énergétique' : 
-                   player.inventory['Poisson Cuit'] > 0 ? 'Poisson Cuit' : 
-                   player.inventory['Poisson'] > 0 ? 'Poisson' : null;
-        if (!itemName) return { success: false, message: "Vous n'avez rien à manger." };
-    } else if (itemOrNeed === 'thirst') {
-        itemName = player.inventory['Ration d\'eau pure'] > 0 ? 'Ration d\'eau pure' :
-                   player.inventory['Eau'] > 0 ? 'Eau' : null;
-        if (!itemName) return { success: false, message: "Vous n'avez rien à boire." };
-    } else if (itemOrNeed === 'health') {
-        itemName = player.inventory['Kit de Secours'] > 0 ? 'Kit de Secours' :
-                   player.inventory['Poisson Cuit'] > 0 ? 'Poisson Cuit' : null;
-        if (!itemName) return { success: false, message: "Vous n'avez rien pour vous soigner." };
-    }
-    
-    if (!player.inventory[itemName] || player.inventory[itemName] <= 0) {
-        return { success: false, message: `Vous n'avez plus de "${itemName}".` };
-    }
-    
-    itemDef = ITEM_TYPES[itemName];
+    // Appliquer les effets
+    for (const effect in itemDef.effects) {
+        const value = itemDef.effects[effect];
+        
+        if (effect === 'status') {
+            const statusEffect = value; // Simplifié pour cet exemple
+            const condition = statusEffect.ifStatus;
+            const canApply = !condition || (Array.isArray(condition) ? condition.includes(player.status) : player.status === condition);
 
-    if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.effects)) {
-        if (itemName === 'Poisson') {
-            player.hunger = Math.min(100, player.hunger + 15);
-            player.health = Math.max(0, player.health - 1);
-            floatingTexts.push("+15 Faim", "-1 Santé");
-        } else if(itemName === 'Eau') {
-            player.thirst = Math.min(100, player.thirst + 30);
-            floatingTexts.push("+30 Soif");
+            if (canApply && (!statusEffect.chance || Math.random() < statusEffect.chance)) {
+                player.status = statusEffect.name;
+                floatingTexts.push(`Statut: ${player.status}`);
+            }
         } else {
-            return { success: false, message: `Vous ne pouvez pas consommer "${itemName}".` };
-        }
-    } else {
-        for (const effect in itemDef.effects) {
-            const value = itemDef.effects[effect];
-            switch (effect) {
-                case 'health':
-                    if (player.health < 10) {
-                        player.health = Math.min(10, player.health + value);
-                        floatingTexts.push(`+${value} Santé`);
-                    }
-                    break;
-                case 'thirst':
-                    player.thirst = Math.min(100, player.thirst + value);
-                    floatingTexts.push(`+${value} Soif`);
-                    break;
-                case 'hunger':
-                    player.hunger = Math.min(100, player.hunger + value);
-                    floatingTexts.push(`+${value} Faim`);
-                    break;
-                case 'sleep':
-                    player.sleep = Math.min(100, player.sleep + value);
-                    floatingTexts.push(`+${value} Sommeil`);
-                    break;
-                case 'status':
-                    player.status = value;
-                    floatingTexts.push(`Statut: ${value}`);
-                    break;
+            const maxStatName = `max${effect.charAt(0).toUpperCase() + effect.slice(1)}`;
+            if(player.hasOwnProperty(effect) && player.hasOwnProperty(maxStatName)) {
+                player[effect] = Math.min(player[maxStatName], player[effect] + value);
+                const sign = value > 0 ? '+' : '';
+                floatingTexts.push(`${sign}${value} ${effect}`);
             }
         }
     }
 
     player.inventory[itemName]--;
-    if (player.inventory[itemName] <= 0) {
-        delete player.inventory[itemName];
-    }
-    
+    if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
+
     return { success: true, message: `Vous utilisez: ${itemName}.`, floatingTexts };
 }
