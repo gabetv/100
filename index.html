@@ -138,7 +138,7 @@
             <div id="inventory-modal-grid">
                 <div class="inventory-container">
                     <h3>Votre Inventaire (<span id="modal-player-capacity">0 / 0</span>)</h3>
-                    <ul id="modal-player-inventory" class="inventory-list droppable" data-owner="player"></ul>
+                    <ul id="modal-player-inventory" class="inventory-list droppable" data-owner="player-inventory"></ul>
                 </div>
                 <div class="inventory-container">
                     <h3>Stockage Commun</h3>
@@ -224,6 +224,12 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- NOUVEAU: Menu contextuel pour les objets -->
+    <div id="item-context-menu" class="hidden">
+        <h4 id="context-menu-title"></h4>
+        <div id="context-menu-actions"></div>
     </div>
 
     <script type="module" src="js/main.js"></script>

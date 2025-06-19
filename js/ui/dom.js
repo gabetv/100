@@ -72,3 +72,8 @@ export const equipmentPlayerCapacityEl = document.getElementById('equipment-play
 export const equipmentSlotsEl = document.getElementById('equipment-slots');
 export const playerStatAttackEl = document.getElementById('player-stat-attack');
 export const playerStatDefenseEl = document.getElementById('player-stat-defense');
+
+// --- MENU CONTEXTUEL D'OBJET ---
+export const itemContextMenu = document.getElementById('item-context-menu');
+export const contextMenuTitle = document.getElementById('context-menu-title');
+export const contextMenuActions = document.getElementById('context-menu-actions');

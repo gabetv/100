@@ -42,7 +42,8 @@ export function showInventoryModal(gameState) {
         addChatMessage("Ce lieu n'a pas de stockage.", "system");
         return;
     }
-    populateInventoryList(player.inventory, DOM.modalPlayerInventoryEl, 'player');
+    // LA CORRECTION EST ICI : on passe 'player-inventory' pour être cohérent avec la modale d'équipement.
+    populateInventoryList(player.inventory, DOM.modalPlayerInventoryEl, 'player-inventory');
     populateInventoryList(tile.inventory, DOM.modalSharedInventoryEl, 'shared');
     const totalPlayerResources = getTotalResources(player.inventory);
     DOM.modalPlayerCapacityEl.textContent = `${totalPlayerResources} / ${player.maxInventory}`;

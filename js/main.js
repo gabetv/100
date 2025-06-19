@@ -9,6 +9,7 @@ import * as Interactions from './interactions.js';
 
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
+let dropContext = null; // Stocke les infos de l'objet glissé-déposé
 
 function updatePossibleActions() {
     UI.actionsEl.innerHTML = '';
@@ -182,6 +183,16 @@ function handleNavigation(direction) {
         return;
     }
 
+    // NOUVELLE LOGIQUE : Coût de déplacement aléatoire
+    // Choisir une stat à réduire au hasard
+    const statsToReduce = ['thirst', 'hunger', 'sleep'];
+    const icons = { thirst: '💧', hunger: '🍗', sleep: '🌙' };
+    const chosenStat = statsToReduce[Math.floor(Math.random() * statsToReduce.length)];
+
+    // Appliquer le coût et afficher le retour visuel
+    player[chosenStat] = Math.max(0, player[chosenStat] - 1);
+    UI.showFloatingText(`-1${icons[chosenStat]}`, 'cost');
+
     player.isBusy = true;
     player.animationState = { type: 'out', direction: direction, progress: 0 };
     updatePossibleActions();
@@ -267,7 +278,6 @@ function setupEventListeners() {
     const quickChatMenu = document.getElementById('quick-chat-menu');
     quickChatButton.addEventListener('click', () => quickChatMenu.classList.toggle('visible'));
     quickChatMenu.addEventListener('click', (e) => { if (e.target.classList.contains('quick-chat-item')) { UI.addChatMessage(e.target.textContent, 'player', 'Vous'); quickChatMenu.classList.remove('visible'); } });
-    document.addEventListener('click', (e) => { if (!quickChatMenu.contains(e.target) && e.target !== quickChatButton) { quickChatMenu.classList.remove('visible'); } });
     
     UI.enlargeMapBtn.addEventListener('click', () => {
         UI.largeMapModal.classList.remove('hidden');
@@ -290,8 +300,14 @@ function setupEventListeners() {
     function handleDragOver(e) { e.preventDefault(); const dropZone = e.target.closest('.droppable'); if (dropZone) { document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over')); dropZone.classList.add('drag-over'); } }
     function handleDragLeave(e) { const dropZone = e.target.closest('.droppable'); if (dropZone) { dropZone.classList.remove('drag-over'); } }
     
+    function hideContextMenu() {
+        if (UI.itemContextMenu) UI.itemContextMenu.classList.add('hidden');
+        dropContext = null;
+    }
+
     function handleDrop(e) {
         e.preventDefault();
+        hideContextMenu();
         const dropZone = e.target.closest('.droppable');
         document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over'));
         if (!dropZone || !draggedItem) return;
@@ -299,6 +315,7 @@ function setupEventListeners() {
         const itemName = draggedItem.dataset.itemName;
         const sourceOwner = draggedItem.dataset.owner;
 
+        // Équiper un objet depuis l'inventaire du joueur
         if (dropZone.classList.contains('equipment-slot') && sourceOwner === 'player-inventory') {
             const itemDef = ITEM_TYPES[itemName];
             const slotType = dropZone.dataset.slotType;
@@ -310,6 +327,7 @@ function setupEventListeners() {
             }
         }
         
+        // Déséquiper un objet vers l'inventaire du joueur
         else if (dropZone.id === 'equipment-player-inventory' && sourceOwner === 'equipment') {
             const slotType = draggedItem.dataset.slotType;
             const result = State.unequipItem(slotType);
@@ -319,24 +337,69 @@ function setupEventListeners() {
             fullUIUpdate();
         }
         
-        else if (dropZone.dataset.owner === 'shared' || dropZone.dataset.owner === 'player') {
+        // CORRIGÉ: Logique pour afficher le menu contextuel pour le transfert
+        else if (dropZone.dataset.owner === 'shared' || dropZone.dataset.owner === 'player-inventory') {
             const destOwner = dropZone.dataset.owner;
-             if (sourceOwner !== destOwner && (sourceOwner === 'player' || sourceOwner === 'shared')) {
+             if (sourceOwner !== destOwner && (sourceOwner === 'player-inventory' || sourceOwner === 'shared')) {
                 const transferType = (destOwner === 'shared') ? 'deposit' : 'withdraw';
-                const maxAmount = parseInt(draggedItem.dataset.itemCount, 10);
                 
-                UI.showQuantityModal(itemName, maxAmount, (chosenAmount) => {
-                    if (chosenAmount > 0) {
-                        const result = State.applyBulkInventoryTransfer(itemName, chosenAmount, transferType);
-                        UI.addChatMessage(result.message, 'system');
-                        if (result.success) { UI.showInventoryModal(State.state); fullUIUpdate(); } 
-                        else { UI.triggerShake(draggedItem); }
-                    }
-                });
+                // Stocker le contexte du drop
+                dropContext = {
+                    itemName: itemName,
+                    maxAmount: parseInt(draggedItem.dataset.itemCount, 10),
+                    transferType: transferType,
+                };
+                
+                // Configurer et afficher le menu contextuel
+                UI.contextMenuTitle.textContent = dropContext.itemName;
+                const verb = transferType === 'deposit' ? 'Déposer' : 'Retirer';
+                UI.contextMenuActions.innerHTML = `
+                    <button data-action="transfer">${verb} une quantité...</button>
+                    <button data-action="transfer-all">${verb} tout (${dropContext.maxAmount})</button>
+                    <button data-action="cancel">Annuler</button>
+                `;
+
+                const menu = UI.itemContextMenu;
+                menu.style.left = `${e.clientX}px`;
+                menu.style.top = `${e.clientY}px`;
+                menu.classList.remove('hidden');
             }
         }
     }
     
+    // Gérer les clics sur les boutons du menu contextuel
+    UI.contextMenuActions.addEventListener('click', e => {
+        if (!dropContext || !e.target.dataset.action) return;
+        
+        const action = e.target.dataset.action;
+        const { itemName, maxAmount, transferType } = dropContext;
+
+        const performTransfer = (amount) => {
+            if (amount > 0) {
+                const result = State.applyBulkInventoryTransfer(itemName, amount, transferType);
+                UI.addChatMessage(result.message, 'system');
+                if (result.success) {
+                    if (!UI.inventoryModal.classList.contains('hidden')) {
+                        UI.showInventoryModal(State.state);
+                    }
+                    fullUIUpdate();
+                } else {
+                    UI.addChatMessage("Action impossible (inventaire plein ou ressource insuffisante).", "system");
+                }
+            }
+        };
+
+        if (action === 'transfer') {
+            UI.showQuantityModal(itemName, maxAmount, chosenAmount => {
+                performTransfer(chosenAmount);
+            });
+        } else if (action === 'transfer-all') {
+            performTransfer(maxAmount);
+        }
+        
+        hideContextMenu();
+    });
+
     [UI.inventoryModal, UI.equipmentModal].forEach(modal => {
         if(modal) {
             modal.addEventListener('dragstart', handleDragStart);
@@ -347,12 +410,25 @@ function setupEventListeners() {
         }
     });
 
+    // Clic global pour fermer les menus
+    document.addEventListener('click', (e) => {
+        // Menu de chat rapide
+        if (!e.target.closest('#quick-chat-menu') && e.target.id !== 'quick-chat-button') {
+            UI.quickChatMenu.classList.remove('visible');
+        }
+        // Menu contextuel d'objet
+        if (!e.target.closest('#item-context-menu')) {
+            hideContextMenu();
+        }
+    });
+
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             if (!UI.largeMapModal.classList.contains('hidden')) UI.largeMapModal.classList.add('hidden');
             if (!UI.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
             if (!UI.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
             if (!UI.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
+            hideContextMenu();
         }
     });
     
