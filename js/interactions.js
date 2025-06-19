@@ -1,5 +1,5 @@
 // js/interactions.js
-import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ORE_TYPES, COMBAT_CONFIG, ITEM_TYPES, SEARCH_ZONE_CONFIG, ENEMY_TYPES, SEARCHABLE_ITEMS, TREASURE_COMBAT_KIT } from './config.js';
+import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ORE_TYPES, COMBAT_CONFIG, ITEM_TYPES, SEARCH_ZONE_CONFIG, ENEMY_TYPES, ALL_SEARCHABLE_ITEMS, TREASURE_COMBAT_KIT } from './config.js';
 import * as UI from './ui.js';
 import * as State from './state.js';
 import { getTotalResources } from './player.js'; 
@@ -503,8 +503,9 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 () => UI.addChatMessage("Vous fouillez attentivement les environs...", "system"),
                 () => { 
                     const rand = Math.random();
+
                     if (rand < searchConfig.combatChance) {
-                        UI.addChatMessage("Quelque chose surgit des ombres !", "system");
+                        UI.addChatMessage("Quelque chose surgit des ombres !", "system_event");
                         const enemyTemplate = ENEMY_TYPES[searchConfig.enemyType];
                         if (enemyTemplate) {
                             const encounterEnemy = { 
@@ -518,27 +519,43 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                             State.startCombat(player, encounterEnemy);
                             UI.showCombatModal(State.state.combatState);
                         } else {
-                            UI.addChatMessage("...mais ce n'était rien.", "system"); 
+                            UI.addChatMessage("...mais ce n'était rien d'alarmant.", "system_event"); 
                         }
-                    } else if (rand < searchConfig.combatChance + searchConfig.itemChance) {
+                    } else if (rand < searchConfig.combatChance + searchConfig.noLootChance) {
+                        UI.addChatMessage("Cette recherche n'a pas été fructueuse.", "system");
+                    } else {
                         const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                         if (availableSpace <= 0) {
-                            UI.addChatMessage("Vous trouvez quelque chose, mais votre inventaire est plein !", "system");
+                            UI.addChatMessage("Vous apercevez quelque chose, mais votre inventaire est plein !", "system");
                             if (DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
                             return;
                         }
-                        let lootPool = SEARCHABLE_ITEMS; 
-                        if (searchConfig.possibleLoot && searchConfig.possibleLoot.length > 0) {
-                            lootPool = searchConfig.possibleLoot; 
+
+                        let foundItem = null;
+                        const tierRand = Math.random(); 
+
+                        if (tierRand < searchConfig.lootTiers.common && searchConfig.specificLoot.common.length > 0) {
+                            foundItem = searchConfig.specificLoot.common[Math.floor(Math.random() * searchConfig.specificLoot.common.length)];
+                        } else if (tierRand < searchConfig.lootTiers.common + searchConfig.lootTiers.uncommon && searchConfig.specificLoot.uncommon.length > 0) {
+                            foundItem = searchConfig.specificLoot.uncommon[Math.floor(Math.random() * searchConfig.specificLoot.uncommon.length)];
+                        } else if (tierRand < searchConfig.lootTiers.common + searchConfig.lootTiers.uncommon + searchConfig.lootTiers.rare && searchConfig.specificLoot.rare.length > 0) {
+                            foundItem = searchConfig.specificLoot.rare[Math.floor(Math.random() * searchConfig.specificLoot.rare.length)];
+                        } else if (tierRand < searchConfig.lootTiers.common + searchConfig.lootTiers.uncommon + searchConfig.lootTiers.rare + searchConfig.lootTiers.veryRare && searchConfig.specificLoot.veryRare.length > 0) {
+                            foundItem = searchConfig.specificLoot.veryRare[Math.floor(Math.random() * searchConfig.specificLoot.veryRare.length)];
+                        } else if (ALL_SEARCHABLE_ITEMS.length > 0) { // Le reste (y compris la proba 'offTable')
+                            foundItem = ALL_SEARCHABLE_ITEMS[Math.floor(Math.random() * ALL_SEARCHABLE_ITEMS.length)];
+                            UI.addChatMessage("Vous avez trouvé quelque chose d'inattendu !", "system_event");
                         }
-                        const foundItem = lootPool[Math.floor(Math.random() * lootPool.length)];
-                        const amountFound = 1; 
-                        State.addResourceToPlayer(foundItem, amountFound);
-                        UI.showFloatingText(`+${amountFound} ${foundItem}`, 'gain');
-                        UI.addChatMessage(`Vous avez trouvé: ${amountFound} ${foundItem} !`, 'gain');
-                        UI.triggerActionFlash('gain');
-                    } else {
-                        UI.addChatMessage("Cette recherche n'a pas été fructueuse.", "system");
+
+                        if (foundItem) {
+                            const amountFound = 1; 
+                            State.addResourceToPlayer(foundItem, amountFound);
+                            UI.showFloatingText(`+${amountFound} ${foundItem}`, 'gain');
+                            UI.addChatMessage(`Vous avez trouvé: ${amountFound} ${foundItem} !`, 'gain');
+                            UI.triggerActionFlash('gain');
+                        } else {
+                            UI.addChatMessage("Vous n'avez rien trouvé d'intéressant cette fois.", "system");
+                        }
                     }
                 },
                 updateUICallbacks
@@ -550,9 +567,6 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             if (tile.hiddenItem) {
                 const itemName = tile.hiddenItem;
                 const availableSpace = player.maxInventory - getTotalResources(player.inventory);
-                // Vérifie si l'inventaire est plein UNIQUEMENT si l'item n'est pas déjà possédé (ou si ce n'est pas un item unique cumulable)
-                // Pour un item unique comme une clé, on ne vérifie la place que s'il n'en a pas déjà une.
-                // Mais ici, on ajoute juste, donc on vérifie la place brute.
                 if (availableSpace < 1 ) { 
                     UI.addChatMessage("Votre inventaire est plein !", "system");
                     if(DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
@@ -564,7 +578,6 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 UI.showFloatingText(`+1 ${itemName}`, 'gain');
                 tile.hiddenItem = null; 
                 if (updateUICallbacks && updateUICallbacks.updateAllUI) updateUICallbacks.updateAllUI();
-                // updatePossibleActions sera appelé par updateAllUI, ou sinon on l'appelle ici
                  if (updateUICallbacks && updateUICallbacks.updatePossibleActions) updateUICallbacks.updatePossibleActions(); 
             } else {
                 UI.addChatMessage("Il n'y a rien à prendre ici.", "system");
@@ -575,10 +588,6 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         case 'open_treasure': {
             if (tile.type === TILE_TYPES.TREASURE_CHEST && !tile.isOpened) {
                 if (player.inventory[TILE_TYPES.TREASURE_CHEST.requiresKey] > 0) {
-                    
-                    // Optionnel: Coût pour tenter d'ouvrir
-                    // if (!applyRandomStatCost(player, 1, actionId)) { /* ... */ }
-
                     performTimedAction(player, ACTION_DURATIONS.OPEN_TREASURE, 
                         () => UI.addChatMessage("Vous essayez d'ouvrir le trésor...", "system"),
                         () => {
@@ -586,7 +595,6 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                             UI.showFloatingText(`-1 ${TILE_TYPES.TREASURE_CHEST.requiresKey}`, 'cost');
                             UI.addChatMessage("Le trésor s'ouvre ! Vous trouvez un kit de combat complet !", "gain");
                             
-                            let itemsAddedCount = 0;
                             let inventoryFullMessageShown = false;
                             
                             for (const itemName in TREASURE_COMBAT_KIT) {
@@ -604,11 +612,8 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                                             if(DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
                                             inventoryFullMessageShown = true;
                                         }
-                                        // Optionnel: Laisser les items non pris dans un inventaire de la tuile
-                                        // if (!tile.inventory) tile.inventory = {};
-                                        // tile.inventory[itemName] = (tile.inventory[itemName] || 0) + (amountToPotentiallyAdd - amountActuallyAdded);
                                         UI.addChatMessage(`Vous laissez ${amountToPotentiallyAdd - amountActuallyAdded} ${itemName} dans le coffre.`, "system_event");
-                                        break; // Sortir de la boucle pour cet item car plus de place
+                                        break; 
                                     }
                                 }
                                 if (amountActuallyAdded > 0) {

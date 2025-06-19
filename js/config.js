@@ -32,40 +32,76 @@ export const ENEMY_TYPES = {
 
 export const ORE_TYPES = ['Charbon', 'Cuivre', 'Fer', 'Argent', 'Or'];
 
-export const SEARCHABLE_ITEMS = [
-    'Feuilles', 'Liane', 'Écorce', 'Résine', 'Pierre', 
-    'Insectes', 
-    'Os', 
-    'Banane', 'Noix de coco', 
-    'Bandage', 
-    'Composants électroniques', 'Pile'
+export const ALL_SEARCHABLE_ITEMS = [
+    'Feuilles', 'Liane', 'Pierre', 'Sable', 'Insectes', 'Écorce',
+    'Os', 'Résine', 'Poisson cru', 'Viande crue', 
+    'Banane', 'Noix de coco', 'Sel',
+    'Bandage', 'Charbon', 'Sucre', 
+    'Composants électroniques', 'Pile', 'Médicaments', 'Antiseptiques', 'Allumettes',
+    'Clé du Trésor' 
 ];
 
 export const SEARCH_ZONE_CONFIG = {
-    FOREST: { 
-        combatChance: 0.40, 
-        itemChance: 0.50,   
-        enemyType: 'RAT',   
-        possibleLoot: ['Feuilles', 'Liane', 'Écorce', 'Insectes', 'Os', 'Banane'] 
+    FOREST: {
+        combatChance: 0.35, 
+        noLootChance: 0.15, 
+        lootTiers: { common: 0.60, uncommon: 0.25, rare: 0.10, veryRare: 0.04, offTable: 0.01 },
+        enemyType: 'RAT',
+        specificLoot: {
+            common: ['Feuilles', 'Liane', 'Écorce', 'Insectes'],
+            uncommon: ['Os', 'Résine', 'Viande crue', 'Banane'],
+            rare: ['Bandage', 'Allumettes'],
+            veryRare: ['Médicaments']
+        }
     },
-    SAND_GOLDEN: { 
+    SAND_GOLDEN: {
         combatChance: 0.10,
-        itemChance: 0.60,   
-        enemyType: 'RAT',
-        possibleLoot: ['Sable', 'Pierre', 'Noix de coco', 'Insectes', 'Sel']
+        noLootChance: 0.25, 
+        lootTiers: { common: 0.50, uncommon: 0.30, rare: 0.15, veryRare: 0.04, offTable: 0.01 },
+        enemyType: 'RAT', 
+        specificLoot: {
+            common: ['Sable', 'Pierre', 'Insectes', 'Sel'],
+            uncommon: ['Poisson cru', 'Noix de coco', 'Liane'], 
+            rare: ['Composants électroniques'], 
+            veryRare: ['Pile']
+        }
     },
-    PLAINS: { 
-        combatChance: 0.30,
-        itemChance: 0.40,   
+    PLAINS: {
+        combatChance: 0.25,
+        noLootChance: 0.30, 
+        lootTiers: { common: 0.60, uncommon: 0.25, rare: 0.10, veryRare: 0.04, offTable: 0.01 },
         enemyType: 'RAT',
-        possibleLoot: ['Feuilles', 'Pierre', 'Insectes', 'Os', 'Banane']
+        specificLoot: {
+            common: ['Feuilles', 'Pierre', 'Insectes'],
+            uncommon: ['Os', 'Banane', 'Viande crue'],
+            rare: ['Bandage'],
+            veryRare: [] 
+        }
     },
     MINE: { 
-        combatChance: 0.30,
-        itemChance: 0.50,   
-        enemyType: 'RAT', 
-        possibleLoot: ['Pierre', 'Os', 'Charbon', 'Composants électroniques', 'Pile'] 
+        combatChance: 0.40,
+        noLootChance: 0.10, 
+        lootTiers: { common: 0.40, uncommon: 0.30, rare: 0.20, veryRare: 0.08, offTable: 0.02 },
+        enemyType: 'SNAKE', 
+        specificLoot: {
+            common: ['Pierre', 'Os'],
+            uncommon: ['Charbon', 'Résine'], 
+            rare: ['Composants électroniques', 'Pile', 'Antiseptiques'],
+            veryRare: ['Clé du Trésor'] 
+        }
     },
+    WASTELAND: { 
+        combatChance: 0.15,
+        noLootChance: 0.50, 
+        lootTiers: { common: 0.70, uncommon: 0.20, rare: 0.05, veryRare: 0.01, offTable: 0.04 },
+        enemyType: 'RAT',
+        specificLoot: {
+            common: ['Pierre', 'Insectes'],
+            uncommon: ['Os', 'Sable'],
+            rare: [],
+            veryRare: []
+        }
+    }
 };
 
 
@@ -138,8 +174,7 @@ export const SPRITESHEET_PATHS = {
     bg_shelter_collective: 'assets/bg_shelter_collective.png',
     bg_campfire: 'assets/bg_campfire.png',
     bg_mine: 'assets/bg_mine.png',
-    bg_treasure_chest: 'assets/bg_treasure_chest.png', // VOTRE IMAGE DE TRÉSOR
-    // bg_treasure_opened: 'assets/bg_treasure_opened.png', // Si vous avez une image pour un trésor ouvert
+    bg_treasure_chest: 'assets/bg_treasure_chest.png', 
 };
 
 export const TILE_TYPES = {
@@ -157,16 +192,8 @@ export const TILE_TYPES = {
         name: 'Trésor Caché', 
         accessible: true, 
         color: '#DAA520', 
-        background: ['bg_treasure_chest'], // Utilisation de la nouvelle image
+        background: ['bg_treasure_chest'], 
         icon: '💎', 
         requiresKey: 'Clé du Trésor'
-    },
-    // Optionnel:
-    // TREASURE_OPENED: {
-    //     name: 'Trésor Ouvert',
-    //     accessible: true,
-    //     color: '#b08d57', 
-    //     background: ['bg_treasure_opened'],
-    //     icon: '⊔', 
-    // }
+    }
 };
