@@ -1,6 +1,7 @@
 // js/ui/draw.js
 import { TILE_TYPES } from '../config.js';
-// On retire l'import de DOM
+// MODIFICATION : NOUVEL IMPORT
+import DOM from './dom.js';
 
 const loadedAssets = {};
 
@@ -19,8 +20,8 @@ export function loadAssets(paths) {
 }
 
 export function drawMainBackground(gameState) {
-    // On accède aux éléments via window.DOM
-    const { mainViewCtx, mainViewCanvas } = window.DOM;
+    // MODIFICATION : On utilise DOM au lieu de window.DOM
+    const { mainViewCtx, mainViewCanvas } = DOM;
 
     if (Object.keys(loadedAssets).length === 0 || !mainViewCtx) return;
     const playerTile = gameState.map[gameState.player.y][gameState.player.x];
@@ -85,7 +86,8 @@ function drawCharacter(ctx, character, x, y, isPlayer = false) {
 
 export function drawSceneCharacters(gameState) {
     const { player, npcs, enemies } = gameState;
-    const { charactersCtx, charactersCanvas } = window.DOM;
+    // MODIFICATION : On utilise DOM au lieu de window.DOM
+    const { charactersCtx, charactersCanvas } = DOM;
     if (!charactersCtx) return;
 
     charactersCtx.clearRect(0, 0, charactersCanvas.width, charactersCanvas.height);
@@ -141,7 +143,8 @@ export function drawSceneCharacters(gameState) {
 export function drawMinimap(gameState, config) {
     const { map, player, npcs, enemies } = gameState;
     const { MAP_WIDTH, MAP_HEIGHT, MINIMAP_DOT_SIZE } = config;
-    const { minimapCanvas, minimapCtx } = window.DOM;
+    // MODIFICATION : On utilise DOM au lieu de window.DOM
+    const { minimapCanvas, minimapCtx } = DOM;
     if(!minimapCtx) return;
 
     minimapCanvas.width = MAP_WIDTH * MINIMAP_DOT_SIZE;
@@ -180,7 +183,8 @@ export function drawMinimap(gameState, config) {
 export function drawLargeMap(gameState, config) {
     const { map, player, npcs, enemies } = gameState;
     const { MAP_WIDTH, MAP_HEIGHT } = config;
-    const { largeMapCanvas, largeMapCtx } = window.DOM;
+    // MODIFICATION : On utilise DOM au lieu de window.DOM
+    const { largeMapCanvas, largeMapCtx } = DOM;
     if(!largeMapCtx) return;
 
     const headerSize = 30;
@@ -258,7 +262,8 @@ export function drawLargeMap(gameState, config) {
 }
 
 export function populateLargeMapLegend() {
-    const { largeMapLegendEl } = window.DOM;
+    // MODIFICATION : On utilise DOM au lieu de window.DOM
+    const { largeMapLegendEl } = DOM;
     if(!largeMapLegendEl) return;
     
     largeMapLegendEl.innerHTML = '<h3>Légende</h3>';

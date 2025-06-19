@@ -1,11 +1,9 @@
 // js/ui/dom.js
 
-// Cette fonction sera appelée DANS main.js une fois la page chargée.
-export function initDOM() {
-    // On crée un objet global pour y stocker toutes les références au DOM.
-    window.DOM = {};
-    const DOM = window.DOM;
+const DOM = {};
+export default DOM;
 
+export function initDOM() {
     // --- VUE PRINCIPALE & CANVAS ---
     DOM.mainViewCanvas = document.getElementById('main-view-canvas');
     DOM.mainViewCtx = DOM.mainViewCanvas.getContext('2d');
@@ -21,6 +19,12 @@ export function initDOM() {
     DOM.bottomBarEl = document.getElementById('bottom-bar');
     DOM.dayCounterEl = document.getElementById('day-counter');
     DOM.openEquipmentBtn = document.getElementById('open-equipment-btn');
+
+    // ### AJOUT : Boutons de navigation ###
+    DOM.navNorth = document.getElementById('nav-north');
+    DOM.navSouth = document.getElementById('nav-south');
+    DOM.navEast = document.getElementById('nav-east');
+    DOM.navWest = document.getElementById('nav-west');
 
     // --- SLOTS D'ÉQUIPEMENT RAPIDE ---
     DOM.quickSlotWeapon = document.getElementById('quick-slot-weapon');

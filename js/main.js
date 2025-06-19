@@ -1,5 +1,7 @@
 // js/main.js
 import * as UI from './ui.js';
+import { initDOM } from './ui/dom.js'; 
+import DOM from './ui/dom.js';
 import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES } from './config.js';
 import * as State from './state.js';
 import { decayStats, getTotalResources } from './player.js';
@@ -12,12 +14,14 @@ let lastStatDecayTimestamp = 0;
 let draggedItemInfo = null;
 
 function updatePossibleActions() {
-    const { player, map, combatState } = State.state;
+    // console.log("[updatePossibleActions] Début. player.isBusy =", State.state.player.isBusy, "player.animationState =", State.state.player.animationState ? {...State.state.player.animationState} : null);
+
+    DOM.actionsEl.innerHTML = '';
+    const { player, map, combatState, enemies } = State.state;
     const tile = map[player.y][player.x];
     const tileType = tile.type;
-    
-    window.DOM.actionsEl.innerHTML = '';
-    
+    const enemyOnTile = findEnemyOnTile(player.x, player.y, enemies);
+
     if (combatState || player.isBusy || player.animationState) {
         const statusDiv = document.createElement('div');
         statusDiv.style.textAlign = 'center';
@@ -27,70 +31,81 @@ function updatePossibleActions() {
             statusDiv.style.color = 'var(--accent-color)';
             statusDiv.style.fontWeight = 'bold';
         } else {
+            // console.log("Actions bloquées (dans updatePossibleActions). Busy:", player.isBusy, "AnimState:", player.animationState ? {...player.animationState} : null); 
             statusDiv.textContent = player.animationState ? "Déplacement..." : "Action en cours...";
         }
-        window.DOM.actionsEl.appendChild(statusDiv);
+        DOM.actionsEl.appendChild(statusDiv);
+        // console.log("[updatePossibleActions] Actions effectivement bloquées par la condition.");
         return;
     }
-    
+    // console.log("[updatePossibleActions] Actions NON bloquées, recalcul des boutons.");
+
+
     const createButton = (text, actionId, data = {}, disabled = false, title = '') => {
         const button = document.createElement('button');
         button.textContent = text;
         button.disabled = disabled;
         button.title = title;
         button.onclick = () => Interactions.handlePlayerAction(actionId, data, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
-        window.DOM.actionsEl.appendChild(button);
+        DOM.actionsEl.appendChild(button);
     };
+
+    if (enemyOnTile) {
+        const enemyStatus = document.createElement('div');
+        enemyStatus.style.textAlign = 'center';
+        enemyStatus.style.padding = '12px';
+        enemyStatus.style.color = 'var(--accent-color)';
+        enemyStatus.innerHTML = `<strong>DANGER !</strong><br>Un ${enemyOnTile.name} vous bloque le passage.`;
+        DOM.actionsEl.appendChild(enemyStatus);
+        createButton(`⚔️ Attaquer ${enemyOnTile.name}`, 'initiate_combat');
+        return; 
+    }
 
     if (tileType.resource && tile.harvestsLeft > 0) {
         const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
         const tool = player.equipment.weapon;
-
         if (tileType.name === 'Forêt') {
             const canCutWood = tool && tool.action === 'harvest_wood';
             createButton(`Couper du bois`, 'harvest_wood', {}, isInventoryFull || !canCutWood, isInventoryFull ? "Inventaire plein" : !canCutWood ? "Nécessite une hache ou une scie" : "");
         } else {
-            let actionText = `Récolter ${tileType.resource.type}`;
-            createButton(actionText, 'harvest', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "");
+            createButton(`Récolter ${tileType.resource.type}`, 'harvest', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "");
         }
     }
-    
     const equippedWeapon = player.equipment.weapon;
     const canHunt = equippedWeapon && (equippedWeapon.type === 'weapon' || equippedWeapon.type === 'tool');
     if (tileType.name === 'Forêt' || tileType.name === 'Plaine') {
         createButton("Chasser", 'hunt', {}, !canHunt, !canHunt ? "Nécessite une arme équipée" : "");
     }
-    
     const canFish = equippedWeapon && equippedWeapon.action === 'fish';
     if (tileType.name === 'Lagon' || tileType.name === 'Sable Doré') {
          createButton("Pêcher", 'fish', {}, !canFish, !canFish ? "Nécessite une canne à pêche" : "");
     }
-    
     if (tileType.name === TILE_TYPES.PLAINS.name || tileType.name === TILE_TYPES.WASTELAND.name) {
         const canBuildShelterInd = State.hasResources({ 'Bois': 20 }).success;
         createButton("Abri Individuel (-20 Bois)", 'build', { structure: 'shelter_individual' }, !canBuildShelterInd, !canBuildShelterInd ? "Ressources manquantes" : "");
-        const canBuildShelterCol = State.hasResources({ 'Bois': 600 }).success;
-        createButton("Abri Collectif (-600 Bois)", 'build', { structure: 'shelter_collective' }, !canBuildShelterCol, !canBuildShelterCol ? "Ressources manquantes" : "");
-        const canDigMine = State.hasResources({ 'Bois': 100 }).success;
-        createButton("Creuser une Mine (-100 Bois)", 'dig_mine', {}, !canDigMine, !canDigMine ? "Ressources manquantes" : "");
+        const canBuildShelterCol = State.hasResources({ 'Bois': 600, 'Pierre': 150 }).success; // Coût exemple
+        createButton("Abri Collectif (-600 Bois, -150 Pierre)", 'build', { structure: 'shelter_collective' }, !canBuildShelterCol, !canBuildShelterCol ? "Ressources manquantes" : "");
+        const canDigMine = State.hasResources({ 'Bois': 100, 'Pierre': 50 }).success; // Coût exemple
+        createButton("Creuser une Mine (-100 Bois, -50 Pierre)", 'dig_mine', {}, !canDigMine, !canDigMine ? "Ressources manquantes" : "");
     }
     if (tileType.name === TILE_TYPES.WASTELAND.name && tileType.regeneration) {
         const canRegenerate = State.hasResources(tileType.regeneration.cost).success;
         createButton(`Arroser (-${tileType.regeneration.cost['Eau pure']} Eau pure)`, 'regenerate_forest', {}, !canRegenerate, !canRegenerate ? "Ressources manquantes" : "");
     }
     if (tileType.name === TILE_TYPES.CAMPFIRE.name) {
-        const canCook = State.hasResources({ 'Poisson cru': 1, 'Bois': 1 }).success;
-        createButton("Cuisiner (-1 Poisson, -1 Bois)", 'cook', {}, !canCook, !canCook ? "Ressources manquantes" : "");
+        let canCookFish = State.hasResources({ 'Poisson cru': 1, 'Bois': 1 }).success;
+        let canCookMeat = State.hasResources({ 'Viande crue': 1, 'Bois': 1 }).success;
+        createButton("Cuisiner Poisson (-1 Poisson, -1 Bois)", 'cook', {raw: 'Poisson cru'}, !canCookFish, !canCookFish ? "Ressources manquantes" : "");
+        createButton("Cuisiner Viande (-1 Viande, -1 Bois)", 'cook', {raw: 'Viande crue'}, !canCookMeat, !canCookMeat ? "Ressources manquantes" : "");
     }
-    if (tileType.sleepEffect) {
-        createButton("Dormir (10h)", 'sleep');
-    }
+    if (tileType.sleepEffect) createButton("Dormir (8h)", 'sleep');
     if (tileType.inventory) {
         const openChestButton = document.createElement('button');
         openChestButton.textContent = "🧰 Ouvrir le coffre";
         openChestButton.onclick = () => UI.showInventoryModal(State.state);
-        window.DOM.actionsEl.appendChild(openChestButton);
+        DOM.actionsEl.appendChild(openChestButton);
     }
+    // console.log("[updatePossibleActions] Fin.");
 }
 
 function handleEvents() {
@@ -104,16 +119,16 @@ function handleEvents() {
         }
         return;
     }
-    if (Math.random() > 0.95) {
+    if (Math.random() > 0.95) { 
         const eventType = Math.random() < 0.5 ? 'Tempête' : 'Abondance';
         if (eventType === 'Tempête') {
             activeEvent.type = 'Tempête';
-            activeEvent.duration = 1;
+            activeEvent.duration = 1; 
             UI.addChatMessage("Une tempête approche ! Il sera plus difficile de survivre.", "system");
         } else {
-            const abundantResource = Math.random() < 0.5 ? 'Bois' : 'Poisson cru';
+            const abundantResource = Math.random() < 0.5 ? 'Bois' : 'Poisson cru'; 
             activeEvent.type = 'Abondance';
-            activeEvent.duration = 2;
+            activeEvent.duration = 2; 
             activeEvent.data = { resource: abundantResource };
             UI.addChatMessage(`Les ${abundantResource.toLowerCase()}s sont étrangement abondants !`, "system");
         }
@@ -123,9 +138,9 @@ function handleEvents() {
 function gameLoop(currentTime) {
     const { player, isGameOver, combatState } = State.state;
     if (isGameOver) return;
-    if (!player || player.health <= 0) {
-        if (!isGameOver) endGame(false);
-        return;
+    if (player.health <= 0) { 
+        if(!isGameOver) endGame(false);
+        return; 
     }
     if (lastFrameTimestamp === 0) lastFrameTimestamp = currentTime;
     const deltaTime = currentTime - lastFrameTimestamp;
@@ -137,7 +152,7 @@ function gameLoop(currentTime) {
             if(decayResult && decayResult.message) UI.addChatMessage(decayResult.message, 'system');
             lastStatDecayTimestamp = currentTime;
         }
-        if (!player.animationState) { 
+        if (!player.animationState && !player.isBusy) { 
             updateNpcs(State.state, deltaTime); 
             updateEnemies(State.state, deltaTime);
         }
@@ -147,55 +162,79 @@ function gameLoop(currentTime) {
         const anim = player.animationState;
         const safeDeltaTime = Math.min(deltaTime, 50); 
         anim.progress += safeDeltaTime / ACTION_DURATIONS.MOVE_TRANSITION;
+
         if (anim.progress >= 1) {
             if (anim.type === 'out') {
-                State.applyPlayerMove(anim.direction);
-                UI.renderScene(State.state);
-                anim.type = 'in';
-                anim.progress = 0;
-            } else {
-                player.animationState = null;
-                player.isBusy = false;
-                fullUIUpdate();
+                // console.log("Animation 'out' terminée. Application du mouvement.");
+                State.applyPlayerMove(anim.direction); 
+                UI.renderScene(State.state);      
+                anim.type = 'in';                 
+                anim.progress = 0;                
+            } else { // anim.type === 'in'
+                // console.log("[gameLoop] Fin anim 'in'. AVANT réinit: player.isBusy =", player.isBusy, "player.animationState =", player.animationState ? {...player.animationState} : null);
+                
+                player.animationState = null;     
+                player.isBusy = false; 
+                                
+                // console.log("[gameLoop] Fin anim 'in'. APRES réinit: player.isBusy =", player.isBusy, "player.animationState =", player.animationState ? {...player.animationState} : null);
+                
+                fullUIUpdate(); 
             }
         }
     }
-    UI.updateAllUI(State.state);
-    UI.renderScene(State.state);
+    
+    // Garder cette section commentée. fullUIUpdate gère le rafraîchissement nécessaire.
+    /* 
+    if (!player.animationState && !player.isBusy) {
+        UI.updateAllUI(State.state); 
+    }
+    */
+    UI.renderScene(State.state); 
     requestAnimationFrame(gameLoop);
 }
 
 function handleNavigation(direction) {
     const { player, map, enemies, combatState } = State.state;
-    if (player.isBusy || player.animationState || combatState) return;
-    const { x, y } = player;
-    let newX = x, newY = y;
+
+    // console.log(`handleNavigation: direction=${direction}, isBusy=${player.isBusy}, animState=${player.animationState ? {...player.animationState} : null}, combatState=${combatState}`);
+
+    if (player.isBusy || player.animationState || combatState) {
+        // console.warn(`Navigation bloquée: isBusy=${player.isBusy}, animationState=${!!player.animationState}, combatState=${!!combatState}`);
+        return;
+    }
+    
+    const currentEnemyOnTile = findEnemyOnTile(player.x, player.y, enemies);
+    if (currentEnemyOnTile) {
+        UI.addChatMessage("Vous ne pouvez pas fuir, vous devez combattre !", "system");
+        State.startCombat(player, currentEnemyOnTile);
+        UI.showCombatModal(State.state.combatState);
+        updatePossibleActions(); 
+        return;
+    }
+    
+    let newX = player.x, newY = player.y;
     if (direction === 'north') newY--;
     else if (direction === 'south') newY++;
     else if (direction === 'west') newX--;
     else if (direction === 'east') newX++;
+
     if (newX < 0 || newX >= CONFIG.MAP_WIDTH || newY < 0 || newY >= CONFIG.MAP_HEIGHT || !map[newY][newX].type.accessible) {
         UI.addChatMessage("Vous ne pouvez pas aller dans cette direction.", "system");
         return;
     }
-
-    const enemyOnTile = findEnemyOnTile(newX, newY, enemies);
-    if (enemyOnTile) {
-        State.startCombat(player, enemyOnTile);
-        UI.showCombatModal(State.state.combatState);
-        return;
-    }
-
+    
     const statsToReduce = ['thirst', 'hunger', 'sleep'];
     const icons = { thirst: '💧', hunger: '🍗', sleep: '🌙' };
     const chosenStat = statsToReduce[Math.floor(Math.random() * statsToReduce.length)];
     player[chosenStat] = Math.max(0, player[chosenStat] - 1);
     UI.showFloatingText(`-1${icons[chosenStat]}`, 'cost');
 
-    player.isBusy = true;
+    // console.log("Lancement de l'animation de déplacement.");
+    player.isBusy = true; 
     player.animationState = { type: 'out', direction: direction, progress: 0 };
-    updatePossibleActions();
-    UI.updateAllButtonsState(State.state);
+    
+    updatePossibleActions(); 
+    UI.updateAllButtonsState(State.state); 
 }
 
 function handleConsumeClick(itemName) {
@@ -217,25 +256,40 @@ function handleConsumeClick(itemName) {
         }
         fullUIUpdate();
     } else {
-        UI.triggerShake(document.getElementById('inventory-categories'));
+        if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
     }
 }
 
 function fullUIUpdate() {
+    // console.log("[fullUIUpdate] Début. player.isBusy =", State.state.player.isBusy, "player.animationState =", State.state.player.animationState ? {...State.state.player.animationState} : null); 
+
     UI.updateAllUI(State.state);
-    updatePossibleActions();
-    if (!window.DOM.equipmentModal.classList.contains('hidden')) {
+    updatePossibleActions(); 
+    UI.updateAllButtonsState(State.state); 
+
+    if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) {
         UI.updateEquipmentModal(State.state);
     }
+    if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) {
+        UI.showInventoryModal(State.state);
+    }
+    if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) {
+        if (State.state && State.state.config) { // S'assurer que config est disponible
+            UI.drawLargeMap(State.state, State.state.config); 
+            UI.populateLargeMapLegend(); 
+        }
+    }
+    // console.log("[fullUIUpdate] Fin.");
 }
 
 function dailyUpdate() {
-    if (++State.state.day > 100) {
+    if (State.state.isGameOver) return; 
+    if (State.state.day >= 100) {
         endGame(true);
         return;
     }
+    State.state.day++;
     handleEvents();
-
     if (State.state.day % CONFIG.ENEMY_SPAWN_CHECK_DAYS === 0) {
         if (State.state.enemies.length < CONFIG.MAX_ENEMIES) {
             const newEnemy = spawnSingleEnemy(State.state.map);
@@ -245,93 +299,190 @@ function dailyUpdate() {
             }
         }
     }
+    fullUIUpdate();
 }
 
-function setupEventListeners() {
-    window.DOM.openEquipmentBtn.addEventListener('click', () => UI.showEquipmentModal(State.state));
-    window.DOM.closeEquipmentModalBtn.addEventListener('click', UI.hideEquipmentModal);
+function handleDragStart(e) {
+    const itemEl = e.target.closest('.inventory-item[draggable="true"]');
+    if (!itemEl) return;
+    const ownerEl = itemEl.closest('[data-owner]');
+    if (!ownerEl) return;
+    draggedItemInfo = {
+        element: itemEl,
+        itemName: itemEl.dataset.itemName,
+        itemCount: parseInt(itemEl.dataset.itemCount || '1', 10),
+        sourceOwner: ownerEl.dataset.owner,
+        sourceSlotType: itemEl.dataset.slotType 
+    };
+    setTimeout(() => itemEl.classList.add('dragging'), 0);
+}
 
-    window.DOM.inventoryCategoriesEl.addEventListener('click', e => {
-        const itemEl = e.target.closest('.inventory-item.clickable');
-        if (itemEl) {
-            handleConsumeClick(itemEl.dataset.itemName);
-        } else {
-            const header = e.target.closest('.category-header');
-            if (header) {
-                header.classList.toggle('open');
-                header.nextElementSibling.classList.toggle('visible');
-            }
-        }
-    });
+function handleDragOver(e) { 
+    e.preventDefault(); 
+    const dropZone = e.target.closest('.droppable'); 
+    if (dropZone) {
+        dropZone.classList.add('drag-over');
+    }
+}
+function handleDragLeave(e) { 
+    const dropZone = e.target.closest('.droppable'); 
+    if (dropZone) {
+        dropZone.classList.remove('drag-over');
+    }
+}
+function handleDragEnd() { 
+    if (draggedItemInfo && draggedItemInfo.element) { 
+        draggedItemInfo.element.classList.remove('dragging'); 
+    }
+    draggedItemInfo = null; 
+    document.querySelectorAll('.droppable.drag-over').forEach(el => el.classList.remove('drag-over')); 
+}
 
-    const equipmentModal = window.DOM.equipmentModal;
-    equipmentModal.addEventListener('dragstart', e => {
-        const itemEl = e.target.closest('.inventory-item[draggable="true"]');
-        if (!itemEl) return;
-        const owner = itemEl.closest('[data-owner]').dataset.owner;
-        draggedItemInfo = { element: itemEl, itemName: itemEl.dataset.itemName, sourceOwner: owner, sourceSlotType: owner === 'equipment' ? itemEl.dataset.slotType : null };
-        setTimeout(() => itemEl.classList.add('dragging'), 0);
-    });
-    equipmentModal.addEventListener('dragover', e => { e.preventDefault(); const dropZone = e.target.closest('.droppable'); if (dropZone) dropZone.classList.add('drag-over'); });
-    equipmentModal.addEventListener('dragleave', e => { const dropZone = e.target.closest('.droppable'); if (dropZone) dropZone.classList.remove('drag-over'); });
-    equipmentModal.addEventListener('dragend', () => { if (draggedItemInfo && draggedItemInfo.element) draggedItemInfo.element.classList.remove('dragging'); draggedItemInfo = null; document.querySelectorAll('.droppable.drag-over').forEach(el => el.classList.remove('drag-over')); });
-    equipmentModal.addEventListener('drop', e => {
-        e.preventDefault();
-        const dropZone = e.target.closest('.droppable');
-        if (!draggedItemInfo || !dropZone) return;
-        const destOwner = dropZone.dataset.owner;
-        const destSlotType = dropZone.dataset.slotType;
+function handleDrop(e) {
+    e.preventDefault();
+    const dropZone = e.target.closest('.droppable');
+    if (!draggedItemInfo || !dropZone) {
+        if (draggedItemInfo) console.warn("Drop: No drop zone found for item:", draggedItemInfo.itemName);
+        else console.warn("Drop: No dragged item info.");
+        return;
+    }
+    
+    const destOwner = dropZone.dataset.owner;
+    if (dropZone.closest('#equipment-modal')) {
+        const destSlotType = dropZone.dataset.slotType; 
         const itemDef = ITEM_TYPES[draggedItemInfo.itemName];
-        if (draggedItemInfo.sourceOwner === 'player-inventory' && destOwner === 'equipment') {
+
+        if (draggedItemInfo.sourceOwner === 'player-inventory' && destOwner === 'equipment') { 
             if (itemDef && itemDef.slot === destSlotType) {
                 State.equipItem(draggedItemInfo.itemName);
             } else {
-                UI.addChatMessage("Objet non compatible.", "system");
-                UI.triggerShake(dropZone);
+                UI.addChatMessage("Cet objet ne va pas dans cet emplacement.", "system");
             }
-        } 
-        else if (draggedItemInfo.sourceOwner === 'equipment' && destOwner === 'player-inventory') {
-            State.unequipItem(draggedItemInfo.sourceSlotType);
+        } else if (draggedItemInfo.sourceOwner === 'equipment' && destOwner === 'player-inventory') { 
+            if (draggedItemInfo.sourceSlotType) {
+                State.unequipItem(draggedItemInfo.sourceSlotType);
+            } else {
+                console.warn("Unequip fail: sourceSlotType missing from draggedItemInfo for equipment.");
+            }
         }
-        fullUIUpdate();
+    } 
+    else if (dropZone.closest('#inventory-modal')) { 
+        const transferType = destOwner === 'shared' ? 'deposit' : 'withdraw';
+        if (draggedItemInfo.itemCount > 1) {
+            UI.showQuantityModal(draggedItemInfo.itemName, draggedItemInfo.itemCount, amount => {
+                if(amount > 0) State.applyBulkInventoryTransfer(draggedItemInfo.itemName, amount, transferType);
+                fullUIUpdate(); 
+            });
+        } else {
+            State.applyBulkInventoryTransfer(draggedItemInfo.itemName, 1, transferType);
+        }
+    }
+    fullUIUpdate(); 
+    if(dropZone) dropZone.classList.remove('drag-over'); // S'assurer que le style est retiré
+}
+
+function setupDragAndDropForModal(modalElement) {
+    if (!modalElement) {
+        // console.error("setupDragAndDropForModal: modalElement is null or undefined for:", modalElement); // Log plus précis
+        return;
+    }
+    modalElement.addEventListener('dragstart', handleDragStart);
+    modalElement.addEventListener('dragover', handleDragOver);
+    modalElement.addEventListener('dragleave', handleDragLeave);
+    modalElement.addEventListener('dragend', handleDragEnd);
+    modalElement.addEventListener('drop', handleDrop);
+}
+
+function setupEventListeners() {
+    // S'assurer que DOM est bien peuplé avant d'ajouter les écouteurs
+    if (!DOM.navNorth) { console.error("DOM non initialisé avant setupEventListeners"); return; }
+
+    DOM.navNorth.addEventListener('click', () => handleNavigation('north'));
+    DOM.navSouth.addEventListener('click', () => handleNavigation('south'));
+    DOM.navEast.addEventListener('click', () => handleNavigation('east'));
+    DOM.navWest.addEventListener('click', () => handleNavigation('west'));
+
+    if (DOM.openEquipmentBtn) DOM.openEquipmentBtn.addEventListener('click', () => UI.showEquipmentModal(State.state));
+    if (DOM.closeEquipmentModalBtn) DOM.closeEquipmentModalBtn.addEventListener('click', UI.hideEquipmentModal);
+    
+    if (DOM.enlargeMapBtn) DOM.enlargeMapBtn.addEventListener('click', () => {
+        console.log("Clic sur Agrandir Carte");
+        UI.showLargeMap(State.state); // Doit être exporté correctement par js/ui.js depuis js/ui/modals.js
+    });
+    if (DOM.closeLargeMapBtn) DOM.closeLargeMapBtn.addEventListener('click', UI.hideLargeMap);
+    
+    if (DOM.inventoryCategoriesEl) DOM.inventoryCategoriesEl.addEventListener('click', e => {
+        const itemEl = e.target.closest('.inventory-item.clickable');
+        if (itemEl) handleConsumeClick(itemEl.dataset.itemName);
+        else {
+            const header = e.target.closest('.category-header');
+            if (header) {
+                header.classList.toggle('open');
+                if (header.nextElementSibling) header.nextElementSibling.classList.toggle('visible');
+            }
+        }
     });
 
-    window.addEventListener('keydown', e => { if (e.key === 'Escape') UI.hideEquipmentModal(); });
-    window.handleCombatAction = Interactions.handleCombatAction;
-    window.gameState = State.state;
-    UI.setupQuantityModalListeners();
+    if (DOM.equipmentModal) setupDragAndDropForModal(DOM.equipmentModal); else console.warn("DOM.equipmentModal non trouvé pour D&D");
+    if (DOM.inventoryModal) setupDragAndDropForModal(DOM.inventoryModal); else console.warn("DOM.inventoryModal non trouvé pour D&D");
+    
+    window.addEventListener('keydown', e => { 
+        if (e.key === 'Escape') {
+            if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal(); 
+            else if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
+            else if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) UI.hideLargeMap();
+            else if (DOM.combatModal && !DOM.combatModal.classList.contains('hidden')) UI.hideCombatModal();
+            else if (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
+        }
+    });
+    window.handleCombatAction = Interactions.handleCombatAction; // Pour accès depuis HTML inline (pas idéal mais fonctionne)
+    window.gameState = State.state; // Pour débogage facile depuis la console
+    UI.setupQuantityModalListeners(); // Assurez-vous que cette fonction vérifie l'existence des éléments DOM
 }
 
 function endGame(isVictory) {
     if (State.state.isGameOver) return;
     State.state.isGameOver = true;
-    State.state.gameIntervals.forEach(clearInterval);
+    if(State.state.gameIntervals) State.state.gameIntervals.forEach(clearInterval);
     if(State.state.combatState) UI.hideCombatModal();
     const finalMessage = isVictory ? "Félicitations ! Vous avez survécu 100 jours !" : "Vous n'avez pas survécu...";
     UI.addChatMessage(finalMessage, 'system');
     document.querySelectorAll('button').forEach(b => b.disabled = true);
-    document.getElementById('chat-input-field').disabled = true;
+    if (DOM.chatInputEl) DOM.chatInputEl.disabled = true;
 }
 
-function fullResizeAndRedraw() { UI.resizeGameView(); if (State.state.player) UI.renderScene(State.state); }
+function fullResizeAndRedraw() { 
+    UI.resizeGameView(); 
+    if (State.state && State.state.player) {
+        UI.renderScene(State.state);
+    }
+}
 
 async function init() {
     try {
-        UI.initDOM();
+        initDOM(); // Initialise l'objet DOM global
         await UI.loadAssets(SPRITESHEET_PATHS);
-        fullResizeAndRedraw();
+        fullResizeAndRedraw(); 
         window.addEventListener('resize', fullResizeAndRedraw);
         State.initializeGameState(CONFIG);
-        State.state.config = CONFIG;
+        if (State.state) State.state.config = CONFIG; // S'assurer que state est initialisé
         setupEventListeners();
-        UI.updateAllUI(State.state);
+        fullUIUpdate(); 
         requestAnimationFrame(gameLoop);
-        State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
-        State.state.gameIntervals.push(setInterval(() => npcChatter(State.state.npcs), CONFIG.CHAT_MESSAGE_INTERVAL_MS));
-        console.log("Jeu initialisé avec la méthode DOM globale.");
+        if (State.state) { // S'assurer que state est initialisé
+            State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
+            State.state.gameIntervals.push(setInterval(() => {
+                if (State.state.npcs && State.state.npcs.length > 0) { 
+                    npcChatter(State.state.npcs);
+                }
+            }, CONFIG.CHAT_MESSAGE_INTERVAL_MS));
+        }
+        console.log("Jeu initialisé avec un module DOM dédié et une logique de combat manuelle.");
     } catch (error) {
         console.error("ERREUR CRITIQUE lors de l'initialisation :", error);
-        document.body.innerHTML = `<div style="color:white; padding: 20px;">Erreur critique au chargement : ${error.message}</div>`;
+        if (document.body) { 
+            document.body.innerHTML = `<div style="color:white; padding: 20px;">Erreur critique au chargement : ${error.message}<br>Vérifiez la console pour plus de détails.</div>`;
+        }
     }
 }
 
