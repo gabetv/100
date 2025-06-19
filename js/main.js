@@ -28,7 +28,7 @@ function updatePossibleActions() {
     const tileType = tile.type; 
     const enemyOnTile = findEnemyOnTile(player.x, player.y, enemies);
 
-    console.log("[updatePossibleActions] Player equipment weapon:", player.equipment.weapon); // LOG POUR DEBUG HACHE
+    console.log("[updatePossibleActions] Player equipment weapon:", player.equipment.weapon); 
 
     const createButton = (text, actionId, data = {}, disabled = false, title = '') => {
         const button = document.createElement('button');
@@ -85,19 +85,17 @@ function updatePossibleActions() {
 
     let tileKeyForSearch = null;
     for (const key in TILE_TYPES) {
-        if (TILE_TYPES[key].name === tileType.name) { // Comparer avec le nom du type de terrain de base
+        if (TILE_TYPES[key].name === tileType.name) { 
             tileKeyForSearch = key;
             break;
         }
     }
-    // Si la tuile contient un bâtiment qui empêche la fouille, on pourrait ajouter une condition ici.
-    // Pour l'instant, on fouille le "terrain".
+    
     if (tileKeyForSearch && SEARCH_ZONE_CONFIG[tileKeyForSearch]) {
         const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
         createButton("🔎 Fouiller la zone", 'search_zone', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "Chercher des objets ou des ennuis...");
     }
 
-    // Gérer le trésor s'il est le "type" principal de la tuile (pas dans buildings)
     if (tile.type === TILE_TYPES.TREASURE_CHEST) {
         if (!tile.isOpened) {
             const hasKey = player.inventory[TILE_TYPES.TREASURE_CHEST.requiresKey] > 0;
@@ -116,34 +114,31 @@ function updatePossibleActions() {
         createButton(`🔑 Prendre ${tile.hiddenItem}`, 'take_hidden_item', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : `Ramasser ${tile.hiddenItem}`);
     }
 
-    // Récolte des ressources du terrain de base
     if (tileType.resource && tile.harvestsLeft > 0) {
         const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
         const tool = player.equipment.weapon;
-        console.log("Outil pour récolte terrain:", tool); // LOG POUR DEBUG HACHE
+        console.log("Outil pour récolte terrain:", tool); 
         if (tileType.name === 'Forêt') {
             const canCutWood = tool && tool.action === 'harvest_wood';
-            console.log("Peut couper bois (terrain):", canCutWood, "Action de l'outil:", tool ? tool.action : "pas d'outil"); // LOG
+            console.log("Peut couper bois (terrain):", canCutWood, "Action de l'outil:", tool ? tool.action : "pas d'outil"); 
             createButton(`Couper du bois (Terrain)`, 'harvest_wood', {}, isInventoryFull || !canCutWood, isInventoryFull ? "Inventaire plein" : !canCutWood ? "Nécessite une hache ou une scie" : "");
         } else {
-             // S'assurer que ce n'est pas une action de bâtiment qui est prioritaire
             if (!tile.buildings.some(b => TILE_TYPES[b.key]?.action?.id === 'harvest' || TILE_TYPES[b.key]?.actions?.some(a => a.id === 'harvest'))) {
                 createButton(`Récolter ${tileType.resource.type} (Terrain)`, 'harvest', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "");
             }
         }
     }
 
-    const equippedWeapon = player.equipment.weapon; // Reste ici pour Chasser/Pêcher sur terrain
-    const canHunt = equippedWeapon && (equippedWeapon.type === 'weapon' || equippedWeapon.type === 'tool' && equippedWeapon.stats && equippedWeapon.stats.damage > 0);
+    const equippedWeaponForActions = player.equipment.weapon; 
+    const canHunt = equippedWeaponForActions && (equippedWeaponForActions.type === 'weapon' || (equippedWeaponForActions.type === 'tool' && equippedWeaponForActions.stats && equippedWeaponForActions.stats.damage > 0));
     if (tileType.name === 'Forêt' || tileType.name === 'Plaine') {
         createButton("Chasser (Terrain)", 'hunt', {}, !canHunt, !canHunt ? "Nécessite une arme équipée" : "");
     }
-    const canFish = equippedWeapon && equippedWeapon.action === 'fish';
-    if (tileType.name === 'Sable Doré') { // Lagon non accessible
+    const canFish = equippedWeaponForActions && equippedWeaponForActions.action === 'fish';
+    if (tileType.name === 'Sable Doré') { 
          createButton("Pêcher (Terrain)", 'fish', {}, !canFish, !canFish ? "Nécessite une canne à pêche" : "");
     }
     
-    // --- Section Construction ---
     if (tile.type.buildable && tile.buildings.length < CONFIG.MAX_BUILDINGS_PER_TILE) {
         const buildHeader = document.createElement('h4');
         buildHeader.textContent = "Construire";
@@ -153,18 +148,17 @@ function updatePossibleActions() {
             const bt = TILE_TYPES[key];
             if (!bt.isBuilding || !bt.cost) return false;
             
-            // Si le terrain n'est pas Plaine, autoriser seulement MINE et CAMPFIRE
             if (tile.type.name !== TILE_TYPES.PLAINS.name) {
                 return key === 'MINE' || key === 'CAMPFIRE';
             }
-            return true; // Si c'est Plaine, autoriser tous les bâtiments constructibles
+            return true; 
         });
 
         constructibleBuildings.forEach(bKey => {
             const buildingType = TILE_TYPES[bKey];
             let costString = "";
             const costs = { ...buildingType.cost };
-            const toolReqArray = costs.toolRequired; // Renommer pour éviter conflit
+            const toolReqArray = costs.toolRequired; 
             delete costs.toolRequired;
 
             for (const item in costs) {
@@ -192,8 +186,6 @@ function updatePossibleActions() {
         });
     }
 
-
-    // --- Section Actions des Bâtiments ---
     if (tile.buildings && tile.buildings.length > 0) {
         const buildingsHeader = document.createElement('h4');
         buildingsHeader.textContent = "Actions des Bâtiments";
@@ -252,8 +244,7 @@ function updatePossibleActions() {
         });
     }
 }
-// ... (reste du fichier main.js comme précédemment)
-// ... gameLoop, handleNavigation, etc. ...
+
 
 function handleEvents() {
     if (!State.state || !State.state.activeEvent) return;
@@ -504,10 +495,17 @@ function dailyUpdate() {
 }
 
 function handleDragStart(e) {
-    const itemEl = e.target.closest('.inventory-item[draggable="true"]');
-    if (!itemEl) return;
+    const itemEl = e.target instanceof Element ? e.target.closest('.inventory-item[draggable="true"]') : null;
+    
+    if (!itemEl) {
+        return;
+    }
+
     const ownerEl = itemEl.closest('[data-owner]');
-    if (!ownerEl) return;
+    if (!ownerEl) {
+        return;
+    }
+
     draggedItemInfo = {
         element: itemEl,
         itemName: itemEl.dataset.itemName,
@@ -517,6 +515,7 @@ function handleDragStart(e) {
     };
     setTimeout(() => itemEl.classList.add('dragging'), 0);
 }
+
 
 function handleDragOver(e) { 
     e.preventDefault(); 

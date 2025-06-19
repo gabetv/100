@@ -1,5 +1,5 @@
 // js/ui/panels.js
-import { ITEM_TYPES } from '../config.js';
+import { ITEM_TYPES, TILE_TYPES } from '../config.js'; // AJOUT DE TILE_TYPES ICI
 import { getTotalResources } from '../player.js';
 import DOM from './dom.js';
 
@@ -42,10 +42,9 @@ export function updateQuickSlots(player) {
     const { quickSlotWeapon, quickSlotArmor, quickSlotBag, quickSlotFeet } = DOM; 
     const slots = {
         weapon: quickSlotWeapon,
-        body: quickSlotArmor, // Assuming 'body' is for armor slot as per previous definition
+        body: quickSlotArmor, 
         bag: quickSlotBag,
         feet: quickSlotFeet,
-        // head: quickSlotHead, // If you add a quick slot for head
     };
 
     for (const slotType in slots) {
@@ -62,7 +61,6 @@ export function updateQuickSlots(player) {
 
         if (equippedItem) {
             if (placeholder) placeholder.style.display = 'none';
-            // Utiliser directement les infos de l'objet équipé, qui devraient inclure l'icône
             const icon = equippedItem.icon || ITEM_TYPES[equippedItem.name]?.icon || '❓';
             const iconEl = document.createElement('span');
             iconEl.textContent = icon;
@@ -87,13 +85,13 @@ export function updateInventory(player) {
         tool: [], 
         weapon: [], 
         armor: [], 
-        body: [], // Pour Vêtements etc. non-armure
-        head: [], // Pour Chapeaux etc.
+        body: [], 
+        head: [], 
         feet: [], 
         bag: [], 
         resource: [], 
         usable: [],
-        key: [], // NOUVELLE CATÉGORIE
+        key: [], 
     };
     
     for (const itemName in player.inventory) {
@@ -101,20 +99,16 @@ export function updateInventory(player) {
             const itemDef = ITEM_TYPES[itemName] || { type: 'resource', icon: '❓' };
             let type = itemDef.type; 
 
-            // Logique de classification améliorée
-            if (itemDef.slot) { // Si l'objet a un slot d'équipement défini
-                if (categories[itemDef.slot]) { // Si le slot correspond à une catégorie (weapon, body, head, feet, bag)
+            if (itemDef.slot) { 
+                if (categories[itemDef.slot]) { 
                     type = itemDef.slot;
-                } else if (itemDef.type === 'armor' && itemDef.slot === 'body') { // Cas spécifique armure corporelle
+                } else if (itemDef.type === 'armor' && itemDef.slot === 'body') { 
                     type = 'armor';
                 }
-                // Les outils peuvent aussi avoir un slot 'weapon', mais on veut les garder dans 'tool' si leur type est 'tool'
-                // Sauf si c'est explicitement une arme.
-                if (itemDef.type === 'tool' && categories.tool) {
+                if (itemDef.type === 'tool' && categories.tool) { // Garder 'tool' si le type est 'tool'
                     type = 'tool';
                 }
             }
-
 
             if (categories[type]) { 
                 categories[type].push(itemName);
@@ -138,7 +132,7 @@ export function updateInventory(player) {
         { key: 'bag', name: 'Sacs' },       
         { key: 'resource', name: 'Ressources' }, 
         { key: 'usable', name: 'Objets Spéciaux' },
-        { key: 'key', name: 'Clés & Uniques' }, // NOUVELLE LIGNE
+        { key: 'key', name: 'Clés & Uniques' }, 
     ];
     
     let hasItems = false;
@@ -151,9 +145,7 @@ export function updateInventory(player) {
             categoryDiv.className = 'inventory-category';
             const header = document.createElement('div');
             header.className = 'category-header'; 
-            // Ouvrir par défaut certaines catégories
             if (['resource', 'consumable', 'tool', 'key'].includes(cat.key)) header.classList.add('open');
-
 
             header.innerHTML = `<span>${cat.name}</span><span class="category-toggle">▶</span>`;
             const content = document.createElement('ul');
@@ -164,7 +156,6 @@ export function updateInventory(player) {
                 const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
                 const li = document.createElement('li');
                 li.className = 'inventory-item';
-                // Rendre cliquable les consommables et les parchemins
                 if (itemDef.type === 'consumable' || itemName.startsWith('Parchemin Atelier')) {
                     li.classList.add('clickable');
                 }
@@ -186,28 +177,22 @@ export function updateDayCounter(day) {
     if (DOM.dayCounterEl) DOM.dayCounterEl.textContent = day; 
 }
 
-export function updateTileInfoPanel(tile) {
+export function updateTileInfoPanel(tile) { 
     if (!tile || !DOM.tileNameEl || !DOM.tileDescriptionEl || !DOM.tileHarvestsInfoEl) return;
 
-    // Si la tuile a des bâtiments, afficher le nom du premier bâtiment prioritaire, sinon le terrain.
-    let mainDisplayName = tile.type.name; // Terrain de base
-    let mainDisplayDescription = "";
+    let mainDisplayName = tile.type.name; 
+    let mainDisplayDescription = ""; // Sera défini plus bas
     let mainHarvestsInfo = "";
     let mainDurabilityInfo = "";
 
     if (tile.buildings && tile.buildings.length > 0) {
-        // Priorité d'affichage (ex: un Atelier est plus "actif" qu'un simple mur)
-        // Pour l'instant, on prend le premier de la liste s'il y en a.
         const mainBuildingInstance = tile.buildings[0]; 
-        const mainBuildingDef = TILE_TYPES[mainBuildingInstance.key];
+        const mainBuildingDef = TILE_TYPES[mainBuildingInstance.key]; 
         if (mainBuildingDef) {
             mainDisplayName = mainBuildingDef.name;
-            // Descriptions spécifiques aux bâtiments pourraient être ajoutées ici
-            // mainDisplayDescription = mainBuildingDef.description || "Une structure construite.";
             mainDurabilityInfo = `Durabilité: ${mainBuildingInstance.durability}/${mainBuildingInstance.maxDurability}`;
         }
     }
-
 
     DOM.tileNameEl.textContent = mainDisplayName;
     const descriptions = { 
@@ -233,8 +218,7 @@ export function updateTileInfoPanel(tile) {
     };
     DOM.tileDescriptionEl.textContent = mainDurabilityInfo ? `${mainDurabilityInfo}. ${descriptions[mainDisplayName] || "Un lieu étrange..."}` : descriptions[mainDisplayName] || "Un lieu étrange...";
     
-    // Info de récolte pour le terrain de base (si pas de bâtiment prioritaire affiché ou si le bâtiment ne masque pas cette info)
-    if (tile.type.resource && tile.harvestsLeft > 0 && tile.type.harvests !== Infinity && tile.buildings.length === 0) { // N'afficher que si pas de bâtiments
+    if (tile.type.resource && tile.harvestsLeft > 0 && tile.type.harvests !== Infinity && (!tile.buildings || tile.buildings.length === 0)) {
         mainHarvestsInfo = `Récoltes (terrain): ${tile.harvestsLeft}`;
     }
     
@@ -297,7 +281,7 @@ export function updateAllButtonsState(gameState) {
         let canEat = false;
         if ((player.inventory['Viande cuite'] > 0) || 
             (player.inventory['Poisson cuit'] > 0) || 
-            (player.inventory['Oeuf cuit'] > 0) || // Ajout oeuf cuit
+            (player.inventory['Oeuf cuit'] > 0) || 
             (player.inventory['Barre Énergétique'] > 0) || 
             (player.inventory['Banane'] > 0)) {
             canEat = true;
@@ -309,7 +293,7 @@ export function updateAllButtonsState(gameState) {
 
     if (DOM.actionsEl) {
         DOM.actionsEl.querySelectorAll('button').forEach(b => {
-            if (isPlayerBusy && !b.classList.contains('action-always-enabled')) { // Permettre certains boutons même si occupé
+            if (isPlayerBusy && !b.classList.contains('action-always-enabled')) { 
                 b.disabled = true;
             }
         });
