@@ -7,7 +7,7 @@ import * as State from './state.js';
 import { decayStats, getTotalResources } from './player.js';
 import { updateNpcs, npcChatter } from './npc.js';
 import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js';
-import * as Interactions from './interactions.js'; // Interactions est déjà importé ici
+import * as Interactions from './interactions.js'; 
 
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
@@ -73,6 +73,24 @@ function updatePossibleActions() {
         const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
         createButton("🔎 Fouiller la zone", 'search_zone', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "Chercher des objets ou des ennuis...");
     }
+
+    if (tile.type === TILE_TYPES.TREASURE_CHEST) {
+        if (!tile.isOpened) {
+            const hasKey = player.inventory[TILE_TYPES.TREASURE_CHEST.requiresKey] > 0;
+            createButton("💎 Ouvrir le Trésor", 'open_treasure', {}, !hasKey, !hasKey ? `Nécessite : ${TILE_TYPES.TREASURE_CHEST.requiresKey}` : "Utiliser la clé pour ouvrir");
+        } else {
+            const p = document.createElement('p');
+            p.textContent = "Ce trésor a déjà été vidé.";
+            p.style.textAlign = 'center';
+            if(DOM.actionsEl) DOM.actionsEl.appendChild(p);
+        }
+    }
+
+    if (tile.hiddenItem) {
+        const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory && !player.inventory[tile.hiddenItem];
+        createButton(`🔑 Prendre ${tile.hiddenItem}`, 'take_hidden_item', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : `Ramasser ${tile.hiddenItem}`);
+    }
+
 
     if (tileType.resource && tile.harvestsLeft > 0) {
         const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
@@ -171,7 +189,6 @@ function gameLoop(currentTime) {
         }
         if (!player.animationState && !player.isBusy) { 
             updateNpcs(State.state, deltaTime); 
-            // updateEnemies(State.state, deltaTime); // Monstres statiques
         }
     }
     
@@ -499,7 +516,7 @@ function setupEventListeners() {
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal(); 
             else if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
             else if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) UI.hideLargeMap();
-            else if (DOM.combatModal && !DOM.combatModal.classList.contains('hidden')) UI.hideCombatModal(); // Potentiellement appeler State.endCombat(false) si on fuit avec Echap?
+            else if (DOM.combatModal && !DOM.combatModal.classList.contains('hidden')) UI.hideCombatModal(); 
             else if (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
         }
     });

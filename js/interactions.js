@@ -1,5 +1,5 @@
 // js/interactions.js
-import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ORE_TYPES, COMBAT_CONFIG, ITEM_TYPES, SEARCH_ZONE_CONFIG, ENEMY_TYPES, SEARCHABLE_ITEMS } from './config.js';
+import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ORE_TYPES, COMBAT_CONFIG, ITEM_TYPES, SEARCH_ZONE_CONFIG, ENEMY_TYPES, SEARCHABLE_ITEMS, TREASURE_COMBAT_KIT } from './config.js';
 import * as UI from './ui.js';
 import * as State from './state.js';
 import { getTotalResources } from './player.js'; 
@@ -121,7 +121,6 @@ function performToolAction(player, toolSlot, actionType, onComplete, updateUICal
     );
 }
 
-// MODIFICATION ICI: AJOUT DE 'export'
 export function handleCombatAction(action) {
     const { combatState, player } = State.state;
     if (!combatState || !combatState.isPlayerTurn) return;
@@ -241,14 +240,17 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
     switch(actionId) {
         case 'sleep':
         case 'initiate_combat': 
+        case 'take_hidden_item': 
+        case 'open_treasure':    
             shouldApplyBaseCost = false;
             break;
     }
 
     if (shouldApplyBaseCost) {
         if (!applyRandomStatCost(player, 1, actionId)) { 
-            // Option: if a critical stat is 0 and this action would cost it, prevent action.
-            // For now, applyRandomStatCost handles warnings.
+            // Optionnel: si le joueur est totalement épuisé, on pourrait bloquer l'action ici
+            // UI.addChatMessage("Vous êtes trop épuisé pour tenter cette action.", "system");
+            // return;
         }
     }
 
@@ -541,6 +543,93 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 },
                 updateUICallbacks
             );
+            break;
+        }
+
+        case 'take_hidden_item': {
+            if (tile.hiddenItem) {
+                const itemName = tile.hiddenItem;
+                const availableSpace = player.maxInventory - getTotalResources(player.inventory);
+                // Vérifie si l'inventaire est plein UNIQUEMENT si l'item n'est pas déjà possédé (ou si ce n'est pas un item unique cumulable)
+                // Pour un item unique comme une clé, on ne vérifie la place que s'il n'en a pas déjà une.
+                // Mais ici, on ajoute juste, donc on vérifie la place brute.
+                if (availableSpace < 1 ) { 
+                    UI.addChatMessage("Votre inventaire est plein !", "system");
+                    if(DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
+                    return;
+                }
+                
+                UI.addChatMessage(`Vous avez trouvé : ${itemName} !`, 'gain');
+                State.addResourceToPlayer(itemName, 1);
+                UI.showFloatingText(`+1 ${itemName}`, 'gain');
+                tile.hiddenItem = null; 
+                if (updateUICallbacks && updateUICallbacks.updateAllUI) updateUICallbacks.updateAllUI();
+                // updatePossibleActions sera appelé par updateAllUI, ou sinon on l'appelle ici
+                 if (updateUICallbacks && updateUICallbacks.updatePossibleActions) updateUICallbacks.updatePossibleActions(); 
+            } else {
+                UI.addChatMessage("Il n'y a rien à prendre ici.", "system");
+            }
+            break;
+        }
+
+        case 'open_treasure': {
+            if (tile.type === TILE_TYPES.TREASURE_CHEST && !tile.isOpened) {
+                if (player.inventory[TILE_TYPES.TREASURE_CHEST.requiresKey] > 0) {
+                    
+                    // Optionnel: Coût pour tenter d'ouvrir
+                    // if (!applyRandomStatCost(player, 1, actionId)) { /* ... */ }
+
+                    performTimedAction(player, ACTION_DURATIONS.OPEN_TREASURE, 
+                        () => UI.addChatMessage("Vous essayez d'ouvrir le trésor...", "system"),
+                        () => {
+                            State.applyResourceDeduction({ [TILE_TYPES.TREASURE_CHEST.requiresKey]: 1 });
+                            UI.showFloatingText(`-1 ${TILE_TYPES.TREASURE_CHEST.requiresKey}`, 'cost');
+                            UI.addChatMessage("Le trésor s'ouvre ! Vous trouvez un kit de combat complet !", "gain");
+                            
+                            let itemsAddedCount = 0;
+                            let inventoryFullMessageShown = false;
+                            
+                            for (const itemName in TREASURE_COMBAT_KIT) {
+                                const amountToPotentiallyAdd = TREASURE_COMBAT_KIT[itemName];
+                                let amountActuallyAdded = 0;
+
+                                for (let i=0; i < amountToPotentiallyAdd; i++) {
+                                    const currentTotalResources = getTotalResources(player.inventory);
+                                    if (currentTotalResources < player.maxInventory) {
+                                        State.addResourceToPlayer(itemName, 1);
+                                        amountActuallyAdded++;
+                                    } else {
+                                        if (!inventoryFullMessageShown) {
+                                            UI.addChatMessage("Votre inventaire est plein, vous ne pouvez pas tout prendre !", "warning");
+                                            if(DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
+                                            inventoryFullMessageShown = true;
+                                        }
+                                        // Optionnel: Laisser les items non pris dans un inventaire de la tuile
+                                        // if (!tile.inventory) tile.inventory = {};
+                                        // tile.inventory[itemName] = (tile.inventory[itemName] || 0) + (amountToPotentiallyAdd - amountActuallyAdded);
+                                        UI.addChatMessage(`Vous laissez ${amountToPotentiallyAdd - amountActuallyAdded} ${itemName} dans le coffre.`, "system_event");
+                                        break; // Sortir de la boucle pour cet item car plus de place
+                                    }
+                                }
+                                if (amountActuallyAdded > 0) {
+                                     UI.showFloatingText(`+${amountActuallyAdded} ${itemName}`, 'gain');
+                                }
+                            }
+                            UI.triggerActionFlash('gain');
+                            tile.isOpened = true; 
+                        },
+                        updateUICallbacks
+                    );
+
+                } else {
+                    UI.addChatMessage(`Il vous faut une ${TILE_TYPES.TREASURE_CHEST.requiresKey} pour ouvrir ceci.`, "system");
+                    if(DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
+                }
+            } else if (tile.type === TILE_TYPES.TREASURE_CHEST && tile.isOpened) {
+                UI.addChatMessage("Ce trésor a déjà été ouvert.", "system");
+            } else {
+                UI.addChatMessage("Il n'y a pas de trésor à ouvrir ici.", "system");
+            }
             break;
         }
     }

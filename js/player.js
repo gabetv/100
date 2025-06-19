@@ -1,5 +1,5 @@
 // js/player.js
-import { CONFIG, ITEM_TYPES } from './config.js';
+import { CONFIG, ITEM_TYPES } from './config.js'; 
 
 export function getTotalResources(inventory) {
     return Object.values(inventory).reduce((sum, count) => sum + count, 0);
@@ -8,10 +8,8 @@ export function getTotalResources(inventory) {
 export function initPlayer(config) {
     return {
         x: Math.floor(config.MAP_WIDTH / 2) + 1, y: Math.floor(config.MAP_HEIGHT / 2),
-        // Stats de base
         health: 10, thirst: 10, hunger: 10, sleep: 10,
-        status: 'Normal', // Normal, Blessé, Malade, Empoisonné
-        // Stats max (peuvent être modifiées par l'équipement)
+        status: 'Normal', 
         maxHealth: 10, maxThirst: 10, maxHunger: 10, maxSleep: 10, maxInventory: CONFIG.PLAYER_BASE_MAX_RESOURCES,
         
         inventory: { 
@@ -20,6 +18,7 @@ export function initPlayer(config) {
             'Kit de Secours': 1,
             'Barre Énergétique': 2,
             'Eau pure': 1,
+            'Clé du Trésor': 1 
         },
         equipment: {
             head: null, body: null, feet: null, weapon: null, bag: null,
@@ -43,10 +42,8 @@ export function decayStats(gameState) {
     const { player, activeEvent } = gameState;
     if (player.isBusy || player.animationState) return null;
     let stormEffect = activeEvent.type === 'Tempête';
-
     let messages = [];
 
-    // Les effets des états (malus passifs)
     switch (player.status) {
         case 'Malade':
             player.hunger = Math.max(0, player.hunger - 1);
@@ -63,13 +60,11 @@ export function decayStats(gameState) {
             break;
     }
     
-    // Le malus de la tempête reste, mais il agit directement
     if (stormEffect) {
         player.sleep = Math.max(0, player.sleep - 2);
         messages.push("La tempête vous épuise (-2 sommeil).");
     }
     
-    // Sanction si la faim ou la soif sont à zéro
     if (player.thirst <= 0) {
         player.health = Math.max(0, player.health - 1);
         messages.push("La déshydratation vous affaiblit ! (-1 Santé).");
@@ -80,7 +75,6 @@ export function decayStats(gameState) {
     }
     
     if (messages.length === 0) return null;
-    
     return { message: messages.join(' ') };
 }
 
@@ -89,9 +83,10 @@ export function transferItems(itemName, amount, from, to, toCapacity = Infinity)
         return false;
     }
     const totalInTo = getTotalResources(to);
-    if (totalInTo + amount > toCapacity) {
-        return false;
+    if (totalInTo + amount > toCapacity && (!to[itemName] || to[itemName] === 0) ) { // check only if it's a new item type for 'to' or if 'to' is player inv.
+         if(to === State.state.player.inventory && totalInTo + amount > toCapacity) return false; // Strict check for player
     }
+
     from[itemName] -= amount;
     to[itemName] = (to[itemName] || 0) + amount;
     if (from[itemName] <= 0) {
@@ -129,13 +124,11 @@ export function consumeItem(itemName, player) {
     }
 
     let floatingTexts = [];
-
-    // Appliquer les effets
     for (const effect in itemDef.effects) {
         const value = itemDef.effects[effect];
         
         if (effect === 'status') {
-            const statusEffect = value; // Simplifié pour cet exemple
+            const statusEffect = value; 
             const condition = statusEffect.ifStatus;
             const canApply = !condition || (Array.isArray(condition) ? condition.includes(player.status) : player.status === condition);
 

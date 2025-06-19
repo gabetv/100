@@ -20,7 +20,8 @@ export const COMBAT_CONFIG = {
 export const ACTION_DURATIONS = {
     HARVEST: 1000, CRAFT: 1500, SLEEP: 3000, MOVE_TRANSITION: 400,
     DIG: 5000,
-    SEARCH: 2000, // Nouvelle durée pour la recherche
+    SEARCH: 2000, 
+    OPEN_TREASURE: 2500, // Ajout d'une durée spécifique pour ouvrir le trésor
 };
 
 export const ENEMY_TYPES = {
@@ -38,41 +39,34 @@ export const SEARCHABLE_ITEMS = [
     'Banane', 'Noix de coco', 
     'Bandage', 
     'Composants électroniques', 'Pile'
+    // Vous pourriez ajouter 'Clé du Trésor' ici avec une très faible probabilité si vous voulez qu'elle soit trouvable en fouillant en plus.
 ];
 
 export const SEARCH_ZONE_CONFIG = {
-    FOREST: { // Corresponds à TILE_TYPES.FOREST
+    FOREST: { 
         combatChance: 0.40, 
         itemChance: 0.50,   
         enemyType: 'RAT',   
         possibleLoot: ['Feuilles', 'Liane', 'Écorce', 'Insectes', 'Os', 'Banane'] 
     },
-    SAND_GOLDEN: { // Corresponds à TILE_TYPES.SAND_GOLDEN
+    SAND_GOLDEN: { 
         combatChance: 0.10,
         itemChance: 0.60,   
         enemyType: 'RAT',
         possibleLoot: ['Sable', 'Pierre', 'Noix de coco', 'Insectes', 'Sel']
     },
-    PLAINS: { // Corresponds à TILE_TYPES.PLAINS
+    PLAINS: { 
         combatChance: 0.30,
         itemChance: 0.40,   
         enemyType: 'RAT',
         possibleLoot: ['Feuilles', 'Pierre', 'Insectes', 'Os', 'Banane']
     },
-    MINE: { // Corresponds à TILE_TYPES.MINE
+    MINE: { 
         combatChance: 0.30,
         itemChance: 0.50,   
         enemyType: 'RAT', 
         possibleLoot: ['Pierre', 'Os', 'Charbon', 'Composants électroniques', 'Pile'] 
     },
-    // Vous pouvez ajouter d'autres clés ici qui correspondent aux clés de TILE_TYPES
-    // Par exemple, pour TILE_TYPES.WASTELAND:
-    // WASTELAND: {
-    //     combatChance: 0.05,
-    //     itemChance: 0.20,
-    //     enemyType: 'RAT',
-    //     possibleLoot: ['Pierre', 'Os', 'Insectes']
-    // }
 };
 
 
@@ -124,6 +118,14 @@ export const ITEM_TYPES = {
     'Boussole': {type: 'usable', icon: '🧭', action: 'find_mine'},
     'Carte': {type: 'usable', icon: '🗺️', action: 'reveal_map'},
     'Allumettes': {type: 'usable', icon: '🔥', durability: 5, action: 'build_campfire'},
+    'Clé du Trésor': { type: 'key', icon: '🔑', unique: true } 
+};
+
+export const TREASURE_COMBAT_KIT = {
+    'Épée en fer': 1,
+    'Bouclier en fer': 1,
+    'Kit de Secours': 3,
+    'Barre Énergétique': 5
 };
 
 export const SPRITESHEET_PATHS = {
@@ -137,6 +139,8 @@ export const SPRITESHEET_PATHS = {
     bg_shelter_collective: 'assets/bg_shelter_collective.png',
     bg_campfire: 'assets/bg_campfire.png',
     bg_mine: 'assets/bg_mine.png',
+    // Ajoutez une image pour le trésor si vous en avez une, sinon il utilisera un fond de sable
+    // bg_treasure_chest: 'assets/bg_treasure_chest.png', 
 };
 
 export const TILE_TYPES = {
@@ -149,5 +153,14 @@ export const TILE_TYPES = {
     CAMPFIRE: { name: 'Feu de Camp', accessible: true, color: '#e76f51', background: ['bg_campfire'] },
     SHELTER_INDIVIDUAL: { name: 'Abri Individuel', accessible: true, color: '#fefae0', background: ['bg_shelter_individual'], sleepEffect: { sleep: 5, health: 3 } },
     SHELTER_COLLECTIVE: { name: 'Abri Collectif', accessible: true, color: '#ffffff', background: ['bg_shelter_collective'], inventory: {}, sleepEffect: { sleep: 3, health: 5 } },
-    MINE: { name: 'Mine', accessible: true, color: '#5e503f', background: ['bg_mine'], resource: { type: 'Minerai', yield: 1, thirstCost: 1, hungerCost: 1, sleepCost: 2 } }
+    MINE: { name: 'Mine', accessible: true, color: '#5e503f', background: ['bg_mine'], resource: { type: 'Minerai', yield: 1, thirstCost: 1, hungerCost: 1, sleepCost: 2 } },
+    TREASURE_CHEST: { 
+        name: 'Trésor Caché', 
+        accessible: true, 
+        color: '#DAA520', 
+        background: ['bg_sand_1'], // Fallback, idéalement sa propre image de fond
+        icon: '💎', 
+        // isOpened: false, // Sera géré par l'instance de la tuile sur la carte
+        requiresKey: 'Clé du Trésor'
+    }
 };
