@@ -21,7 +21,7 @@ export const ACTION_DURATIONS = {
     HARVEST: 1000, CRAFT: 1500, SLEEP: 3000, MOVE_TRANSITION: 400,
     DIG: 5000,
     SEARCH: 2000, 
-    OPEN_TREASURE: 2500, // Ajout d'une durée spécifique pour ouvrir le trésor
+    OPEN_TREASURE: 2500,
 };
 
 export const ENEMY_TYPES = {
@@ -39,7 +39,6 @@ export const SEARCHABLE_ITEMS = [
     'Banane', 'Noix de coco', 
     'Bandage', 
     'Composants électroniques', 'Pile'
-    // Vous pourriez ajouter 'Clé du Trésor' ici avec une très faible probabilité si vous voulez qu'elle soit trouvable en fouillant en plus.
 ];
 
 export const SEARCH_ZONE_CONFIG = {
@@ -139,8 +138,8 @@ export const SPRITESHEET_PATHS = {
     bg_shelter_collective: 'assets/bg_shelter_collective.png',
     bg_campfire: 'assets/bg_campfire.png',
     bg_mine: 'assets/bg_mine.png',
-    // Ajoutez une image pour le trésor si vous en avez une, sinon il utilisera un fond de sable
-    // bg_treasure_chest: 'assets/bg_treasure_chest.png', 
+    bg_treasure_chest: 'assets/bg_treasure_chest.png', // VOTRE IMAGE DE TRÉSOR
+    // bg_treasure_opened: 'assets/bg_treasure_opened.png', // Si vous avez une image pour un trésor ouvert
 };
 
 export const TILE_TYPES = {
@@ -158,9 +157,16 @@ export const TILE_TYPES = {
         name: 'Trésor Caché', 
         accessible: true, 
         color: '#DAA520', 
-        background: ['bg_sand_1'], // Fallback, idéalement sa propre image de fond
+        background: ['bg_treasure_chest'], // Utilisation de la nouvelle image
         icon: '💎', 
-        // isOpened: false, // Sera géré par l'instance de la tuile sur la carte
         requiresKey: 'Clé du Trésor'
-    }
+    },
+    // Optionnel:
+    // TREASURE_OPENED: {
+    //     name: 'Trésor Ouvert',
+    //     accessible: true,
+    //     color: '#b08d57', 
+    //     background: ['bg_treasure_opened'],
+    //     icon: '⊔', 
+    // }
 };
