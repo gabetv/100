@@ -12,117 +12,59 @@
 <body>
     <div id="game-container">
         <div id="main-area">
-            <!-- ### PANNEAU DE GAUCHE ### -->
+            <!-- ### PANNEAU DE GAUCHE (MODIFIÉ) ### -->
             <div id="left-panel" class="ui-panel">
-                <section id="player-status-header">
-                    <h3>Statut <button id="open-equipment-btn" title="Ouvrir l'équipement">🎒</button></h3>
+                <section id="main-controls">
+                     <h3>Gestion</h3>
+                     <button id="open-equipment-btn">🎒 Équipement</button>
                 </section>
                 <section id="player-stats">
-                    <div class="stat">
-                        <div class="stat-header">
-                            <span class="stat-icon">❤️</span>
-                            <span>Santé (<span id="health-status">Normal</span>)</span>
-                            <button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button>
-                        </div>
-                        <div class="stat-bar-container-squares" id="health-bar-squares"></div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-header">
-                            <span class="stat-icon">💧</span>
-                            <span>Soif</span>
-                            <button class="consume-btn" id="consume-thirst-btn" title="Boire de l'eau">+</button>
-                        </div>
-                        <div class="stat-bar-container-squares" id="thirst-bar-squares"></div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-header">
-                            <span class="stat-icon">🍗</span>
-                            <span>Faim</span>
-                            <button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button>
-                        </div>
-                        <div class="stat-bar-container-squares" id="hunger-bar-squares"></div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-header">
-                            <span class="stat-icon">🌙</span>
-                            <span>Sommeil</span>
-                        </div>
-                        <div class="stat-bar-container-squares" id="sleep-bar-squares"></div>
-                    </div>
+                    <h3>Statut</h3>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">❤️</span><span>Santé (<span id="health-status">Normal</span>)</span><button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button></div><div class="stat-bar-container-squares" id="health-bar-squares"></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">💧</span><span>Soif</span><button class="consume-btn" id="consume-thirst-btn" title="Boire de l'eau">+</button></div><div class="stat-bar-container-squares" id="thirst-bar-squares"></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">🍗</span><span>Faim</span><button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button></div><div class="stat-bar-container-squares" id="hunger-bar-squares"></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">🌙</span><span>Sommeil</span></div><div class="stat-bar-container-squares" id="sleep-bar-squares"></div></div>
                 </section>
                 <section id="minimap-section">
                     <h3>Carte de l'île <button id="enlarge-map-btn" title="Agrandir la carte">⛶</button></h3>
-                    <div id="minimap-container">
-                        <canvas id="minimap-canvas"></canvas>
-                    </div>
+                    <div id="minimap-container"><canvas id="minimap-canvas"></canvas></div>
                 </section>
             </div>
 
             <!-- ### VUE PRINCIPALE ### -->
             <div id="main-view-wrapper">
+                <div id="quick-slots-panel">
+                    <div id="quick-slot-weapon" class="quick-equip-slot-display" data-slot-type="weapon" title="Arme"><span class="slot-placeholder-text">Arme</span></div>
+                    <div id="quick-slot-armor" class="quick-equip-slot-display" data-slot-type="body" title="Armure"><span class="slot-placeholder-text">Habit</span></div>
+                    <div id="quick-slot-bag" class="quick-equip-slot-display" data-slot-type="bag" title="Sac"><span class="slot-placeholder-text">Sac</span></div>
+                </div>
                 <div id="main-view-container">
-                    <div id="survival-vignette"></div>
-                    <div id="action-flash"></div>
-                    <canvas id="main-view-canvas"></canvas>
-                    <canvas id="characters-canvas"></canvas>
-                    <div id="hud-overlay">
-                        <span id="day-display">Jour <span id="day-counter">1</span> / 100</span>
-                    </div>
-                    <div id="main-view-overlay">
-                        <div id="navigation-edge-panel">
-                            <button class="nav-button-overlay" id="nav-north">↑</button>
-                            <button class="nav-button-overlay" id="nav-west">←</button>
-                            <button class="nav-button-overlay" id="nav-east">→</button>
-                            <button class="nav-button-overlay" id="nav-south">↓</button>
-                        </div>
-                    </div>
+                    <div id="survival-vignette"></div><div id="action-flash"></div>
+                    <canvas id="main-view-canvas"></canvas><canvas id="characters-canvas"></canvas>
+                    <div id="hud-overlay"><span id="day-display">Jour <span id="day-counter">1</span> / 100</span></div>
+                    <div id="main-view-overlay"><div id="navigation-edge-panel"><button class="nav-button-overlay" id="nav-north">↑</button><button class="nav-button-overlay" id="nav-west">←</button><button class="nav-button-overlay" id="nav-east">→</button><button class="nav-button-overlay" id="nav-south">↓</button></div></div>
                 </div>
             </div>
 
             <!-- ### PANNEAU DE DROITE ### -->
             <div id="right-panel" class="ui-panel">
-                <section id="tile-info">
-                    <h3>
-                        <span>Lieu: <span id="tile-name">Forêt</span> <span id="hud-coords" class="coords-display">(7,10)</span></span>
-                    </h3>
-                    <p id="tile-description">Description du lieu...</p>
-                    <p id="tile-harvests-info" class="tile-detail"></p>
-                </section>
-                <section id="interaction-panel">
-                    <h3>Actions Possibles</h3>
-                    <div id="actions"></div>
-                </section>
-                <section id="inventory-section">
-                    <h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3>
-                    <ul id="inventory-list"></ul>
-                </section>
+                <section id="tile-info"><h3><span>Lieu: <span id="tile-name">Forêt</span> <span id="hud-coords" class="coords-display">(7,10)</span></span></h3><p id="tile-description">Description du lieu...</p><p id="tile-harvests-info" class="tile-detail"></p></section>
+                <section id="interaction-panel"><h3>Actions Possibles</h3><div id="actions"></div></section>
+                <section id="inventory-section"><h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3><div id="inventory-categories" class="droppable"></div></section>
             </div>
         </div>
 
         <!-- ### BARRE INFÉRIEURE ### -->
         <div id="bottom-bar">
-            <div id="chat-container">
-                <div id="chat-header">
-                    <h3>Journal / Chat</h3>
-                    <button id="toggle-chat-size-btn" title="Agrandir/Réduire le chat">⌃</button>
-                </div>
+             <div id="chat-container">
+                <div id="chat-header"><h3>Journal / Chat</h3><button id="toggle-chat-size-btn" title="Agrandir/Réduire le chat">⌃</button></div>
                 <div id="chat-messages"></div>
-                <div id="chat-input-area">
-                    <div id="quick-chat-menu">
-                        <div class="quick-chat-item">J'ai besoin de bois.</div>
-                        <div class="quick-chat-item">J'ai besoin de nourriture.</div>
-                        <div class="quick-chat-item">Suivez-moi !</div>
-                        <div class="quick-chat-item">Danger par ici !</div>
-                        <div class="quick-chat-item">Oui.</div>
-                        <div class="quick-chat-item">Non.</div>
-                    </div>
-                    <button id="quick-chat-button">+</button>
-                    <input type="text" id="chat-input-field" placeholder="Écrire un message ou utiliser le menu...">
-                </div>
+                <div id="chat-input-area"><div id="quick-chat-menu"><div class="quick-chat-item">J'ai besoin de bois.</div><div class="quick-chat-item">J'ai besoin de nourriture.</div><div class="quick-chat-item">Suivez-moi !</div><div class="quick-chat-item">Danger par ici !</div><div class="quick-chat-item">Oui.</div><div class="quick-chat-item">Non.</div></div><button id="quick-chat-button">+</button><input type="text" id="chat-input-field" placeholder="Écrire un message ou utiliser le menu..."></div>
             </div>
         </div>
     </div>
     
+    <!-- MODALES COMPLETES -->
     <div id="large-map-modal" class="hidden">
         <button id="close-large-map-btn">&times;</button>
         <div id="large-map-content-wrapper">
@@ -173,17 +115,13 @@
             <div id="combat-participants">
                 <div class="combatant-info" id="combat-player-info">
                     <h3>Vous</h3>
-                    <div class="combat-health-bar-container">
-                        <div id="combat-player-health-bar" class="combat-health-bar"></div>
-                    </div>
+                    <div class="combat-health-bar-container"><div id="combat-player-health-bar" class="combat-health-bar"></div></div>
                     <span id="combat-player-health-text">10 / 10</span>
                 </div>
                 <span id="vs-text">VS</span>
                 <div class="combatant-info" id="combat-enemy-info">
                     <h3 id="combat-enemy-name">Loup Agressif</h3>
-                    <div class="combat-health-bar-container">
-                        <div id="combat-enemy-health-bar" class="combat-health-bar"></div>
-                    </div>
+                    <div class="combat-health-bar-container"><div id="combat-enemy-health-bar" class="combat-health-bar"></div></div>
                     <span id="combat-enemy-health-text">10 / 10</span>
                 </div>
             </div>
@@ -198,25 +136,12 @@
             <h2>Équipement & Inventaire</h2>
             <div id="equipment-grid">
                 <div id="equipment-player-view">
-                    <div class="player-character-placeholder">
-                        <div class="player-head"></div>
-                        <div class="player-body"></div>
-                    </div>
-                    <div id="equipment-player-stats">
-                        <h3>Statistiques de Combat</h3>
-                        <p>Attaque: <span id="player-stat-attack">1</span></p>
-                        <p>Défense: <span id="player-stat-defense">0</span></p>
-                    </div>
+                    <div class="player-character-placeholder"><div class="player-head"></div><div class="player-body"></div></div>
+                    <div id="equipment-player-stats"><h3>Statistiques de Combat</h3><p>Attaque: <span id="player-stat-attack">1</span></p><p>Défense: <span id="player-stat-defense">0</span></p></div>
                 </div>
                 <div id="equipment-slots">
-                    <div class="equipment-slot-container">
-                        <label>Arme</label>
-                        <div class="equipment-slot droppable" data-slot-type="weapon"></div>
-                    </div>
-                    <div class="equipment-slot-container">
-                        <label>Armure</label>
-                        <div class="equipment-slot droppable" data-slot-type="armor"></div>
-                    </div>
+                    <div class="equipment-slot-container"><label>Arme</label><div class="equipment-slot droppable" data-slot-type="weapon" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Armure</label><div class="equipment-slot droppable" data-slot-type="body" data-owner="equipment"></div></div>
                 </div>
                 <div class="inventory-container">
                     <h3>Votre Inventaire (<span id="equipment-player-capacity">0 / 0</span>)</h3>
@@ -226,7 +151,6 @@
         </div>
     </div>
 
-    <!-- NOUVEAU: Menu contextuel pour les objets -->
     <div id="item-context-menu" class="hidden">
         <h4 id="context-menu-title"></h4>
         <div id="context-menu-actions"></div>

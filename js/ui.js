@@ -1,9 +1,5 @@
 // js/ui.js
-import * as DOM from './ui/dom.js';
-import * as Draw from './ui/draw.js';
-import * as Effects from './ui/effects.js';
-import * as Modals from './ui/modals.js';
-import * as Panels from './ui/panels.js';
+// On ne fait plus d'import de DOM, il sera global
 
 // --- Exports directs des modules ---
 export { loadAssets, drawMainBackground, drawSceneCharacters, drawMinimap, drawLargeMap, populateLargeMapLegend } from './ui/draw.js';
@@ -14,34 +10,34 @@ export {
     showCombatModal, hideCombatModal, updateCombatUI,
     showQuantityModal, hideQuantityModal, setupQuantityModalListeners 
 } from './ui/modals.js';
-export { addChatMessage, updateAllButtonsState } from './ui/panels.js';
-export * from './ui/dom.js';
+export { addChatMessage, updateAllButtonsState, updateQuickSlots } from './ui/panels.js';
+export { initDOM } from './ui/dom.js'; // On exporte juste la fonction d'init
 
 // --- Fonction de coordination ---
-
-/**
- * Met à jour tous les éléments statiques de l'interface utilisateur.
- * @param {object} gameState L'état actuel du jeu.
- */
 export function updateAllUI(gameState) {
     if (!gameState || !gameState.player) return;
     
-    const currentTile = gameState.map[gameState.player.y][gameState.player.x];
-    
-    Panels.updateStatsPanel(gameState.player);
-    Panels.updateInventory(gameState.player);
-    Panels.updateDayCounter(gameState.day);
-    Panels.updateTileInfoPanel(currentTile);
-    Draw.drawMinimap(gameState, gameState.config);
-    
-    DOM.hudCoordsEl.textContent = `(${gameState.player.x}, ${gameState.player.y})`;
+    // On importe ici dynamiquement les modules qui dépendent du DOM
+    const Panels = import('./ui/panels.js');
+    const Draw = import('./ui/draw.js');
+
+    Promise.all([Panels, Draw]).then(([resolvedPanels, resolvedDraw]) => {
+        const currentTile = gameState.map[gameState.player.y][gameState.player.x];
+        
+        resolvedPanels.updateStatsPanel(gameState.player);
+        resolvedPanels.updateInventory(gameState.player);
+        resolvedPanels.updateDayCounter(gameState.day);
+        resolvedPanels.updateTileInfoPanel(currentTile);
+        resolvedPanels.updateQuickSlots(gameState.player);
+        resolvedDraw.drawMinimap(gameState, gameState.config);
+        
+        window.DOM.hudCoordsEl.textContent = `(${gameState.player.x}, ${gameState.player.y})`;
+    });
 }
 
-/**
- * Redessine toute la scène principale du jeu (arrière-plan et personnages).
- * @param {object} gameState 
- */
 export function renderScene(gameState) {
-    Draw.drawMainBackground(gameState);
-    Draw.drawSceneCharacters(gameState);
+    import('./ui/draw.js').then(Draw => {
+        Draw.drawMainBackground(gameState);
+        Draw.drawSceneCharacters(gameState);
+    });
 }

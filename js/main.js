@@ -9,13 +9,14 @@ import * as Interactions from './interactions.js';
 
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
-let dropContext = null; // Stocke les infos de l'objet glissé-déposé
+let draggedItemInfo = null;
 
 function updatePossibleActions() {
-    UI.actionsEl.innerHTML = '';
     const { player, map, combatState } = State.state;
     const tile = map[player.y][player.x];
     const tileType = tile.type;
+    
+    window.DOM.actionsEl.innerHTML = '';
     
     if (combatState || player.isBusy || player.animationState) {
         const statusDiv = document.createElement('div');
@@ -28,7 +29,7 @@ function updatePossibleActions() {
         } else {
             statusDiv.textContent = player.animationState ? "Déplacement..." : "Action en cours...";
         }
-        UI.actionsEl.appendChild(statusDiv);
+        window.DOM.actionsEl.appendChild(statusDiv);
         return;
     }
     
@@ -38,7 +39,7 @@ function updatePossibleActions() {
         button.disabled = disabled;
         button.title = title;
         button.onclick = () => Interactions.handlePlayerAction(actionId, data, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
-        UI.actionsEl.appendChild(button);
+        window.DOM.actionsEl.appendChild(button);
     };
 
     if (tileType.resource && tile.harvestsLeft > 0) {
@@ -47,8 +48,7 @@ function updatePossibleActions() {
 
         if (tileType.name === 'Forêt') {
             const canCutWood = tool && tool.action === 'harvest_wood';
-            createButton(`Couper du bois`, 'harvest_wood', {}, isInventoryFull || !canCutWood, 
-                isInventoryFull ? "Inventaire plein" : !canCutWood ? "Nécessite une hache ou une scie" : "");
+            createButton(`Couper du bois`, 'harvest_wood', {}, isInventoryFull || !canCutWood, isInventoryFull ? "Inventaire plein" : !canCutWood ? "Nécessite une hache ou une scie" : "");
         } else {
             let actionText = `Récolter ${tileType.resource.type}`;
             createButton(actionText, 'harvest', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "");
@@ -89,7 +89,7 @@ function updatePossibleActions() {
         const openChestButton = document.createElement('button');
         openChestButton.textContent = "🧰 Ouvrir le coffre";
         openChestButton.onclick = () => UI.showInventoryModal(State.state);
-        UI.actionsEl.appendChild(openChestButton);
+        window.DOM.actionsEl.appendChild(openChestButton);
     }
 }
 
@@ -123,7 +123,10 @@ function handleEvents() {
 function gameLoop(currentTime) {
     const { player, isGameOver, combatState } = State.state;
     if (isGameOver) return;
-    if (player.health <= 0) { endGame(false); return; }
+    if (!player || player.health <= 0) {
+        if (!isGameOver) endGame(false);
+        return;
+    }
     if (lastFrameTimestamp === 0) lastFrameTimestamp = currentTime;
     const deltaTime = currentTime - lastFrameTimestamp;
     lastFrameTimestamp = currentTime;
@@ -147,7 +150,7 @@ function gameLoop(currentTime) {
         if (anim.progress >= 1) {
             if (anim.type === 'out') {
                 State.applyPlayerMove(anim.direction);
-                UI.drawMainBackground(State.state);
+                UI.renderScene(State.state);
                 anim.type = 'in';
                 anim.progress = 0;
             } else {
@@ -158,7 +161,7 @@ function gameLoop(currentTime) {
         }
     }
     UI.updateAllUI(State.state);
-    UI.drawSceneCharacters(State.state);
+    UI.renderScene(State.state);
     requestAnimationFrame(gameLoop);
 }
 
@@ -183,13 +186,9 @@ function handleNavigation(direction) {
         return;
     }
 
-    // NOUVELLE LOGIQUE : Coût de déplacement aléatoire
-    // Choisir une stat à réduire au hasard
     const statsToReduce = ['thirst', 'hunger', 'sleep'];
     const icons = { thirst: '💧', hunger: '🍗', sleep: '🌙' };
     const chosenStat = statsToReduce[Math.floor(Math.random() * statsToReduce.length)];
-
-    // Appliquer le coût et afficher le retour visuel
     player[chosenStat] = Math.max(0, player[chosenStat] - 1);
     UI.showFloatingText(`-1${icons[chosenStat]}`, 'cost');
 
@@ -199,40 +198,35 @@ function handleNavigation(direction) {
     UI.updateAllButtonsState(State.state);
 }
 
-function handleConsumeClick(itemOrNeed) {
+function handleConsumeClick(itemName) {
     const { player } = State.state;
     if (player.isBusy || player.animationState) { UI.addChatMessage("Vous êtes occupé.", "system"); return; }
+    
+    const itemDef = ITEM_TYPES[itemName];
+    if (!itemDef || itemDef.type !== 'consumable') return;
 
-    let itemToConsume = itemOrNeed;
-
-    if (itemOrNeed === 'hunger') {
-        itemToConsume = player.inventory['Barre Énergétique'] ? 'Barre Énergétique' : player.inventory['Viande cuite'] ? 'Viande cuite' : player.inventory['Poisson cuit'] ? 'Poisson cuit' : null;
-    } else if (itemOrNeed === 'thirst') {
-        itemToConsume = player.inventory['Eau pure'] ? 'Eau pure' : null;
-    } else if (itemOrNeed === 'health') {
-        itemToConsume = player.inventory['Kit de Secours'] ? 'Kit de Secours' : player.inventory['Bandage'] ? 'Bandage' : player.inventory['Médicaments'] ? 'Médicaments' : null;
-    }
-
-    if (!itemToConsume) {
-        UI.addChatMessage("Vous n'avez rien d'approprié à utiliser.", "system");
-        return;
-    }
-
-    const result = State.consumeItem(itemToConsume);
+    const result = State.consumeItem(itemName);
     UI.addChatMessage(result.message, 'system');
     if(result.success) {
         UI.triggerActionFlash('gain');
-        result.floatingTexts.forEach(text => { UI.showFloatingText(text, text.startsWith('+') ? 'gain' : 'cost'); });
+        if (result.floatingTexts && result.floatingTexts.length > 0) {
+            result.floatingTexts.forEach(text => { 
+                const type = text.startsWith('+') ? 'gain' : 'cost';
+                UI.showFloatingText(text, type); 
+            });
+        }
         fullUIUpdate();
     } else {
-        UI.triggerShake(document.getElementById('inventory-list'));
+        UI.triggerShake(document.getElementById('inventory-categories'));
     }
 }
 
 function fullUIUpdate() {
     UI.updateAllUI(State.state);
     updatePossibleActions();
-    UI.updateAllButtonsState(State.state);
+    if (!window.DOM.equipmentModal.classList.contains('hidden')) {
+        UI.updateEquipmentModal(State.state);
+    }
 }
 
 function dailyUpdate() {
@@ -254,187 +248,57 @@ function dailyUpdate() {
 }
 
 function setupEventListeners() {
-    document.getElementById('nav-north').addEventListener('click', () => handleNavigation('north'));
-    document.getElementById('nav-south').addEventListener('click', () => handleNavigation('south'));
-    document.getElementById('nav-east').addEventListener('click', () => handleNavigation('east'));
-    document.getElementById('nav-west').addEventListener('click', () => handleNavigation('west'));
-    
-    document.getElementById('consume-health-btn').addEventListener('click', () => handleConsumeClick('health'));
-    document.getElementById('consume-thirst-btn').addEventListener('click', () => handleConsumeClick('thirst'));
-    document.getElementById('consume-hunger-btn').addEventListener('click', () => handleConsumeClick('hunger'));
-    
-    UI.toggleChatSizeBtn.addEventListener('click', () => {
-        const isEnlarged = UI.bottomBarEl.classList.toggle('chat-enlarged');
-        if (isEnlarged) {
-            UI.toggleChatSizeBtn.textContent = '⌄'; // Flèche vers le bas
-            UI.toggleChatSizeBtn.title = "Réduire le chat";
+    window.DOM.openEquipmentBtn.addEventListener('click', () => UI.showEquipmentModal(State.state));
+    window.DOM.closeEquipmentModalBtn.addEventListener('click', UI.hideEquipmentModal);
+
+    window.DOM.inventoryCategoriesEl.addEventListener('click', e => {
+        const itemEl = e.target.closest('.inventory-item.clickable');
+        if (itemEl) {
+            handleConsumeClick(itemEl.dataset.itemName);
         } else {
-            UI.toggleChatSizeBtn.textContent = '⌃'; // Flèche vers le haut
-            UI.toggleChatSizeBtn.title = "Agrandir le chat";
+            const header = e.target.closest('.category-header');
+            if (header) {
+                header.classList.toggle('open');
+                header.nextElementSibling.classList.toggle('visible');
+            }
         }
     });
 
-    const quickChatButton = document.getElementById('quick-chat-button');
-    const quickChatMenu = document.getElementById('quick-chat-menu');
-    quickChatButton.addEventListener('click', () => quickChatMenu.classList.toggle('visible'));
-    quickChatMenu.addEventListener('click', (e) => { if (e.target.classList.contains('quick-chat-item')) { UI.addChatMessage(e.target.textContent, 'player', 'Vous'); quickChatMenu.classList.remove('visible'); } });
-    
-    UI.enlargeMapBtn.addEventListener('click', () => {
-        UI.largeMapModal.classList.remove('hidden');
-        UI.drawLargeMap(State.state, CONFIG);
-        UI.populateLargeMapLegend();
+    const equipmentModal = window.DOM.equipmentModal;
+    equipmentModal.addEventListener('dragstart', e => {
+        const itemEl = e.target.closest('.inventory-item[draggable="true"]');
+        if (!itemEl) return;
+        const owner = itemEl.closest('[data-owner]').dataset.owner;
+        draggedItemInfo = { element: itemEl, itemName: itemEl.dataset.itemName, sourceOwner: owner, sourceSlotType: owner === 'equipment' ? itemEl.dataset.slotType : null };
+        setTimeout(() => itemEl.classList.add('dragging'), 0);
     });
-    UI.closeLargeMapBtn.addEventListener('click', () => { UI.largeMapModal.classList.add('hidden'); });
-    
-    UI.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
-    UI.inventoryModal.addEventListener('click', (e) => { if (e.target.id === 'inventory-modal') UI.hideInventoryModal(); });
-
-    document.getElementById('open-equipment-btn').addEventListener('click', () => UI.showEquipmentModal(State.state));
-    UI.closeEquipmentModalBtn.addEventListener('click', UI.hideEquipmentModal);
-    UI.equipmentModal.addEventListener('click', (e) => { if (e.target.id === 'equipment-modal') UI.hideEquipmentModal(); });
-
-    let draggedItem = null;
-    
-    function handleDragStart(e) { if (e.target.classList.contains('inventory-item')) { draggedItem = e.target; setTimeout(() => e.target.classList.add('dragging'), 0); } }
-    function handleDragEnd() { if (draggedItem) { draggedItem.classList.remove('dragging'); draggedItem = null; } }
-    function handleDragOver(e) { e.preventDefault(); const dropZone = e.target.closest('.droppable'); if (dropZone) { document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over')); dropZone.classList.add('drag-over'); } }
-    function handleDragLeave(e) { const dropZone = e.target.closest('.droppable'); if (dropZone) { dropZone.classList.remove('drag-over'); } }
-    
-    function hideContextMenu() {
-        if (UI.itemContextMenu) UI.itemContextMenu.classList.add('hidden');
-        dropContext = null;
-    }
-
-    function handleDrop(e) {
+    equipmentModal.addEventListener('dragover', e => { e.preventDefault(); const dropZone = e.target.closest('.droppable'); if (dropZone) dropZone.classList.add('drag-over'); });
+    equipmentModal.addEventListener('dragleave', e => { const dropZone = e.target.closest('.droppable'); if (dropZone) dropZone.classList.remove('drag-over'); });
+    equipmentModal.addEventListener('dragend', () => { if (draggedItemInfo && draggedItemInfo.element) draggedItemInfo.element.classList.remove('dragging'); draggedItemInfo = null; document.querySelectorAll('.droppable.drag-over').forEach(el => el.classList.remove('drag-over')); });
+    equipmentModal.addEventListener('drop', e => {
         e.preventDefault();
-        hideContextMenu();
         const dropZone = e.target.closest('.droppable');
-        document.querySelectorAll('.droppable').forEach(el => el.classList.remove('drag-over'));
-        if (!dropZone || !draggedItem) return;
-
-        const itemName = draggedItem.dataset.itemName;
-        const sourceOwner = draggedItem.dataset.owner;
-
-        // Équiper un objet depuis l'inventaire du joueur
-        if (dropZone.classList.contains('equipment-slot') && sourceOwner === 'player-inventory') {
-            const itemDef = ITEM_TYPES[itemName];
-            const slotType = dropZone.dataset.slotType;
-            if (itemDef && itemDef.slot === slotType) {
-                const result = State.equipItem(itemName);
-                UI.addChatMessage(result.message, 'system');
-                UI.updateEquipmentModal(State.state);
-                fullUIUpdate();
+        if (!draggedItemInfo || !dropZone) return;
+        const destOwner = dropZone.dataset.owner;
+        const destSlotType = dropZone.dataset.slotType;
+        const itemDef = ITEM_TYPES[draggedItemInfo.itemName];
+        if (draggedItemInfo.sourceOwner === 'player-inventory' && destOwner === 'equipment') {
+            if (itemDef && itemDef.slot === destSlotType) {
+                State.equipItem(draggedItemInfo.itemName);
+            } else {
+                UI.addChatMessage("Objet non compatible.", "system");
+                UI.triggerShake(dropZone);
             }
+        } 
+        else if (draggedItemInfo.sourceOwner === 'equipment' && destOwner === 'player-inventory') {
+            State.unequipItem(draggedItemInfo.sourceSlotType);
         }
-        
-        // Déséquiper un objet vers l'inventaire du joueur
-        else if (dropZone.id === 'equipment-player-inventory' && sourceOwner === 'equipment') {
-            const slotType = draggedItem.dataset.slotType;
-            const result = State.unequipItem(slotType);
-             if (!result.success) UI.triggerShake(dropZone);
-            UI.addChatMessage(result.message, 'system');
-            UI.updateEquipmentModal(State.state);
-            fullUIUpdate();
-        }
-        
-        // CORRIGÉ: Logique pour afficher le menu contextuel pour le transfert
-        else if (dropZone.dataset.owner === 'shared' || dropZone.dataset.owner === 'player-inventory') {
-            const destOwner = dropZone.dataset.owner;
-             if (sourceOwner !== destOwner && (sourceOwner === 'player-inventory' || sourceOwner === 'shared')) {
-                const transferType = (destOwner === 'shared') ? 'deposit' : 'withdraw';
-                
-                // Stocker le contexte du drop
-                dropContext = {
-                    itemName: itemName,
-                    maxAmount: parseInt(draggedItem.dataset.itemCount, 10),
-                    transferType: transferType,
-                };
-                
-                // Configurer et afficher le menu contextuel
-                UI.contextMenuTitle.textContent = dropContext.itemName;
-                const verb = transferType === 'deposit' ? 'Déposer' : 'Retirer';
-                UI.contextMenuActions.innerHTML = `
-                    <button data-action="transfer">${verb} une quantité...</button>
-                    <button data-action="transfer-all">${verb} tout (${dropContext.maxAmount})</button>
-                    <button data-action="cancel">Annuler</button>
-                `;
-
-                const menu = UI.itemContextMenu;
-                menu.style.left = `${e.clientX}px`;
-                menu.style.top = `${e.clientY}px`;
-                menu.classList.remove('hidden');
-            }
-        }
-    }
-    
-    // Gérer les clics sur les boutons du menu contextuel
-    UI.contextMenuActions.addEventListener('click', e => {
-        if (!dropContext || !e.target.dataset.action) return;
-        
-        const action = e.target.dataset.action;
-        const { itemName, maxAmount, transferType } = dropContext;
-
-        const performTransfer = (amount) => {
-            if (amount > 0) {
-                const result = State.applyBulkInventoryTransfer(itemName, amount, transferType);
-                UI.addChatMessage(result.message, 'system');
-                if (result.success) {
-                    if (!UI.inventoryModal.classList.contains('hidden')) {
-                        UI.showInventoryModal(State.state);
-                    }
-                    fullUIUpdate();
-                } else {
-                    UI.addChatMessage("Action impossible (inventaire plein ou ressource insuffisante).", "system");
-                }
-            }
-        };
-
-        if (action === 'transfer') {
-            UI.showQuantityModal(itemName, maxAmount, chosenAmount => {
-                performTransfer(chosenAmount);
-            });
-        } else if (action === 'transfer-all') {
-            performTransfer(maxAmount);
-        }
-        
-        hideContextMenu();
+        fullUIUpdate();
     });
 
-    [UI.inventoryModal, UI.equipmentModal].forEach(modal => {
-        if(modal) {
-            modal.addEventListener('dragstart', handleDragStart);
-            modal.addEventListener('dragend', handleDragEnd);
-            modal.addEventListener('dragover', handleDragOver);
-            modal.addEventListener('dragleave', handleDragLeave);
-            modal.addEventListener('drop', handleDrop);
-        }
-    });
-
-    // Clic global pour fermer les menus
-    document.addEventListener('click', (e) => {
-        // Menu de chat rapide
-        if (!e.target.closest('#quick-chat-menu') && e.target.id !== 'quick-chat-button') {
-            UI.quickChatMenu.classList.remove('visible');
-        }
-        // Menu contextuel d'objet
-        if (!e.target.closest('#item-context-menu')) {
-            hideContextMenu();
-        }
-    });
-
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            if (!UI.largeMapModal.classList.contains('hidden')) UI.largeMapModal.classList.add('hidden');
-            if (!UI.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
-            if (!UI.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
-            if (!UI.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
-            hideContextMenu();
-        }
-    });
-    
+    window.addEventListener('keydown', e => { if (e.key === 'Escape') UI.hideEquipmentModal(); });
     window.handleCombatAction = Interactions.handleCombatAction;
     window.gameState = State.state;
-    
     UI.setupQuantityModalListeners();
 }
 
@@ -449,26 +313,22 @@ function endGame(isVictory) {
     document.getElementById('chat-input-field').disabled = true;
 }
 
-function fullResizeAndRedraw() {
-    UI.resizeGameView();
-    if (State.state.player) {
-        UI.renderScene(State.state);
-    }
-}
+function fullResizeAndRedraw() { UI.resizeGameView(); if (State.state.player) UI.renderScene(State.state); }
 
 async function init() {
     try {
+        UI.initDOM();
         await UI.loadAssets(SPRITESHEET_PATHS);
         fullResizeAndRedraw();
         window.addEventListener('resize', fullResizeAndRedraw);
         State.initializeGameState(CONFIG);
-        State.state.config = CONFIG; 
+        State.state.config = CONFIG;
         setupEventListeners();
-        fullUIUpdate();
+        UI.updateAllUI(State.state);
         requestAnimationFrame(gameLoop);
         State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
         State.state.gameIntervals.push(setInterval(() => npcChatter(State.state.npcs), CONFIG.CHAT_MESSAGE_INTERVAL_MS));
-        console.log("Jeu initialisé avec la nouvelle structure UI.");
+        console.log("Jeu initialisé avec la méthode DOM globale.");
     } catch (error) {
         console.error("ERREUR CRITIQUE lors de l'initialisation :", error);
         document.body.innerHTML = `<div style="color:white; padding: 20px;">Erreur critique au chargement : ${error.message}</div>`;

@@ -16,7 +16,7 @@ const gameState = {
     shelterLocation: null,
     isGameOver: false,
     combatState: null,
-    config: null, // Sera initialisé dans main.js
+    config: null,
 };
 
 export const state = gameState;
@@ -68,7 +68,7 @@ export function applyBulkInventoryTransfer(itemName, amount, transferType) {
     if (transferType === 'withdraw') {
         from = tile.inventory;
         to = player.inventory;
-        toCapacity = player.maxInventory; // Utilise la stat max du joueur
+        toCapacity = player.maxInventory;
         success = transferItems(itemName, amount, from, to, toCapacity);
         if (success) return { success: true, message: `Vous avez pris ${amount} ${itemName}.` };
         return { success: false, message: "Le retrait a échoué. Inventaire plein ou stock insuffisant ?" };
@@ -113,23 +113,36 @@ export function addEnemy(enemy) {
 }
 
 export function equipItem(itemName) {
+    console.log(`[State.equipItem] Appelée avec l'objet : '${itemName}'`);
     const player = gameState.player;
     const itemDef = ITEM_TYPES[itemName];
-    if (!itemDef || !player.inventory[itemName]) return { success: false, message: "Objet introuvable." };
+    
+    if (!itemDef || !player.inventory[itemName]) {
+        console.error(`[State.equipItem] ÉCHEC : L'objet '${itemName}' est introuvable ou n'est plus dans l'inventaire.`);
+        return { success: false, message: "Objet introuvable." };
+    }
     
     const slot = itemDef.slot;
-    if (!slot || !player.equipment.hasOwnProperty(slot)) return { success: false, message: "Vous ne pouvez pas équiper ceci." };
+    console.log(`[State.equipItem] L'objet a le slot : '${slot}'.`);
+
+    if (!slot || !player.equipment.hasOwnProperty(slot)) {
+        console.error(`[State.equipItem] ÉCHEC : L'objet n'a pas de slot valide ou le joueur n'a pas cet emplacement d'équipement. Slot de l'objet : ${slot}`);
+        return { success: false, message: "Vous ne pouvez pas équiper ceci." };
+    }
 
     if (player.equipment[slot]) {
+        console.log(`[State.equipItem] Le slot '${slot}' est déjà occupé par '${player.equipment[slot].name}'. Tentative de déséquipement.`);
         const unequipResult = unequipItem(slot);
-        if (!unequipResult.success) return unequipResult;
+        if (!unequipResult.success) {
+            console.error(`[State.equipItem] ÉCHEC : Le déséquipement de l'objet précédent a échoué. Message: ${unequipResult.message}`);
+            return unequipResult;
+        }
     }
 
     player.inventory[itemName]--;
     if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
     
     const newEquip = { name: itemName, ...itemDef };
-    // Initialise la durabilité actuelle si l'objet en a une
     if(newEquip.durability) newEquip.currentDurability = newEquip.durability;
     player.equipment[slot] = newEquip;
 
@@ -141,6 +154,7 @@ export function equipItem(itemName) {
         }
     }
     
+    console.log(`[State.equipItem] SUCCÈS : '${itemName}' a été équipé dans le slot '${slot}'.`);
     return { success: true, message: `${itemName} équipé.` };
 }
 
@@ -160,7 +174,6 @@ export function unequipItem(slot) {
         for (const stat in item.stats) {
             if (player.hasOwnProperty(stat)) {
                 player[stat] -= item.stats[stat];
-                // S'assurer que la stat actuelle ne dépasse pas le nouveau max
                 const currentStat = stat.replace('max', '').toLowerCase();
                 if(player.hasOwnProperty(currentStat)) {
                     player[currentStat] = Math.min(player[currentStat], player[stat]);

@@ -34,14 +34,20 @@ export function resizeGameView() {
     const container = document.getElementById('main-view-container');
     if (!wrapper || !container) return;
 
-    const size = Math.min(wrapper.clientWidth, wrapper.clientHeight) - 10;
+    // CORRECTION : On s'assure que la taille n'est jamais négative
+    const size = Math.max(10, Math.min(wrapper.clientWidth, wrapper.clientHeight) - 10);
+    
     container.style.width = `${size}px`;
     container.style.height = `${size}px`;
 
     const mainViewCanvas = document.getElementById('main-view-canvas');
     const charactersCanvas = document.getElementById('characters-canvas');
-    mainViewCanvas.width = size;
-    mainViewCanvas.height = size;
-    charactersCanvas.width = size;
-    charactersCanvas.height = size;
+    if(mainViewCanvas) {
+        mainViewCanvas.width = size;
+        mainViewCanvas.height = size;
+    }
+    if(charactersCanvas) {
+        charactersCanvas.width = size;
+        charactersCanvas.height = size;
+    }
 }

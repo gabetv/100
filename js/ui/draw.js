@@ -1,6 +1,6 @@
 // js/ui/draw.js
 import { TILE_TYPES } from '../config.js';
-import * as DOM from './dom.js';
+// On retire l'import de DOM
 
 const loadedAssets = {};
 
@@ -19,12 +19,15 @@ export function loadAssets(paths) {
 }
 
 export function drawMainBackground(gameState) {
-    if (Object.keys(loadedAssets).length === 0) return;
+    // On accède aux éléments via window.DOM
+    const { mainViewCtx, mainViewCanvas } = window.DOM;
+
+    if (Object.keys(loadedAssets).length === 0 || !mainViewCtx) return;
     const playerTile = gameState.map[gameState.player.y][gameState.player.x];
     const backgroundKey = playerTile.backgroundKey;
     const imageToDraw = loadedAssets[backgroundKey];
-    DOM.mainViewCtx.fillStyle = 'black';
-    DOM.mainViewCtx.fillRect(0, 0, DOM.mainViewCanvas.width, DOM.mainViewCanvas.height);
+    mainViewCtx.fillStyle = 'black';
+    mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
 
     if (imageToDraw) {
         const canvasAspect = 1.0;
@@ -41,10 +44,10 @@ export function drawMainBackground(gameState) {
             sx = 0;
             sy = (imageToDraw.height - sHeight) / 2;
         }
-        DOM.mainViewCtx.drawImage(imageToDraw, sx, sy, sWidth, sHeight, 0, 0, DOM.mainViewCanvas.width, DOM.mainViewCanvas.height);
+        mainViewCtx.drawImage(imageToDraw, sx, sy, sWidth, sHeight, 0, 0, mainViewCanvas.width, mainViewCanvas.height);
     } else {
-        DOM.mainViewCtx.fillStyle = 'white';
-        DOM.mainViewCtx.fillText(`Image de fond '${backgroundKey}' non trouvée`, 20, 40);
+        mainViewCtx.fillStyle = 'white';
+        mainViewCtx.fillText(`Image de fond '${backgroundKey}' non trouvée`, 20, 40);
     }
 }
 
@@ -82,9 +85,12 @@ function drawCharacter(ctx, character, x, y, isPlayer = false) {
 
 export function drawSceneCharacters(gameState) {
     const { player, npcs, enemies } = gameState;
-    DOM.charactersCtx.clearRect(0, 0, DOM.charactersCanvas.width, DOM.charactersCanvas.height);
-    const canvasWidth = DOM.charactersCanvas.width;
-    const canvasHeight = DOM.charactersCanvas.height;
+    const { charactersCtx, charactersCanvas } = window.DOM;
+    if (!charactersCtx) return;
+
+    charactersCtx.clearRect(0, 0, charactersCanvas.width, charactersCanvas.height);
+    const canvasWidth = charactersCanvas.width;
+    const canvasHeight = charactersCanvas.height;
     
     const centerX = canvasWidth / 2;
     const centerY = canvasHeight / 2 + 100;
@@ -102,19 +108,19 @@ export function drawSceneCharacters(gameState) {
             if (type === 'out') {
                 if(direction === 'east') modX = distance; else if(direction === 'west') modX = -distance;
                 else if(direction === 'south') modY = distance; else if(direction === 'north') modY = -distance;
-                DOM.charactersCtx.globalAlpha = 1 - easeOut;
+                charactersCtx.globalAlpha = 1 - easeOut;
             } else {
                 distance = canvasWidth / 1.5 * (1 - easeOut);
                 if(direction === 'east') modX = -distance; else if(direction === 'west') modX = distance;
                 else if(direction === 'south') modY = -distance; else if(direction === 'north') modY = distance;
-                DOM.charactersCtx.globalAlpha = easeOut;
+                charactersCtx.globalAlpha = easeOut;
             }
-            drawCharacter(DOM.charactersCtx, p.char, p.x + modX, p.y + modY, p.isPlayer);
+            drawCharacter(charactersCtx, p.char, p.x + modX, p.y + modY, p.isPlayer);
         });
-        DOM.charactersCtx.globalAlpha = 1;
+        charactersCtx.globalAlpha = 1;
     } else {
         characterPositions.forEach(p => {
-            drawCharacter(DOM.charactersCtx, p.char, p.x, p.y, p.isPlayer);
+            drawCharacter(charactersCtx, p.char, p.x, p.y, p.isPlayer);
         });
     }
 
@@ -123,130 +129,139 @@ export function drawSceneCharacters(gameState) {
         const enemy = visibleEnemies[0];
         const enemyX = canvasWidth / 2;
         const enemyY = canvasHeight / 2 - 100;
-        DOM.charactersCtx.save();
-        DOM.charactersCtx.fillStyle = enemy.color;
-        DOM.charactersCtx.font = "80px sans-serif";
-        DOM.charactersCtx.textAlign = 'center';
-        DOM.charactersCtx.fillText(enemy.icon, enemyX, enemyY);
-        DOM.charactersCtx.restore();
+        charactersCtx.save();
+        charactersCtx.fillStyle = enemy.color;
+        charactersCtx.font = "80px sans-serif";
+        charactersCtx.textAlign = 'center';
+        charactersCtx.fillText(enemy.icon, enemyX, enemyY);
+        charactersCtx.restore();
     }
 }
 
 export function drawMinimap(gameState, config) {
     const { map, player, npcs, enemies } = gameState;
     const { MAP_WIDTH, MAP_HEIGHT, MINIMAP_DOT_SIZE } = config;
-    DOM.minimapCanvas.width = MAP_WIDTH * MINIMAP_DOT_SIZE;
-    DOM.minimapCanvas.height = MAP_HEIGHT * MINIMAP_DOT_SIZE;
-    DOM.minimapCtx.clearRect(0, 0, DOM.minimapCanvas.width, DOM.minimapCanvas.height);
-    for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { DOM.minimapCtx.fillStyle = map[y][x].type.color || '#ff00ff'; DOM.minimapCtx.fillRect(x * MINIMAP_DOT_SIZE, y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE); } }
-    DOM.minimapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
-    DOM.minimapCtx.lineWidth = 1;
-    for (let x = 0; x <= MAP_WIDTH; x++) { DOM.minimapCtx.beginPath(); DOM.minimapCtx.moveTo(x * MINIMAP_DOT_SIZE, 0); DOM.minimapCtx.lineTo(x * MINIMAP_DOT_SIZE, DOM.minimapCanvas.height); DOM.minimapCtx.stroke(); }
-    for (let y = 0; y <= MAP_HEIGHT; y++) { DOM.minimapCtx.beginPath(); DOM.minimapCtx.moveTo(0, y * MINIMAP_DOT_SIZE); DOM.minimapCtx.lineTo(DOM.minimapCanvas.width, y * MINIMAP_DOT_SIZE); DOM.minimapCtx.stroke(); }
+    const { minimapCanvas, minimapCtx } = window.DOM;
+    if(!minimapCtx) return;
+
+    minimapCanvas.width = MAP_WIDTH * MINIMAP_DOT_SIZE;
+    minimapCanvas.height = MAP_HEIGHT * MINIMAP_DOT_SIZE;
+    minimapCtx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+    for (let y = 0; y < MAP_HEIGHT; y++) { for (let x = 0; x < MAP_WIDTH; x++) { minimapCtx.fillStyle = map[y][x].type.color || '#ff00ff'; minimapCtx.fillRect(x * MINIMAP_DOT_SIZE, y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE); } }
+    minimapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+    minimapCtx.lineWidth = 1;
+    for (let x = 0; x <= MAP_WIDTH; x++) { minimapCtx.beginPath(); minimapCtx.moveTo(x * MINIMAP_DOT_SIZE, 0); minimapCtx.lineTo(x * MINIMAP_DOT_SIZE, minimapCanvas.height); minimapCtx.stroke(); }
+    for (let y = 0; y <= MAP_HEIGHT; y++) { minimapCtx.beginPath(); minimapCtx.moveTo(0, y * MINIMAP_DOT_SIZE); minimapCtx.lineTo(minimapCanvas.width, y * MINIMAP_DOT_SIZE); minimapCtx.stroke(); }
     
     npcs.forEach(npc => {
-        DOM.minimapCtx.fillStyle = npc.color;
-        DOM.minimapCtx.fillRect(npc.x * MINIMAP_DOT_SIZE, npc.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
+        minimapCtx.fillStyle = npc.color;
+        minimapCtx.fillRect(npc.x * MINIMAP_DOT_SIZE, npc.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
     });
     
     enemies.forEach(enemy => {
-        DOM.minimapCtx.fillStyle = enemy.color;
+        minimapCtx.fillStyle = enemy.color;
         const x = enemy.x * MINIMAP_DOT_SIZE;
         const y = enemy.y * MINIMAP_DOT_SIZE;
-        DOM.minimapCtx.beginPath();
-        DOM.minimapCtx.moveTo(x, y + MINIMAP_DOT_SIZE);
-        DOM.minimapCtx.lineTo(x + MINIMAP_DOT_SIZE / 2, y);
-        DOM.minimapCtx.lineTo(x + MINIMAP_DOT_SIZE, y + MINIMAP_DOT_SIZE);
-        DOM.minimapCtx.closePath();
-        DOM.minimapCtx.fill();
+        minimapCtx.beginPath();
+        minimapCtx.moveTo(x, y + MINIMAP_DOT_SIZE);
+        minimapCtx.lineTo(x + MINIMAP_DOT_SIZE / 2, y);
+        minimapCtx.lineTo(x + MINIMAP_DOT_SIZE, y + MINIMAP_DOT_SIZE);
+        minimapCtx.closePath();
+        minimapCtx.fill();
     });
 
-    DOM.minimapCtx.fillStyle = player.color || 'yellow';
-    DOM.minimapCtx.fillRect(player.x * MINIMAP_DOT_SIZE, player.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
-    DOM.minimapCtx.strokeStyle = 'white';
-    DOM.minimapCtx.lineWidth = 2;
-    DOM.minimapCtx.strokeRect(player.x * MINIMAP_DOT_SIZE -1, player.y * MINIMAP_DOT_SIZE -1, MINIMAP_DOT_SIZE + 2, MINIMAP_DOT_SIZE + 2);
+    minimapCtx.fillStyle = player.color || 'yellow';
+    minimapCtx.fillRect(player.x * MINIMAP_DOT_SIZE, player.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
+    minimapCtx.strokeStyle = 'white';
+    minimapCtx.lineWidth = 2;
+    minimapCtx.strokeRect(player.x * MINIMAP_DOT_SIZE -1, player.y * MINIMAP_DOT_SIZE -1, MINIMAP_DOT_SIZE + 2, MINIMAP_DOT_SIZE + 2);
 }
 
 export function drawLargeMap(gameState, config) {
     const { map, player, npcs, enemies } = gameState;
     const { MAP_WIDTH, MAP_HEIGHT } = config;
+    const { largeMapCanvas, largeMapCtx } = window.DOM;
+    if(!largeMapCtx) return;
+
     const headerSize = 30;
-    const availableHeight = DOM.largeMapCanvas.parentElement.clientHeight - 40;
+    const availableHeight = largeMapCanvas.parentElement.clientHeight - 40;
     const canvasSize = availableHeight;
-    DOM.largeMapCanvas.width = canvasSize;
-    DOM.largeMapCanvas.height = canvasSize;
+    largeMapCanvas.width = canvasSize;
+    largeMapCanvas.height = canvasSize;
     const cellSize = (canvasSize - headerSize) / Math.max(MAP_WIDTH, MAP_HEIGHT);
 
-    DOM.largeMapCtx.clearRect(0, 0, DOM.largeMapCanvas.width, DOM.largeMapCanvas.height);
-    DOM.largeMapCtx.fillStyle = '#1d3557';
-    DOM.largeMapCtx.fillRect(0, 0, DOM.largeMapCanvas.width, DOM.largeMapCanvas.height);
+    largeMapCtx.clearRect(0, 0, largeMapCanvas.width, largeMapCanvas.height);
+    largeMapCtx.fillStyle = '#1d3557';
+    largeMapCtx.fillRect(0, 0, largeMapCanvas.width, largeMapCanvas.height);
 
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             const tile = map[y][x];
             const drawX = headerSize + x * cellSize;
             const drawY = headerSize + y * cellSize;
-            DOM.largeMapCtx.fillStyle = tile.type.color || '#ff00ff';
-            DOM.largeMapCtx.fillRect(drawX, drawY, cellSize, cellSize);
+            largeMapCtx.fillStyle = tile.type.color || '#ff00ff';
+            largeMapCtx.fillRect(drawX, drawY, cellSize, cellSize);
             const icon = TILE_ICONS[tile.type.name] || TILE_ICONS.default;
-            DOM.largeMapCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-            DOM.largeMapCtx.font = `bold ${cellSize * 0.6}px Poppins`;
-            DOM.largeMapCtx.textAlign = 'center';
-            DOM.largeMapCtx.textBaseline = 'middle';
-            DOM.largeMapCtx.fillText(icon, drawX + cellSize / 2, drawY + cellSize / 2);
+            largeMapCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            largeMapCtx.font = `bold ${cellSize * 0.6}px Poppins`;
+            largeMapCtx.textAlign = 'center';
+            largeMapCtx.textBaseline = 'middle';
+            largeMapCtx.fillText(icon, drawX + cellSize / 2, drawY + cellSize / 2);
         }
     }
 
-    DOM.largeMapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
-    DOM.largeMapCtx.lineWidth = 1;
-    DOM.largeMapCtx.fillStyle = '#f1faee';
-    DOM.largeMapCtx.font = `600 ${headerSize * 0.5}px Poppins`;
-    DOM.largeMapCtx.textAlign = 'center';
-    DOM.largeMapCtx.textBaseline = 'middle';
+    largeMapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+    largeMapCtx.lineWidth = 1;
+    largeMapCtx.fillStyle = '#f1faee';
+    largeMapCtx.font = `600 ${headerSize * 0.5}px Poppins`;
+    largeMapCtx.textAlign = 'center';
+    largeMapCtx.textBaseline = 'middle';
 
     for (let i = 0; i < MAP_WIDTH; i++) {
         const x = headerSize + (i + 0.5) * cellSize;
-        DOM.largeMapCtx.fillText(i, x, headerSize / 2);
+        largeMapCtx.fillText(i, x, headerSize / 2);
         const lineX = headerSize + i * cellSize;
-        DOM.largeMapCtx.beginPath(); DOM.largeMapCtx.moveTo(lineX, headerSize); DOM.largeMapCtx.lineTo(lineX, headerSize + MAP_HEIGHT * cellSize); DOM.largeMapCtx.stroke();
+        largeMapCtx.beginPath(); largeMapCtx.moveTo(lineX, headerSize); largeMapCtx.lineTo(lineX, headerSize + MAP_HEIGHT * cellSize); largeMapCtx.stroke();
     }
     for (let i = 0; i < MAP_HEIGHT; i++) {
         const y = headerSize + (i + 0.5) * cellSize;
-        DOM.largeMapCtx.fillText(i, headerSize / 2, y);
+        largeMapCtx.fillText(i, headerSize / 2, y);
         const lineY = headerSize + i * cellSize;
-        DOM.largeMapCtx.beginPath(); DOM.largeMapCtx.moveTo(headerSize, lineY); DOM.largeMapCtx.lineTo(headerSize + MAP_WIDTH * cellSize, lineY); DOM.largeMapCtx.stroke();
+        largeMapCtx.beginPath(); largeMapCtx.moveTo(headerSize, lineY); largeMapCtx.lineTo(headerSize + MAP_WIDTH * cellSize, lineY); largeMapCtx.stroke();
     }
-    DOM.largeMapCtx.strokeRect(headerSize, headerSize, MAP_WIDTH * cellSize, MAP_HEIGHT * cellSize);
+    largeMapCtx.strokeRect(headerSize, headerSize, MAP_WIDTH * cellSize, MAP_HEIGHT * cellSize);
 
     npcs.forEach(npc => {
         const drawX = headerSize + npc.x * cellSize + cellSize / 2;
         const drawY = headerSize + npc.y * cellSize + cellSize / 2;
-        DOM.largeMapCtx.fillStyle = npc.color;
-        DOM.largeMapCtx.beginPath(); DOM.largeMapCtx.arc(drawX, drawY, cellSize * 0.35, 0, Math.PI * 2); DOM.largeMapCtx.fill();
+        largeMapCtx.fillStyle = npc.color;
+        largeMapCtx.beginPath(); largeMapCtx.arc(drawX, drawY, cellSize * 0.35, 0, Math.PI * 2); largeMapCtx.fill();
     });
     
     enemies.forEach(enemy => {
         const drawX = headerSize + enemy.x * cellSize + cellSize / 2;
         const drawY = headerSize + enemy.y * cellSize + cellSize / 2;
-        DOM.largeMapCtx.fillStyle = enemy.color;
-        DOM.largeMapCtx.font = `bold ${cellSize * 0.7}px Poppins`;
-        DOM.largeMapCtx.textAlign = 'center';
-        DOM.largeMapCtx.textBaseline = 'middle';
-        DOM.largeMapCtx.fillText(enemy.icon, drawX, drawY);
+        largeMapCtx.fillStyle = enemy.color;
+        largeMapCtx.font = `bold ${cellSize * 0.7}px Poppins`;
+        largeMapCtx.textAlign = 'center';
+        largeMapCtx.textBaseline = 'middle';
+        largeMapCtx.fillText(enemy.icon, drawX, drawY);
     });
 
     const playerDrawX = headerSize + player.x * cellSize + cellSize / 2;
     const playerDrawY = headerSize + player.y * cellSize + cellSize / 2;
-    DOM.largeMapCtx.fillStyle = player.color;
-    DOM.largeMapCtx.beginPath(); DOM.largeMapCtx.arc(playerDrawX, playerDrawY, cellSize * 0.4, 0, Math.PI * 2); DOM.largeMapCtx.fill();
-    DOM.largeMapCtx.strokeStyle = 'white';
-    DOM.largeMapCtx.lineWidth = 3;
-    DOM.largeMapCtx.stroke();
+    largeMapCtx.fillStyle = player.color;
+    largeMapCtx.beginPath(); largeMapCtx.arc(playerDrawX, playerDrawY, cellSize * 0.4, 0, Math.PI * 2); largeMapCtx.fill();
+    largeMapCtx.strokeStyle = 'white';
+    largeMapCtx.lineWidth = 3;
+    largeMapCtx.stroke();
 }
 
 export function populateLargeMapLegend() {
-    DOM.largeMapLegendEl.innerHTML = '<h3>Légende</h3>';
+    const { largeMapLegendEl } = window.DOM;
+    if(!largeMapLegendEl) return;
+    
+    largeMapLegendEl.innerHTML = '<h3>Légende</h3>';
     const addedTypes = new Set();
     for (const tileKey in TILE_TYPES) {
         const tileType = TILE_TYPES[tileKey];
@@ -255,17 +270,17 @@ export function populateLargeMapLegend() {
             item.className = 'legend-item';
             const icon = TILE_ICONS[tileType.name] || TILE_ICONS.default;
             item.innerHTML = `<div class="legend-color-box" style="background-color: ${tileType.color};"></div><span>${icon} ${tileType.name}</span>`;
-            DOM.largeMapLegendEl.appendChild(item);
+            largeMapLegendEl.appendChild(item);
             addedTypes.add(tileType.name);
         }
     }
-    DOM.largeMapLegendEl.insertAdjacentHTML('beforeend', '<hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">');
+    largeMapLegendEl.insertAdjacentHTML('beforeend', '<hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">');
     const playerItem = document.createElement('div');
     playerItem.className = 'legend-item';
     playerItem.innerHTML = `<div class="legend-color-box legend-character-icon" style="color: #ffd700;">●</div><span>Vous</span>`;
-    DOM.largeMapLegendEl.appendChild(playerItem);
+    largeMapLegendEl.appendChild(playerItem);
     const npcItem = document.createElement('div');
     npcItem.className = 'legend-item';
     npcItem.innerHTML = `<div class="legend-color-box legend-character-icon" style="color: #ff6347;">●</div><span>Survivants (PNJ)</span>`;
-    DOM.largeMapLegendEl.appendChild(npcItem);
+    largeMapLegendEl.appendChild(npcItem);
 }
