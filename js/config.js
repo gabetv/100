@@ -5,11 +5,11 @@ export const CONFIG = {
     NUM_NPCS: 4, 
     NPC_BASE_HEALTH: 8,
     NPC_BASE_DAMAGE: 1,
-    NPC_AGGRO_RADIUS: 3, // Rayon dans lequel un PNJ détecte et attaque un ennemi
+    NPC_AGGRO_RADIUS: 3, 
     INITIAL_ENEMIES: 1, MAX_ENEMIES: 6, ENEMY_SPAWN_CHECK_DAYS: 3,
     DAY_DURATION_MS: 120000, STAT_DECAY_INTERVAL_MS: 5000,
     NPC_ACTION_INTERVAL_MS: 3000, CHAT_MESSAGE_INTERVAL_MS: 25000,
-    PLAYER_BASE_MAX_RESOURCES: 50, // Capacité de base sans sac
+    PLAYER_BASE_MAX_RESOURCES: 50, 
 };
 
 export const COMBAT_CONFIG = {
@@ -20,26 +20,74 @@ export const COMBAT_CONFIG = {
 export const ACTION_DURATIONS = {
     HARVEST: 1000, CRAFT: 1500, SLEEP: 3000, MOVE_TRANSITION: 400,
     DIG: 5000,
+    SEARCH: 2000, // Nouvelle durée pour la recherche
 };
 
 export const ENEMY_TYPES = {
     WOLF: { name: 'Loup Agressif', icon: '🐺', health: 10, damage: 2, color: '#dc2626', aggroRadius: 4, loot: { 'Peau de bête': 1, 'Os': 2, 'Viande crue': 1 } },
-    SNAKE: { name: 'Serpent Venimeux', icon: '🐍', health: 6, damage: 3, color: '#16a34a', aggroRadius: 3, loot: { 'Viande crue': 1 } }
+    SNAKE: { name: 'Serpent Venimeux', icon: '🐍', health: 6, damage: 3, color: '#16a34a', aggroRadius: 3, loot: { 'Viande crue': 1 } },
+    RAT: { name: 'Rat Furtif', icon: '🐀', health: 1, damage: 1, color: '#6b7280', aggroRadius: 1, loot: {} } 
 };
 
 export const ORE_TYPES = ['Charbon', 'Cuivre', 'Fer', 'Argent', 'Or'];
+
+export const SEARCHABLE_ITEMS = [
+    'Feuilles', 'Liane', 'Écorce', 'Résine', 'Pierre', 
+    'Insectes', 
+    'Os', 
+    'Banane', 'Noix de coco', 
+    'Bandage', 
+    'Composants électroniques', 'Pile'
+];
+
+export const SEARCH_ZONE_CONFIG = {
+    FOREST: { // Corresponds à TILE_TYPES.FOREST
+        combatChance: 0.40, 
+        itemChance: 0.50,   
+        enemyType: 'RAT',   
+        possibleLoot: ['Feuilles', 'Liane', 'Écorce', 'Insectes', 'Os', 'Banane'] 
+    },
+    SAND_GOLDEN: { // Corresponds à TILE_TYPES.SAND_GOLDEN
+        combatChance: 0.10,
+        itemChance: 0.60,   
+        enemyType: 'RAT',
+        possibleLoot: ['Sable', 'Pierre', 'Noix de coco', 'Insectes', 'Sel']
+    },
+    PLAINS: { // Corresponds à TILE_TYPES.PLAINS
+        combatChance: 0.30,
+        itemChance: 0.40,   
+        enemyType: 'RAT',
+        possibleLoot: ['Feuilles', 'Pierre', 'Insectes', 'Os', 'Banane']
+    },
+    MINE: { // Corresponds à TILE_TYPES.MINE
+        combatChance: 0.30,
+        itemChance: 0.50,   
+        enemyType: 'RAT', 
+        possibleLoot: ['Pierre', 'Os', 'Charbon', 'Composants électroniques', 'Pile'] 
+    },
+    // Vous pouvez ajouter d'autres clés ici qui correspondent aux clés de TILE_TYPES
+    // Par exemple, pour TILE_TYPES.WASTELAND:
+    // WASTELAND: {
+    //     combatChance: 0.05,
+    //     itemChance: 0.20,
+    //     enemyType: 'RAT',
+    //     possibleLoot: ['Pierre', 'Os', 'Insectes']
+    // }
+};
+
 
 export const ITEM_TYPES = {
     // === RESSOURCES ===
     'Bois': { type: 'resource', icon: '🪵' }, 'Pierre': { type: 'resource', icon: '🪨' },
     'Feuilles': { type: 'resource', icon: '🍃' }, 'Liane': { type: 'resource', icon: '🌿' },
-    'Écorce': { type: 'resource', icon: '🟫' }, 'Résine': { type: 'resource', icon: '💧' },
+    'Écorce': { type: 'resource', icon: '🟫' }, 'Résine': { type: 'resource', icon: '💧' }, 
     'Sable': { type: 'resource', icon: '⏳' }, 'Peau de bête': { type: 'resource', icon: '🟤' },
     'Os': { type: 'resource', icon: '🦴' }, 'Viande crue': { type: 'resource', icon: '🥩' },
     'Poisson cru': { type: 'resource', icon: '🐟' }, 'Sel': { type: 'resource', icon: '🧂' },
     'Sucre': { type: 'resource', icon: '🍬' }, 'Composants électroniques': {type: 'resource', icon: '⚙️'},
+    'Charbon': {type: 'resource', icon: '⚫'}, 
 
-    // === CONSOMMABLES (valeurs ajustées pour une échelle de 10) ===
+    // === CONSOMMABLES ===
     'Eau pure': { type: 'consumable', icon: '💧', effects: { thirst: 3 } },
     'Eau salée': { type: 'consumable', icon: '🚱', effects: { thirst: 1, status: { name: 'Malade', chance: 0.5 } } },
     'Insectes': { type: 'consumable', icon: '🦗', effects: { hunger: 1 } },
@@ -48,13 +96,12 @@ export const ITEM_TYPES = {
     'Banane': { type: 'consumable', icon: '🍌', effects: { hunger: 2, thirst: 1 } },
     'Noix de coco': { type: 'consumable', icon: '🥥', effects: { thirst: 3 } },
     'Canne à sucre': { type: 'consumable', icon: '🎋', effects: { hunger: 3, thirst: -1 } },
-    'Sucre': { type: 'consumable', icon: '🍬', effects: { hunger: 1, sleep: 1, thirst: -1 } },
     'Barre Énergétique': { type: 'consumable', icon: '🍫', effects: { hunger: 6, sleep: 4 } },
     'Médicaments': { type: 'consumable', icon: '💊', effects: { ifStatus: 'Malade', status: 'Normal', health: 5 } },
     'Antiseptiques': { type: 'consumable', icon: '🧴', effects: { ifStatus: 'Empoisonné', status: 'Normal', health: 3 } },
     'Bandage': { type: 'consumable', icon: '🩹', effects: { ifStatus: 'Blessé', status: 'Normal', health: 4 } },
     'Kit de Secours': { type: 'consumable', icon: '✚', effects: { ifStatus: ['Blessé', 'Malade'], status: 'Normal' } },
-    'Pile': {type: 'consumable', icon: '🔋', effects: {}}, // L'effet sera géré par l'action "recharger"
+    'Pile': {type: 'consumable', icon: '🔋', effects: {}}, 
 
     // === OUTILS & ARMES ===
     'Hache': { type: 'tool', slot: 'weapon', icon: '🪓', durability: 10, power: 5, action: 'harvest_wood' },
@@ -65,9 +112,8 @@ export const ITEM_TYPES = {
     'Épée en fer': { type: 'weapon', slot: 'weapon', icon: '⚔️', durability: 10, stats: { damage: 6 }, pvpEffects: [{ name: 'Blessé', chance: 0.5 }, { name: 'Mort', chance: 0.05 }] },
     'Bouclier en bois': {type: 'armor', slot: 'body', icon: '🛡️', durability: 10, stats: {defense: 2}},
     'Bouclier en fer': {type: 'armor', slot: 'body', icon: '🛡️', durability: 20, stats: {defense: 4}},
-    // ... plus d'armes ici
-
-    // === ÉQUIPEMENT (valeurs ajustées pour une échelle de 10) ===
+    
+    // === ÉQUIPEMENT ===
     'Vêtements': { type: 'body', slot: 'body', icon: '👕', stats: { maxHealth: 2 } },
     'Chaussures': { type: 'feet', slot: 'feet', icon: '👟', stats: { maxSleep: 2 } },
     'Chapeau': { type: 'head', slot: 'head', icon: '👒', stats: { maxThirst: 2 } },

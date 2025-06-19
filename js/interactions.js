@@ -1,10 +1,9 @@
 // js/interactions.js
-import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ORE_TYPES, COMBAT_CONFIG, ITEM_TYPES } from './config.js';
+import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ORE_TYPES, COMBAT_CONFIG, ITEM_TYPES, SEARCH_ZONE_CONFIG, ENEMY_TYPES, SEARCHABLE_ITEMS } from './config.js';
 import * as UI from './ui.js';
 import * as State from './state.js';
-import { getTotalResources } from './player.js'; // getTotalResources est dans player.js
+import { getTotalResources } from './player.js'; 
 import { findEnemyOnTile } from './enemy.js';
-// ### AJOUT DE L'IMPORT DE DOM ###
 import DOM from './ui/dom.js';
 
 function applyActionCosts(player, costs) {
@@ -35,15 +34,14 @@ function performTimedAction(player, duration, onStart, onComplete, updateUICallb
         updateUICallbacks.updatePossibleActions();
     }
     if (updateUICallbacks && updateUICallbacks.updateAllButtonsState) {
-        UI.updateAllButtonsState(State.state); // Assurez-vous que State.state est passé si nécessaire
+        UI.updateAllButtonsState(State.state); 
     }
-
 
     setTimeout(() => {
         onComplete();
         player.isBusy = false;
         if (updateUICallbacks && updateUICallbacks.updateAllUI) {
-            updateUICallbacks.updateAllUI(); // Ceci devrait être fullUIUpdate de main.js
+            updateUICallbacks.updateAllUI(); 
         }
         if (updateUICallbacks && updateUICallbacks.updatePossibleActions) {
             updateUICallbacks.updatePossibleActions();
@@ -58,29 +56,26 @@ function performToolAction(player, toolSlot, actionType, onComplete, updateUICal
     const tool = player.equipment[toolSlot];
     if (!tool || tool.action !== actionType) {
         UI.addChatMessage(`Vous n'avez pas le bon outil équipé pour cette action.`, 'system');
-        // ### MODIFICATION ICI pour utiliser DOM et l'ID correct ###
-        if (DOM.equipmentSlotsEl) { // equipmentSlotsEl est le conteneur des slots dans la modale
+        if (DOM.equipmentSlotsEl) { 
             UI.triggerShake(DOM.equipmentSlotsEl);
-        } else if (DOM.quickSlotsPanel) { // Ou le panneau des quickslots si l'erreur est liée à ça
-            UI.triggerShake(DOM.quickSlotsPanel); // Assurez-vous que quickSlotsPanel est dans DOM.js
+        } else if (DOM.quickSlotsPanel) { 
+            UI.triggerShake(DOM.quickSlotsPanel); 
         }
         return;
     }
 
-    performTimedAction(player, ACTION_DURATIONS.HARVEST, // Ou une autre durée selon l'action
+    performTimedAction(player, ACTION_DURATIONS.HARVEST, 
         () => UI.addChatMessage(`Utilisation de ${tool.name}...`, 'system'),
         () => {
-            onComplete(tool.power); // Passe la puissance de l'outil
+            onComplete(tool.power); 
 
-            if (tool.hasOwnProperty('currentDurability')) { // Vérifier si l'outil a une durabilité
+            if (tool.hasOwnProperty('currentDurability')) { 
                 tool.currentDurability--;
                 if (tool.currentDurability <= 0) {
                     UI.addChatMessage(`${tool.name} s'est cassé !`, 'system');
-                    State.state.player.equipment[toolSlot] = null; // Déséquipe l'outil
+                    State.state.player.equipment[toolSlot] = null; 
                 }
             }
-            // ### MODIFICATION ICI pour utiliser DOM ###
-            // Vérifier si la modale d'équipement est ouverte avant de la mettre à jour
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) {
                 UI.updateEquipmentModal(State.state);
             }
@@ -94,7 +89,7 @@ export function handleCombatAction(action) {
     if (!combatState || !combatState.isPlayerTurn) return;
 
     combatState.isPlayerTurn = false;
-    UI.updateCombatUI(combatState); // Met à jour l'UI pour montrer que ce n'est plus le tour du joueur
+    UI.updateCombatUI(combatState); 
 
     setTimeout(() => {
         if (action === 'attack') {
@@ -103,22 +98,21 @@ export function handleCombatAction(action) {
             playerFlee();
         }
 
-        // Si le combat n'est pas terminé (le joueur ou l'ennemi n'est pas mort, ou le joueur n'a pas fui)
         if (State.state.combatState && State.state.combatState.enemy.currentHealth > 0 && player.health > 0) {
             setTimeout(() => {
                 enemyAttack();
-                if (State.state.combatState) { // Revérifier si le combat est toujours en cours (le joueur pourrait mourir)
+                if (State.state.combatState) { 
                     State.state.combatState.isPlayerTurn = true;
-                    UI.updateCombatUI(State.state.combatState); // Met à jour l'UI pour le tour du joueur
+                    UI.updateCombatUI(State.state.combatState); 
                 }
-            }, 1000); // Délai pour l'attaque de l'ennemi
+            }, 1000); 
         }
-    }, 500); // Délai pour l'action du joueur
+    }, 500); 
 }
 
 function playerAttack() {
     const { combatState, player } = State.state;
-    if (!combatState) return; // Sécurité
+    if (!combatState) return; 
     
     const weapon = player.equipment.weapon;
     const damage = weapon && weapon.stats?.damage ? weapon.stats.damage : COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE;
@@ -130,8 +124,7 @@ function playerAttack() {
         weapon.currentDurability--;
         if (weapon.currentDurability <= 0) {
             combatState.log.unshift(`${weapon.name} s'est cassé !`);
-            player.equipment.weapon = null; // Déséquipe l'arme
-            // Mettre à jour l'UI de l'équipement si la modale est ouverte
+            player.equipment.weapon = null; 
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) {
                 UI.updateEquipmentModal(State.state);
             }
@@ -141,28 +134,21 @@ function playerAttack() {
     if (combatState.enemy.currentHealth <= 0) {
         combatState.log.unshift(`Vous avez vaincu ${combatState.enemy.name} !`);
         UI.addChatMessage(`Vous avez vaincu ${combatState.enemy.name} !`, 'gain');
-        // Distribuer le loot
         Object.keys(combatState.enemy.loot).forEach(item => {
             const amount = combatState.enemy.loot[item];
             if (amount > 0) {
-                State.addResourceToPlayer(item, amount); // Utiliser la fonction de state.js
+                State.addResourceToPlayer(item, amount); 
                 UI.showFloatingText(`+${amount} ${item}`, 'gain');
             }
         });
-        State.endCombat(true); // Termine le combat, true pour victoire
+        State.endCombat(true); 
         UI.hideCombatModal();
-        // Après le combat, mettre à jour l'UI complète et les actions possibles
-        if (State.state.player) { // S'assurer que player existe toujours
-             // Note: updateUICallbacks n'est pas défini ici. Utiliser des appels directs.
-            UI.updateAllUI(State.state); // Ceci vient de ui.js
-            window.updatePossibleActions(); // Si updatePossibleActions est global (dans main.js)
-                                            // Sinon, il faut une meilleure manière de le gérer.
-                                            // Pour l'instant, on suppose qu'il est accessible via window
-                                            // ou qu'il faut le passer en paramètre.
-                                            // Le mieux serait d'avoir fullUIUpdate de main.js
+        if (State.state.player) { 
+            UI.updateAllUI(State.state); 
+            if (window.updatePossibleActions) window.updatePossibleActions();
         }
     } else {
-        UI.updateCombatUI(combatState); // Met à jour juste l'UI de combat
+        UI.updateCombatUI(combatState); 
     }
 }
 
@@ -173,9 +159,8 @@ function playerFlee() {
     if (Math.random() < COMBAT_CONFIG.FLEE_CHANCE) {
         combatState.log.unshift("Vous avez réussi à fuir !");
         UI.addChatMessage("Vous avez pris la fuite.", "system");
-        State.endCombat(false); // false car pas de victoire/loot
+        State.endCombat(false); 
         UI.hideCombatModal();
-        // Mettre à jour les actions possibles après la fuite
         if (window.updatePossibleActions) window.updatePossibleActions();
     } else {
         combatState.log.unshift("Votre tentative de fuite a échoué !");
@@ -185,7 +170,7 @@ function playerFlee() {
 
 function enemyAttack() {
     const { combatState, player } = State.state;
-    if (!combatState) return; // Si le combat s'est terminé entre-temps
+    if (!combatState) return; 
     
     const defense = player.equipment.body?.stats?.defense || 0;
     const damageTaken = Math.max(0, combatState.enemy.damage - defense);
@@ -195,16 +180,34 @@ function enemyAttack() {
 
     if (player.health <= 0) {
         combatState.log.unshift("Vous avez été vaincu...");
-        // La gestion de la fin du jeu (game over) devrait être ailleurs,
-        // par exemple dans la gameLoop qui vérifie player.health
     }
     
-    UI.updateCombatUI(combatState); // Mettre à jour l'UI de combat
-    // Mettre à jour l'UI globale car la santé du joueur a changé
-    // (cela se fera naturellement via la gameLoop et updateAllUI)
-    // Mais si on veut un refresh immédiat des barres de vie en dehors du combat modal :
+    UI.updateCombatUI(combatState); 
     if (window.fullUIUpdate) window.fullUIUpdate(); else UI.updateAllUI(State.state);
+}
 
+function applyRandomStatCost(player, amount = 1) {
+    const statsToCost = ['thirst', 'hunger', 'sleep'];
+    const chosenStat = statsToCost[Math.floor(Math.random() * statsToCost.length)];
+    let costText = '';
+
+    switch (chosenStat) {
+        case 'thirst':
+            player.thirst = Math.max(0, player.thirst - amount);
+            costText = `-${amount}💧`;
+            break;
+        case 'hunger':
+            player.hunger = Math.max(0, player.hunger - amount);
+            costText = `-${amount}🍗`;
+            break;
+        case 'sleep':
+            player.sleep = Math.max(0, player.sleep - amount);
+            costText = `-${amount}🌙`;
+            break;
+    }
+    if (costText) {
+        UI.showFloatingText(costText, 'cost');
+    }
 }
 
 export function handlePlayerAction(actionId, data, updateUICallbacks) {
@@ -239,7 +242,6 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 hunger: resource.hungerCost || 0,
                 sleep: resource.sleepCost || 0,
             };
-            // Vérifier si le joueur a assez de stats AVANT de les déduire pour l'action elle-même
             if (player.thirst < costs.thirst || player.hunger < costs.hunger || player.sleep < costs.sleep) {
                 UI.addChatMessage("Vous êtes trop épuisé pour cette action.", "system");
                 return;
@@ -298,7 +300,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             applyActionCosts(player, costs);
             performToolAction(player, 'weapon', 'fish', (power) => {
-                const fishCaught = Math.ceil(Math.random() * power); // Un peu d'aléatoire
+                const fishCaught = Math.ceil(Math.random() * power); 
                 if (fishCaught > 0) {
                     State.addResourceToPlayer('Poisson cru', fishCaught);
                     UI.showFloatingText(`+${fishCaught} Poisson cru`, 'gain');
@@ -322,11 +324,11 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 return;
             }
              applyActionCosts(player, costs);
-             performTimedAction(player, ACTION_DURATIONS.CRAFT, // CHASSE a besoin d'une durée spécifique ou utiliser CRAFT
+             performTimedAction(player, ACTION_DURATIONS.CRAFT, 
                 () => UI.addChatMessage(`Vous chassez avec ${weapon.name}...`, "system"),
                 () => {
-                    if (Math.random() < 0.6) { // Chance de succès
-                        const amount = (weapon.stats?.damage || weapon.power || 1) * (Math.floor(Math.random() * 2) + 1); // un peu d'aléatoire
+                    if (Math.random() < 0.6) { 
+                        const amount = (weapon.stats?.damage || weapon.power || 1) * (Math.floor(Math.random() * 2) + 1); 
                         State.addResourceToPlayer('Viande crue', amount);
                         UI.showFloatingText(`+${amount} Viande crue`, "gain");
                         UI.triggerActionFlash('gain');
@@ -350,10 +352,10 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
 
         case 'build': {
-            const structureType = data.structure; // 'shelter_individual' ou 'shelter_collective'
+            const structureType = data.structure; 
             const buildCosts = structureType === 'shelter_individual' 
                 ? { 'Bois': 20 } 
-                : { 'Bois': 600, 'Pierre': 150 }; // Exemple pour abri collectif
+                : { 'Bois': 600, 'Pierre': 150 }; 
 
             if (!State.hasResources(buildCosts).success) {
                 UI.addChatMessage("Ressources insuffisantes pour construire cet abri.", "system");
@@ -367,11 +369,10 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             applyActionCosts(player, actionCosts);
 
-            performTimedAction(player, ACTION_DURATIONS.CRAFT * (structureType === 'shelter_individual' ? 1 : 3), // Durée plus longue pour gros abri
+            performTimedAction(player, ACTION_DURATIONS.CRAFT * (structureType === 'shelter_individual' ? 1 : 3), 
                 () => UI.addChatMessage(`Construction de ${structureType === 'shelter_individual' ? 'l\'abri individuel' : 'l\'abri collectif'}...`, "system"), 
                 () => {
                     State.applyResourceDeduction(buildCosts);
-                    // Afficher les coûts flottants
                     for(const item in buildCosts) {
                         UI.showFloatingText(`-${buildCosts[item]} ${item}`, 'cost');
                     }
@@ -385,7 +386,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
         
         case 'dig_mine': {
-            const costs = { 'Bois': 100, 'Pierre': 50 }; // Exemple de coûts
+            const costs = { 'Bois': 100, 'Pierre': 50 }; 
             if (!State.hasResources(costs).success) {
                 UI.addChatMessage("Pas assez de matériaux pour étayer la mine.", "system");
                 if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
@@ -402,7 +403,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 () => UI.addChatMessage("Vous creusez une entrée de mine...", "system"),
                 () => {
                     State.applyResourceDeduction(costs);
-                    UI.showFloatingText("-100 Bois, -50 Pierre", 'cost'); // Adapter si les coûts changent
+                    UI.showFloatingText("-100 Bois, -50 Pierre", 'cost'); 
                     State.updateTileType(player.x, player.y, TILE_TYPES.MINE);
                     UI.addChatMessage("La mine est prête !", "system");
                 },
@@ -443,12 +444,10 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             if (!sleepEffect) return;
 
             performTimedAction(player, ACTION_DURATIONS.SLEEP, 
-                () => UI.addChatMessage("Vous vous endormez pour environ 8 heures...", "system"), // Durée indicative
+                () => UI.addChatMessage("Vous vous endormez pour environ 8 heures...", "system"), 
                 () => {
                     player.sleep = Math.min(player.maxSleep, player.sleep + (sleepEffect.sleep || 0)); 
                     player.health = Math.min(player.maxHealth, player.health + (sleepEffect.health || 0));
-                    // Passer du temps dans le jeu (par exemple, 1/3 de journée)
-                    // Cela pourrait être géré par un système de temps plus global si besoin
                     UI.addChatMessage("Vous vous réveillez, un peu reposé.", "system");
                 },
                 updateUICallbacks
@@ -457,8 +456,6 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
 
         case 'cook': {
-            // Exemple : Cuisiner du poisson ou de la viande
-            // On pourrait avoir des boutons différents ou une sélection
             const cookable = { 'Poisson cru': 'Poisson cuit', 'Viande crue': 'Viande cuite' };
             let toCook = null;
             let cookedItem = null;
@@ -476,7 +473,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
                 return;
             }
-            const actionCosts = { thirst: 1, sleep: 1 }; // Coût de l'action de cuisiner
+            const actionCosts = { thirst: 1, sleep: 1 }; 
              if (player.thirst < actionCosts.thirst || player.sleep < actionCosts.sleep) {
                 UI.addChatMessage("Vous êtes trop fatigué pour cuisiner.", "system");
                 return;
@@ -495,6 +492,82 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             );
             break;
         }
-        // Ajouter d'autres cas pour 'purify_water', 'build_campfire', etc.
+
+        case 'search_zone': {
+            const tileName = tile.type.name;
+            let tileKeyForSearch = null;
+
+            // Trouver la clé correspondante dans TILE_TYPES pour l'utiliser avec SEARCH_ZONE_CONFIG
+            for (const key in TILE_TYPES) {
+                if (TILE_TYPES[key].name === tileName) {
+                    tileKeyForSearch = key;
+                    break;
+                }
+            }
+            
+            const searchConfig = tileKeyForSearch ? SEARCH_ZONE_CONFIG[tileKeyForSearch] : null;
+
+            if (!searchConfig) {
+                UI.addChatMessage("Vous ne pouvez pas fouiller cette zone en détail.", "system"); // Message générique si pas de config
+                return;
+            }
+
+            applyRandomStatCost(player, 1); 
+            const actionCosts = { thirst: 1, hunger: 1 }; 
+            if (player.thirst < actionCosts.thirst || player.hunger < actionCosts.hunger) {
+                UI.addChatMessage("Vous êtes trop épuisé pour fouiller attentivement.", "system");
+                return;
+            }
+            applyActionCosts(player, actionCosts); 
+
+            performTimedAction(player, ACTION_DURATIONS.SEARCH,
+                () => UI.addChatMessage("Vous fouillez attentivement les environs...", "system"),
+                () => {
+                    const rand = Math.random();
+                    if (rand < searchConfig.combatChance) {
+                        UI.addChatMessage("Quelque chose surgit des ombres !", "system");
+                        const enemyTemplate = ENEMY_TYPES[searchConfig.enemyType];
+                        if (enemyTemplate) {
+                            const encounterEnemy = { 
+                                id: `enemy_search_${Date.now()}_${Math.random()}`,
+                                ...JSON.parse(JSON.stringify(enemyTemplate)), 
+                                x: player.x, 
+                                y: player.y,
+                                currentHealth: enemyTemplate.health,
+                            };
+                            State.addEnemy(encounterEnemy); 
+                            State.startCombat(player, encounterEnemy);
+                            UI.showCombatModal(State.state.combatState);
+                        } else {
+                            UI.addChatMessage("...mais ce n'était rien.", "system"); 
+                        }
+                    } else if (rand < searchConfig.combatChance + searchConfig.itemChance) {
+                        const availableSpace = player.maxInventory - getTotalResources(player.inventory);
+                        if (availableSpace <= 0) {
+                            UI.addChatMessage("Vous trouvez quelque chose, mais votre inventaire est plein !", "system");
+                            if (DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
+                            return;
+                        }
+
+                        let lootPool = SEARCHABLE_ITEMS; 
+                        if (searchConfig.possibleLoot && searchConfig.possibleLoot.length > 0) {
+                            lootPool = searchConfig.possibleLoot; 
+                        }
+                        
+                        const foundItem = lootPool[Math.floor(Math.random() * lootPool.length)];
+                        const amountFound = 1; 
+
+                        State.addResourceToPlayer(foundItem, amountFound);
+                        UI.showFloatingText(`+${amountFound} ${foundItem}`, 'gain');
+                        UI.addChatMessage(`Vous avez trouvé: ${amountFound} ${foundItem} !`, 'gain');
+                        UI.triggerActionFlash('gain');
+                    } else {
+                        UI.addChatMessage("Cette recherche n'a pas été fructueuse.", "system");
+                    }
+                },
+                updateUICallbacks
+            );
+            break;
+        }
     }
 }
