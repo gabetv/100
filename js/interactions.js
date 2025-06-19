@@ -25,11 +25,48 @@ function applyActionCosts(player, costs) {
     }
 }
 
+function applyRandomStatCost(player, amount = 1, actionNameForLog = "") {
+    const statsToCost = ['thirst', 'hunger', 'sleep'];
+    const chosenStat = statsToCost[Math.floor(Math.random() * statsToCost.length)];
+    let costText = '';
+    let statIcon = '';
+
+    switch (chosenStat) {
+        case 'thirst':
+            player.thirst = Math.max(0, player.thirst - amount);
+            statIcon = '💧';
+            break;
+        case 'hunger':
+            player.hunger = Math.max(0, player.hunger - amount);
+            statIcon = '🍗';
+            break;
+        case 'sleep':
+            player.sleep = Math.max(0, player.sleep - amount);
+            statIcon = '🌙';
+            break;
+    }
+    costText = `-${amount}${statIcon}`;
+    
+    if (costText) {
+        UI.showFloatingText(costText, 'cost');
+    }
+        
+    if (player.thirst <= 0 && player.hunger <= 0 && player.sleep <= 0) {
+         UI.addChatMessage("Vous êtes complètement épuisé !", "warning");
+         return false; 
+    }
+    if (player[chosenStat] <= (player[`max${chosenStat.charAt(0).toUpperCase() + chosenStat.slice(1)}`] * 0.1) && player[chosenStat] > 0 ) { 
+        UI.addChatMessage(`Attention, votre ${chosenStat} est très basse !`, "warning");
+    }
+    return true; 
+}
+
+
 function performTimedAction(player, duration, onStart, onComplete, updateUICallbacks) {
     if (player.isBusy || player.animationState) return;
 
     player.isBusy = true;
-    onStart();
+    onStart(); 
     if (updateUICallbacks && updateUICallbacks.updatePossibleActions) {
         updateUICallbacks.updatePossibleActions();
     }
@@ -84,6 +121,7 @@ function performToolAction(player, toolSlot, actionType, onComplete, updateUICal
     );
 }
 
+// MODIFICATION ICI: AJOUT DE 'export'
 export function handleCombatAction(action) {
     const { combatState, player } = State.state;
     if (!combatState || !combatState.isPlayerTurn) return;
@@ -144,8 +182,7 @@ function playerAttack() {
         State.endCombat(true); 
         UI.hideCombatModal();
         if (State.state.player) { 
-            UI.updateAllUI(State.state); 
-            if (window.updatePossibleActions) window.updatePossibleActions();
+            if (window.fullUIUpdate) window.fullUIUpdate(); else UI.updateAllUI(State.state);
         }
     } else {
         UI.updateCombatUI(combatState); 
@@ -161,7 +198,8 @@ function playerFlee() {
         UI.addChatMessage("Vous avez pris la fuite.", "system");
         State.endCombat(false); 
         UI.hideCombatModal();
-        if (window.updatePossibleActions) window.updatePossibleActions();
+        if (window.fullUIUpdate) window.fullUIUpdate(); else UI.updateAllUI(State.state);
+
     } else {
         combatState.log.unshift("Votre tentative de fuite a échoué !");
         UI.updateCombatUI(combatState);
@@ -183,32 +221,13 @@ function enemyAttack() {
     }
     
     UI.updateCombatUI(combatState); 
-    if (window.fullUIUpdate) window.fullUIUpdate(); else UI.updateAllUI(State.state);
-}
-
-function applyRandomStatCost(player, amount = 1) {
-    const statsToCost = ['thirst', 'hunger', 'sleep'];
-    const chosenStat = statsToCost[Math.floor(Math.random() * statsToCost.length)];
-    let costText = '';
-
-    switch (chosenStat) {
-        case 'thirst':
-            player.thirst = Math.max(0, player.thirst - amount);
-            costText = `-${amount}💧`;
-            break;
-        case 'hunger':
-            player.hunger = Math.max(0, player.hunger - amount);
-            costText = `-${amount}🍗`;
-            break;
-        case 'sleep':
-            player.sleep = Math.max(0, player.sleep - amount);
-            costText = `-${amount}🌙`;
-            break;
-    }
-    if (costText) {
-        UI.showFloatingText(costText, 'cost');
+    if (window.fullUIUpdate) {
+        window.fullUIUpdate(); 
+    } else {
+        UI.updateAllUI(State.state); 
     }
 }
+
 
 export function handlePlayerAction(actionId, data, updateUICallbacks) {
     const { player, map, activeEvent, combatState, enemies } = State.state;
@@ -217,6 +236,22 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         return;
     }
     const tile = map[player.y][player.x];
+
+    let shouldApplyBaseCost = true;
+    switch(actionId) {
+        case 'sleep':
+        case 'initiate_combat': 
+            shouldApplyBaseCost = false;
+            break;
+    }
+
+    if (shouldApplyBaseCost) {
+        if (!applyRandomStatCost(player, 1, actionId)) { 
+            // Option: if a critical stat is 0 and this action would cost it, prevent action.
+            // For now, applyRandomStatCost handles warnings.
+        }
+    }
+
 
     switch(actionId) {
         case 'initiate_combat': {
@@ -237,20 +272,20 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             const resource = tile.type.resource;
             if (!resource) return;
             
-            const costs = {
+            const specificResourceCosts = {
                 thirst: resource.thirstCost || 0,
                 hunger: resource.hungerCost || 0,
                 sleep: resource.sleepCost || 0,
             };
-            if (player.thirst < costs.thirst || player.hunger < costs.hunger || player.sleep < costs.sleep) {
-                UI.addChatMessage("Vous êtes trop épuisé pour cette action.", "system");
-                return;
+            if (player.thirst < specificResourceCosts.thirst || player.hunger < specificResourceCosts.hunger || player.sleep < specificResourceCosts.sleep) {
+                UI.addChatMessage("Vous êtes trop épuisé pour cette récolte spécifique.", "system");
+                return; 
             }
-            applyActionCosts(player, costs);
+            applyActionCosts(player, specificResourceCosts); 
 
             performTimedAction(player, ACTION_DURATIONS.HARVEST, 
                 () => UI.addChatMessage("Récolte...", "system"), 
-                () => {
+                () => { 
                     let finalYield = (activeEvent && activeEvent.type === 'Abondance' && activeEvent.data && activeEvent.data.resource === resource.type) ? resource.yield * 2 : resource.yield;
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                     const amountToHarvest = Math.min(finalYield, availableSpace);
@@ -278,12 +313,6 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
         
         case 'harvest_wood': {
-            const costs = { thirst: 2, hunger: 1, sleep: 2 };
-             if (player.thirst < costs.thirst || player.hunger < costs.hunger || player.sleep < costs.sleep) {
-                UI.addChatMessage("Vous êtes trop épuisé pour couper du bois.", "system");
-                return;
-            }
-            applyActionCosts(player, costs);
             performToolAction(player, 'weapon', 'harvest_wood', (power) => {
                 State.addResourceToPlayer('Bois', power);
                 UI.showFloatingText(`+${power} Bois`, 'gain');
@@ -293,12 +322,6 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
 
         case 'fish': {
-            const costs = { thirst: 1, hunger: 1, sleep: 1 };
-            if (player.thirst < costs.thirst || player.hunger < costs.hunger || player.sleep < costs.sleep) {
-                UI.addChatMessage("Vous êtes trop fatigué pour pêcher.", "system");
-                return;
-            }
-            applyActionCosts(player, costs);
             performToolAction(player, 'weapon', 'fish', (power) => {
                 const fishCaught = Math.ceil(Math.random() * power); 
                 if (fishCaught > 0) {
@@ -318,15 +341,9 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                  UI.addChatMessage("Vous ne pouvez pas chasser sans arme.", "system");
                  return;
              }
-             const costs = { thirst: 2, hunger: 2, sleep: 2 };
-             if (player.thirst < costs.thirst || player.hunger < costs.hunger || player.sleep < costs.sleep) {
-                UI.addChatMessage("Vous êtes trop affaibli pour chasser.", "system");
-                return;
-            }
-             applyActionCosts(player, costs);
              performTimedAction(player, ACTION_DURATIONS.CRAFT, 
                 () => UI.addChatMessage(`Vous chassez avec ${weapon.name}...`, "system"),
-                () => {
+                () => { 
                     if (Math.random() < 0.6) { 
                         const amount = (weapon.stats?.damage || weapon.power || 1) * (Math.floor(Math.random() * 2) + 1); 
                         State.addResourceToPlayer('Viande crue', amount);
@@ -362,16 +379,9 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
                 return;
             }
-            const actionCosts = { thirst: 4, hunger: 2, sleep: 3 };
-            if (player.thirst < actionCosts.thirst || player.hunger < actionCosts.hunger || player.sleep < actionCosts.sleep) {
-                UI.addChatMessage("Vous êtes trop fatigué pour construire.", "system");
-                return;
-            }
-            applyActionCosts(player, actionCosts);
-
             performTimedAction(player, ACTION_DURATIONS.CRAFT * (structureType === 'shelter_individual' ? 1 : 3), 
                 () => UI.addChatMessage(`Construction de ${structureType === 'shelter_individual' ? 'l\'abri individuel' : 'l\'abri collectif'}...`, "system"), 
-                () => {
+                () => { 
                     State.applyResourceDeduction(buildCosts);
                     for(const item in buildCosts) {
                         UI.showFloatingText(`-${buildCosts[item]} ${item}`, 'cost');
@@ -392,16 +402,9 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
                 return;
             }
-            const actionCosts = { thirst: 5, hunger: 5, sleep: 7 };
-            if (player.thirst < actionCosts.thirst || player.hunger < actionCosts.hunger || player.sleep < actionCosts.sleep) {
-                UI.addChatMessage("Creuser une mine est trop éprouvant pour le moment.", "system");
-                return;
-            }
-            applyActionCosts(player, actionCosts);
-
             performTimedAction(player, ACTION_DURATIONS.DIG,
                 () => UI.addChatMessage("Vous creusez une entrée de mine...", "system"),
-                () => {
+                () => { 
                     State.applyResourceDeduction(costs);
                     UI.showFloatingText("-100 Bois, -50 Pierre", 'cost'); 
                     State.updateTileType(player.x, player.y, TILE_TYPES.MINE);
@@ -419,16 +422,9 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
                 return;
             }
-            const actionCosts = { thirst: 1, hunger: 1, sleep: 1 };
-            if (player.thirst < actionCosts.thirst || player.hunger < actionCosts.hunger || player.sleep < actionCosts.sleep) {
-                UI.addChatMessage("Vous manquez d'énergie pour cette tâche.", "system");
-                return;
-            }
-            applyActionCosts(player, actionCosts);
-
             performTimedAction(player, ACTION_DURATIONS.CRAFT,
                 () => UI.addChatMessage("Vous travaillez la terre...", "system"),
-                () => {
+                () => { 
                     State.applyResourceDeduction(costs);
                     UI.showFloatingText(`-${Object.values(costs)[0]} ${Object.keys(costs)[0]}`, "cost");
                     State.updateTileType(player.x, player.y, TILE_TYPES.FOREST);
@@ -445,7 +441,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
 
             performTimedAction(player, ACTION_DURATIONS.SLEEP, 
                 () => UI.addChatMessage("Vous vous endormez pour environ 8 heures...", "system"), 
-                () => {
+                () => { 
                     player.sleep = Math.min(player.maxSleep, player.sleep + (sleepEffect.sleep || 0)); 
                     player.health = Math.min(player.maxHealth, player.health + (sleepEffect.health || 0));
                     UI.addChatMessage("Vous vous réveillez, un peu reposé.", "system");
@@ -473,16 +469,9 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
                 return;
             }
-            const actionCosts = { thirst: 1, sleep: 1 }; 
-             if (player.thirst < actionCosts.thirst || player.sleep < actionCosts.sleep) {
-                UI.addChatMessage("Vous êtes trop fatigué pour cuisiner.", "system");
-                return;
-            }
-            applyActionCosts(player, actionCosts);
-
             performTimedAction(player, ACTION_DURATIONS.CRAFT, 
                 () => UI.addChatMessage(`Cuisson de ${toCook}...`, "system"), 
-                () => {
+                () => { 
                     State.applyResourceDeduction({ [toCook]: 1, 'Bois': 1 });
                     State.addResourceToPlayer(cookedItem, 1);
                     UI.showFloatingText(`+1 ${cookedItem}`, "gain"); 
@@ -496,33 +485,21 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         case 'search_zone': {
             const tileName = tile.type.name;
             let tileKeyForSearch = null;
-
-            // Trouver la clé correspondante dans TILE_TYPES pour l'utiliser avec SEARCH_ZONE_CONFIG
             for (const key in TILE_TYPES) {
                 if (TILE_TYPES[key].name === tileName) {
                     tileKeyForSearch = key;
                     break;
                 }
             }
-            
             const searchConfig = tileKeyForSearch ? SEARCH_ZONE_CONFIG[tileKeyForSearch] : null;
 
             if (!searchConfig) {
-                UI.addChatMessage("Vous ne pouvez pas fouiller cette zone en détail.", "system"); // Message générique si pas de config
+                UI.addChatMessage("Vous ne pouvez pas fouiller cette zone en détail.", "system");
                 return;
             }
-
-            applyRandomStatCost(player, 1); 
-            const actionCosts = { thirst: 1, hunger: 1 }; 
-            if (player.thirst < actionCosts.thirst || player.hunger < actionCosts.hunger) {
-                UI.addChatMessage("Vous êtes trop épuisé pour fouiller attentivement.", "system");
-                return;
-            }
-            applyActionCosts(player, actionCosts); 
-
             performTimedAction(player, ACTION_DURATIONS.SEARCH,
                 () => UI.addChatMessage("Vous fouillez attentivement les environs...", "system"),
-                () => {
+                () => { 
                     const rand = Math.random();
                     if (rand < searchConfig.combatChance) {
                         UI.addChatMessage("Quelque chose surgit des ombres !", "system");
@@ -548,15 +525,12 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                             if (DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
                             return;
                         }
-
                         let lootPool = SEARCHABLE_ITEMS; 
                         if (searchConfig.possibleLoot && searchConfig.possibleLoot.length > 0) {
                             lootPool = searchConfig.possibleLoot; 
                         }
-                        
                         const foundItem = lootPool[Math.floor(Math.random() * lootPool.length)];
                         const amountFound = 1; 
-
                         State.addResourceToPlayer(foundItem, amountFound);
                         UI.showFloatingText(`+${amountFound} ${foundItem}`, 'gain');
                         UI.addChatMessage(`Vous avez trouvé: ${amountFound} ${foundItem} !`, 'gain');

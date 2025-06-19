@@ -2,12 +2,12 @@
 import * as UI from './ui.js';
 import { initDOM } from './ui/dom.js'; 
 import DOM from './ui/dom.js';
-import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES, SEARCH_ZONE_CONFIG } from './config.js'; // SEARCH_ZONE_CONFIG ajouté
+import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES, SEARCH_ZONE_CONFIG } from './config.js';
 import * as State from './state.js';
 import { decayStats, getTotalResources } from './player.js';
 import { updateNpcs, npcChatter } from './npc.js';
 import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js';
-import * as Interactions from './interactions.js';
+import * as Interactions from './interactions.js'; // Interactions est déjà importé ici
 
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
@@ -62,7 +62,6 @@ function updatePossibleActions() {
         return; 
     }
 
-    // --- BOUTON "FOUILLER LA ZONE" ---
     let tileKeyForSearch = null;
     for (const key in TILE_TYPES) {
         if (TILE_TYPES[key].name === tileType.name) {
@@ -74,8 +73,6 @@ function updatePossibleActions() {
         const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
         createButton("🔎 Fouiller la zone", 'search_zone', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "Chercher des objets ou des ennuis...");
     }
-    // --- FIN BOUTON ---
-
 
     if (tileType.resource && tile.harvestsLeft > 0) {
         const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
@@ -174,7 +171,7 @@ function gameLoop(currentTime) {
         }
         if (!player.animationState && !player.isBusy) { 
             updateNpcs(State.state, deltaTime); 
-            // updateEnemies(State.state, deltaTime); // Les monstres sont statiques
+            // updateEnemies(State.state, deltaTime); // Monstres statiques
         }
     }
     
@@ -482,7 +479,6 @@ function setupEventListeners() {
         DOM.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
     }
 
-
     if (DOM.inventoryCategoriesEl) DOM.inventoryCategoriesEl.addEventListener('click', e => {
         const itemEl = e.target.closest('.inventory-item.clickable');
         if (itemEl && itemEl.dataset.itemName) handleConsumeClick(itemEl.dataset.itemName); 
@@ -503,11 +499,11 @@ function setupEventListeners() {
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal(); 
             else if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
             else if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) UI.hideLargeMap();
-            else if (DOM.combatModal && !DOM.combatModal.classList.contains('hidden')) UI.hideCombatModal();
+            else if (DOM.combatModal && !DOM.combatModal.classList.contains('hidden')) UI.hideCombatModal(); // Potentiellement appeler State.endCombat(false) si on fuit avec Echap?
             else if (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
         }
     });
-    window.handleCombatAction = Interactions.handleCombatAction; 
+    // window.handleCombatAction = Interactions.handleCombatAction; // Supprimé car importé directement dans modals.js
     window.gameState = State.state; 
     UI.setupQuantityModalListeners(); 
 }
@@ -539,14 +535,13 @@ async function init() {
         State.initializeGameState(CONFIG);
         if (State.state) State.state.config = CONFIG; 
         setupEventListeners();
-        // Exposer fullUIUpdate globalement pour les callbacks simples si nécessaire
         window.fullUIUpdate = fullUIUpdate; 
         fullUIUpdate(); 
         requestAnimationFrame(gameLoop);
         if (State.state) { 
             State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
             State.state.gameIntervals.push(setInterval(() => {
-                if (State.state.npcs && State.state.npcs.length > 0) { 
+                if (State.state.npcs && State.state.npcs.length > 0 && !State.state.combatState && !State.state.player.isBusy && !State.state.player.animationState) { 
                     npcChatter(State.state.npcs);
                 }
             }, CONFIG.CHAT_MESSAGE_INTERVAL_MS));
