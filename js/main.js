@@ -14,15 +14,13 @@ let lastStatDecayTimestamp = 0;
 let draggedItemInfo = null;
 
 function updatePossibleActions() {
-    if (!DOM.actionsEl) return; // Garde-fou
+    if (!DOM.actionsEl) return; 
     DOM.actionsEl.innerHTML = '';
     
-    if (!State.state || !State.state.player) return; // Garde-fou
+    if (!State.state || !State.state.player) return; 
     const { player, map, combatState, enemies } = State.state;
 
-    // Vérifier si map et les coordonnées du joueur sont valides
     if (!map || !map[player.y] || !map[player.y][player.x]) {
-        console.warn("[main.js] updatePossibleActions: Coordonnées du joueur invalides ou carte non définie.");
         return;
     }
     const tile = map[player.y][player.x];
@@ -113,7 +111,6 @@ function updatePossibleActions() {
 function handleEvents() {
     if (!State.state || !State.state.activeEvent) return;
     const { activeEvent } = State.state;
-    // ... (reste de la fonction handleEvents)
     if (activeEvent.duration > 0) {
         activeEvent.duration--;
         if (activeEvent.duration === 0) {
@@ -140,12 +137,11 @@ function handleEvents() {
 }
 
 function gameLoop(currentTime) {
-    if (!State.state || !State.state.player) { // S'assurer que l'état est initialisé
-        requestAnimationFrame(gameLoop); // Essayer à nouveau à la prochaine frame
+    if (!State.state || !State.state.player) { 
+        requestAnimationFrame(gameLoop); 
         return;
     }
     const { player, isGameOver, combatState } = State.state;
-    // ... (reste de la fonction gameLoop)
     if (isGameOver) return;
     if (player.health <= 0) { 
         if(!isGameOver) endGame(false);
@@ -193,7 +189,6 @@ function gameLoop(currentTime) {
 function handleNavigation(direction) {
     if (!State.state || !State.state.player) return;
     const { player, map, enemies, combatState } = State.state;
-    // ... (reste de la fonction handleNavigation)
     if (player.isBusy || player.animationState || combatState) {
         return;
     }
@@ -231,7 +226,6 @@ function handleNavigation(direction) {
     UI.updateAllButtonsState(State.state); 
 }
 
-// ### NOUVELLE FONCTION DE CONSOMMATION SPÉCIFIQUE ###
 function handleSpecificConsume(statType) {
     if (!State.state || !State.state.player) return;
     const { player } = State.state;
@@ -242,7 +236,6 @@ function handleSpecificConsume(statType) {
     }
 
     let itemToConsume = null;
-    // Logique de recherche d'item (simplifiée, à améliorer selon vos besoins)
     const inventory = player.inventory;
     switch (statType) {
         case 'health':
@@ -268,15 +261,15 @@ function handleSpecificConsume(statType) {
     if (!itemToConsume) {
         let message = "Vous n'avez rien pour ";
         let targetButton = null;
-        if (statType === 'health') { message += "vous soigner."; targetButton = DOM.consumeHealthBtn; }
-        else if (statType === 'thirst') { message += "étancher votre soif."; targetButton = DOM.consumeThirstBtn; }
-        else if (statType === 'hunger') { message += "calmer votre faim."; targetButton = DOM.consumeHungerBtn; }
+        if (statType === 'health' && DOM.consumeHealthBtn) { message += "vous soigner."; targetButton = DOM.consumeHealthBtn; }
+        else if (statType === 'thirst' && DOM.consumeThirstBtn) { message += "étancher votre soif."; targetButton = DOM.consumeThirstBtn; }
+        else if (statType === 'hunger' && DOM.consumeHungerBtn) { message += "calmer votre faim."; targetButton = DOM.consumeHungerBtn; }
         UI.addChatMessage(message, "system");
         if (targetButton) UI.triggerShake(targetButton);
         return;
     }
 
-    console.log(`[handleSpecificConsume] Tentative de consommer ${itemToConsume} pour ${statType}`);
+    // console.log(`[handleSpecificConsume] Tentative de consommer ${itemToConsume} pour ${statType}`);
     const result = State.consumeItem(itemToConsume); 
 
     UI.addChatMessage(result.message, 'system');
@@ -293,12 +286,10 @@ function handleSpecificConsume(statType) {
         if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
     }
 }
-// ### FIN NOUVELLE FONCTION ###
 
-function handleConsumeClick(itemName) { // Celle-ci est pour l'inventaire
+function handleConsumeClick(itemName) { 
     if (!State.state || !State.state.player) return;
     const { player } = State.state;
-    // ... (reste de la fonction handleConsumeClick)
     if (player.isBusy || player.animationState) { UI.addChatMessage("Vous êtes occupé.", "system"); return; }
     
     const itemDef = ITEM_TYPES[itemName];
@@ -321,7 +312,7 @@ function handleConsumeClick(itemName) { // Celle-ci est pour l'inventaire
 }
 
 function fullUIUpdate() {
-    if (!State.state || !State.state.player) return; // Garde-fou
+    if (!State.state || !State.state.player) return; 
     // console.log("[fullUIUpdate] Début. player.isBusy =", State.state.player.isBusy, "player.animationState =", State.state.player.animationState ? {...State.state.player.animationState} : null); 
 
     UI.updateAllUI(State.state);
@@ -345,7 +336,6 @@ function fullUIUpdate() {
 
 function dailyUpdate() {
     if (!State.state || State.state.isGameOver) return; 
-    // ... (reste de la fonction dailyUpdate)
     if (State.state.day >= 100) {
         endGame(true);
         return;
@@ -404,8 +394,6 @@ function handleDrop(e) {
     e.preventDefault();
     const dropZone = e.target.closest('.droppable');
     if (!draggedItemInfo || !dropZone) {
-        if (draggedItemInfo) console.warn("Drop: No drop zone found for item:", draggedItemInfo.itemName);
-        else console.warn("Drop: No dragged item info.");
         return;
     }
     
@@ -423,8 +411,6 @@ function handleDrop(e) {
         } else if (draggedItemInfo.sourceOwner === 'equipment' && destOwner === 'player-inventory') { 
             if (draggedItemInfo.sourceSlotType) {
                 State.unequipItem(draggedItemInfo.sourceSlotType);
-            } else {
-                console.warn("Unequip fail: sourceSlotType missing from draggedItemInfo for equipment.");
             }
         }
     } 
@@ -462,7 +448,6 @@ function setupEventListeners() {
     DOM.navEast.addEventListener('click', () => handleNavigation('east'));
     DOM.navWest.addEventListener('click', () => handleNavigation('west'));
 
-    // ### AJOUT DES ÉCOUTEURS POUR LES BOUTONS "+" DE CONSOMMATION RAPIDE ###
     if (DOM.consumeHealthBtn) {
         DOM.consumeHealthBtn.addEventListener('click', () => handleSpecificConsume('health'));
     } else {
@@ -478,21 +463,47 @@ function setupEventListeners() {
     } else {
         console.warn("DOM.consumeHungerBtn non trouvé lors de la config des écouteurs.");
     }
-    // ### FIN DE L'AJOUT ###
-
 
     if (DOM.openEquipmentBtn) DOM.openEquipmentBtn.addEventListener('click', () => UI.showEquipmentModal(State.state));
     if (DOM.closeEquipmentModalBtn) DOM.closeEquipmentModalBtn.addEventListener('click', UI.hideEquipmentModal);
     
     if (DOM.enlargeMapBtn) DOM.enlargeMapBtn.addEventListener('click', () => {
-        console.log("Clic sur Agrandir Carte");
+        // console.log("Clic sur Agrandir Carte");
         UI.showLargeMap(State.state); 
     });
     if (DOM.closeLargeMapBtn) DOM.closeLargeMapBtn.addEventListener('click', UI.hideLargeMap);
     
+    // ### AJOUT : Écouteur pour le bouton d'agrandissement du chat ###
+    if (DOM.toggleChatSizeBtn && DOM.bottomBarEl) {
+        DOM.toggleChatSizeBtn.addEventListener('click', () => {
+            // console.log("[main.js] Clic sur toggleChatSizeBtn. État actuel de bottomBarEl:", DOM.bottomBarEl.classList);
+            DOM.bottomBarEl.classList.toggle('chat-enlarged');
+            if (DOM.toggleChatSizeBtn) { // Vérifier à nouveau car on est dans une callback
+                DOM.toggleChatSizeBtn.textContent = DOM.bottomBarEl.classList.contains('chat-enlarged') ? '⌄' : '⌃';
+            }
+            // console.log("[main.js] État après toggle de bottomBarEl:", DOM.bottomBarEl.classList);
+        });
+    } else {
+        if (!DOM.toggleChatSizeBtn) console.warn("DOM.toggleChatSizeBtn non trouvé.");
+        if (!DOM.bottomBarEl) console.warn("DOM.bottomBarEl non trouvé.");
+    }
+    // ### FIN AJOUT ###
+
+    // ### AJOUT : Écouteur pour le bouton de fermeture de la modale d'inventaire ###
+    if (DOM.closeInventoryModalBtn) {
+        DOM.closeInventoryModalBtn.addEventListener('click', () => {
+            console.log("[main.js] Clic sur closeInventoryModalBtn.");
+            UI.hideInventoryModal();
+        });
+    } else {
+        console.warn("DOM.closeInventoryModalBtn non trouvé.");
+    }
+    // ### FIN AJOUT ###
+
+
     if (DOM.inventoryCategoriesEl) DOM.inventoryCategoriesEl.addEventListener('click', e => {
         const itemEl = e.target.closest('.inventory-item.clickable');
-        if (itemEl) handleConsumeClick(itemEl.dataset.itemName); // Pour l'inventaire
+        if (itemEl && itemEl.dataset.itemName) handleConsumeClick(itemEl.dataset.itemName); 
         else {
             const header = e.target.closest('.category-header');
             if (header) {
@@ -520,8 +531,7 @@ function setupEventListeners() {
 }
 
 function endGame(isVictory) {
-    if (!State.state || State.state.isGameOver) return; // Garde-fou
-    // ... (reste de la fonction endGame)
+    if (!State.state || State.state.isGameOver) return; 
     State.state.isGameOver = true;
     if(State.state.gameIntervals) State.state.gameIntervals.forEach(clearInterval);
     if(State.state.combatState) UI.hideCombatModal();
@@ -557,7 +567,7 @@ async function init() {
                 }
             }, CONFIG.CHAT_MESSAGE_INTERVAL_MS));
         }
-        console.log("Jeu initialisé avec un module DOM dédié et une logique de combat manuelle.");
+        console.log("Jeu initialisé."); // Message plus concis
     } catch (error) {
         console.error("ERREUR CRITIQUE lors de l'initialisation :", error);
         if (document.body) { 
