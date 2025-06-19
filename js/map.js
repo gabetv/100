@@ -42,17 +42,12 @@ export function generateMap(config) {
             }
         }
     }
-    
-    const shelterX = Math.floor(centerX);
-    const shelterY = Math.floor(centerY);
-    if (map[shelterY] && map[shelterY][shelterX].type.accessible) {
-        map[shelterY][shelterX].type = TILE_TYPES.SHELTER_COLLECTIVE;
-    }
-
-    const specialLocations = []; 
-    if (map[shelterY] && map[shelterY][shelterX]) { // S'assurer que la tuile de l'abri existe
-        specialLocations.push({x: shelterX, y: shelterY});
-    }
+    // Abri Collectif is no longer placed by default at generation.
+    // It must be built by the player.
+    const specialLocations = []; // Will store treasure, key locations etc.
+    // Player start position can be considered a special location to avoid critical items spawning there.
+    // Assuming player starts near center, let's mark it conceptually:
+    // specialLocations.push({x: Math.floor(centerX) + 1, y: Math.floor(centerY)});
 
 
     let treasureX, treasureY;

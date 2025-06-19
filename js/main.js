@@ -123,6 +123,30 @@ function updatePossibleActions() {
         const canRegenerate = State.hasResources(tileType.regeneration.cost).success;
         createButton(`Arroser (-${tileType.regeneration.cost['Eau pure']} Eau pure)`, 'regenerate_forest', {}, !canRegenerate, !canRegenerate ? "Ressources manquantes" : "");
     }
+
+    // Build Campfire Action
+    const suitableForCampfire = ['Plaine', 'Forêt', 'Friche', 'Sable Doré'].includes(tileType.name);
+    if (suitableForCampfire && tileType.name !== TILE_TYPES.CAMPFIRE.name) {
+        const hasWood = player.inventory['Bois'] >= 10;
+        const fireStarters = ['Allumettes', 'Briquet', 'Torche']; // Order of preference for display
+        let availableFireStarterName = null;
+        for (const starter of fireStarters) {
+            if (player.inventory[starter] && player.inventory[starter] > 0) {
+                availableFireStarterName = starter;
+                break;
+            }
+        }
+        const hasFireStarter = !!availableFireStarterName;
+
+        createButton(
+            `Construire Feu de Camp (-10 Bois, -1 ${availableFireStarterName || 'Allume-feu'})`,
+            'build_campfire_action',
+            {},
+            !(hasWood && hasFireStarter),
+            !(hasWood && hasFireStarter) ? "Ressources manquantes (10 Bois + Allumettes/Briquet/Torche)" : "Construire un feu pour cuisiner et se réchauffer"
+        );
+    }
+
     if (tileType.name === TILE_TYPES.CAMPFIRE.name) {
         let canCookFish = State.hasResources({ 'Poisson cru': 1, 'Bois': 1 }).success;
         let canCookMeat = State.hasResources({ 'Viande crue': 1, 'Bois': 1 }).success;

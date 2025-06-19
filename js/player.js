@@ -1,5 +1,6 @@
 // js/player.js
 import { CONFIG, ITEM_TYPES } from './config.js'; 
+import * as State from './state.js'; // Import State to avoid circular dependency with transferItems
 
 export function getTotalResources(inventory) {
     return Object.values(inventory).reduce((sum, count) => sum + count, 0);
@@ -18,7 +19,8 @@ export function initPlayer(config) {
             'Kit de Secours': 1,
             'Barre Énergétique': 2,
             'Eau pure': 1,
-            'Clé du Trésor': 1 
+            'Clé du Trésor': 1,
+            'Allumettes': 5, // Example starting item for campfire
         },
         equipment: {
             head: null, body: null, feet: null, weapon: null, bag: null,
@@ -79,13 +81,11 @@ export function decayStats(gameState) {
 }
 
 export function transferItems(itemName, amount, from, to, toCapacity = Infinity) {
-    if (!itemName || !from[itemName] || from[itemName] < amount || amount <= 0) {
+    if (!itemName || !from[itemName] || from[itemName] < amount || amount <= 0 ) {
         return false;
     }
     const totalInTo = getTotalResources(to);
-    if (totalInTo + amount > toCapacity && (!to[itemName] || to[itemName] === 0) ) { // check only if it's a new item type for 'to' or if 'to' is player inv.
-         if(to === State.state.player.inventory && totalInTo + amount > toCapacity) return false; // Strict check for player
-    }
+    if (totalInTo + amount > toCapacity) { return false; }
 
     from[itemName] -= amount;
     to[itemName] = (to[itemName] || 0) + amount;
@@ -129,19 +129,24 @@ export function consumeItem(itemName, player) {
         
         if (effect === 'status') {
             const statusEffect = value; 
-            const condition = statusEffect.ifStatus;
-            const canApply = !condition || (Array.isArray(condition) ? condition.includes(player.status) : player.status === condition);
+            const conditionMet = !statusEffect.ifStatus || 
+                                 (Array.isArray(statusEffect.ifStatus) ? statusEffect.ifStatus.includes(player.status) : player.status === statusEffect.ifStatus);
 
-            if (canApply && (!statusEffect.chance || Math.random() < statusEffect.chance)) {
+            if (conditionMet && (!statusEffect.chance || Math.random() < statusEffect.chance)) {
                 player.status = statusEffect.name;
                 floatingTexts.push(`Statut: ${player.status}`);
             }
-        } else {
+        } else if (player.hasOwnProperty(effect)) { // Check for health, thirst, hunger, sleep
             const maxStatName = `max${effect.charAt(0).toUpperCase() + effect.slice(1)}`;
-            if(player.hasOwnProperty(effect) && player.hasOwnProperty(maxStatName)) {
+            if(player.hasOwnProperty(maxStatName)) { // Ensure maxStat property exists
                 player[effect] = Math.min(player[maxStatName], player[effect] + value);
-                const sign = value > 0 ? '+' : '';
-                floatingTexts.push(`${sign}${value} ${effect}`);
+                const sign = value >= 0 ? '+' : ''; // Handle negative values correctly
+                let icon = '';
+                if(effect === 'health') icon = '❤️';
+                else if(effect === 'thirst') icon = '💧';
+                else if(effect === 'hunger') icon = '🍗';
+                else if(effect === 'sleep') icon = '🌙';
+                floatingTexts.push(`${sign}${value}${icon}`);
             }
         }
     }

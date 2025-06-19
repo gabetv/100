@@ -37,7 +37,7 @@ export const ALL_SEARCHABLE_ITEMS = [
     'Os', 'Résine', 'Poisson cru', 'Viande crue', 
     'Banane', 'Noix de coco', 'Sel',
     'Bandage', 'Charbon', 'Sucre', 
-    'Composants électroniques', 'Pile', 'Médicaments', 'Antiseptiques', 'Allumettes',
+    'Composants électroniques', 'Batterie déchargée', 'Médicaments', 'Antiseptiques', 'Allumettes',
     'Clé du Trésor' 
 ];
 
@@ -50,8 +50,8 @@ export const SEARCH_ZONE_CONFIG = {
         specificLoot: {
             common: ['Feuilles', 'Liane', 'Écorce', 'Insectes'],
             uncommon: ['Os', 'Résine', 'Viande crue', 'Banane'],
-            rare: ['Bandage', 'Allumettes'],
-            veryRare: ['Médicaments']
+            rare: ['Bandage', 'Allumettes'], // Allumettes still here as loot
+            veryRare: ['Médicaments'] 
         }
     },
     SAND_GOLDEN: {
@@ -62,8 +62,8 @@ export const SEARCH_ZONE_CONFIG = {
         specificLoot: {
             common: ['Sable', 'Pierre', 'Insectes', 'Sel'],
             uncommon: ['Poisson cru', 'Noix de coco', 'Liane'], 
-            rare: ['Composants électroniques'], 
-            veryRare: ['Pile']
+            rare: ['Composants électroniques'],
+            veryRare: ['Batterie déchargée']
         }
     },
     PLAINS: {
@@ -86,8 +86,8 @@ export const SEARCH_ZONE_CONFIG = {
         specificLoot: {
             common: ['Pierre', 'Os'],
             uncommon: ['Charbon', 'Résine'], 
-            rare: ['Composants électroniques', 'Pile', 'Antiseptiques'],
-            veryRare: ['Clé du Trésor'] 
+            rare: ['Composants électroniques', 'Batterie déchargée', 'Antiseptiques'],
+            veryRare: ['Clé du Trésor']
         }
     },
     WASTELAND: { 
@@ -110,8 +110,8 @@ export const ITEM_TYPES = {
     'Bois': { type: 'resource', icon: '🪵' }, 'Pierre': { type: 'resource', icon: '🪨' },
     'Feuilles': { type: 'resource', icon: '🍃' }, 'Liane': { type: 'resource', icon: '🌿' },
     'Écorce': { type: 'resource', icon: '🟫' }, 'Résine': { type: 'resource', icon: '💧' }, 
-    'Sable': { type: 'resource', icon: '⏳' }, 'Peau de bête': { type: 'resource', icon: '🟤' },
-    'Os': { type: 'resource', icon: '🦴' }, 'Viande crue': { type: 'resource', icon: '🥩' },
+    'Sable': { type: 'resource', icon: '⏳' }, 'Peau de bête': { type: 'resource', icon: 'ቆዳ' }, // Icon might need adjustment if not rendering
+    'Os': { type: 'resource', icon: '🦴' },
     'Poisson cru': { type: 'resource', icon: '🐟' }, 'Sel': { type: 'resource', icon: '🧂' },
     'Sucre': { type: 'resource', icon: '🍬' }, 'Composants électroniques': {type: 'resource', icon: '⚙️'},
     'Charbon': {type: 'resource', icon: '⚫'}, 
@@ -120,17 +120,18 @@ export const ITEM_TYPES = {
     'Eau pure': { type: 'consumable', icon: '💧', effects: { thirst: 3 } },
     'Eau salée': { type: 'consumable', icon: '🚱', effects: { thirst: 1, status: { name: 'Malade', chance: 0.5 } } },
     'Insectes': { type: 'consumable', icon: '🦗', effects: { hunger: 1 } },
-    'Viande cuite': { type: 'consumable', icon: '🍖', effects: { hunger: 3 } },
+    'Viande crue': { type: 'consumable', icon: '🥩', effects: { hunger: 1, status: { name: 'Malade', chance: 0.3 } } },
+    'Viande cuite': { type: 'consumable', icon: '🍖', effects: { hunger: 3 } }, // Viande Cuite should be distinct
     'Poisson cuit': { type: 'consumable', icon: '🔥', effects: { hunger: 2 } },
     'Banane': { type: 'consumable', icon: '🍌', effects: { hunger: 2, thirst: 1 } },
     'Noix de coco': { type: 'consumable', icon: '🥥', effects: { thirst: 3 } },
     'Canne à sucre': { type: 'consumable', icon: '🎋', effects: { hunger: 3, thirst: -1 } },
     'Barre Énergétique': { type: 'consumable', icon: '🍫', effects: { hunger: 6, sleep: 4 } },
     'Médicaments': { type: 'consumable', icon: '💊', effects: { ifStatus: 'Malade', status: 'Normal', health: 5 } },
-    'Antiseptiques': { type: 'consumable', icon: '🧴', effects: { ifStatus: 'Empoisonné', status: 'Normal', health: 3 } },
+    'Antiseptiques': { type: 'consumable', icon: '🧴', effects: { ifStatus: 'Empoisonné', status: 'Normal', health: 3 } }, // Corrected icon
     'Bandage': { type: 'consumable', icon: '🩹', effects: { ifStatus: 'Blessé', status: 'Normal', health: 4 } },
     'Kit de Secours': { type: 'consumable', icon: '✚', effects: { ifStatus: ['Blessé', 'Malade'], status: 'Normal' } },
-    'Pile': {type: 'consumable', icon: '🔋', effects: {}}, 
+    'Batterie déchargée': {type: 'consumable', icon: '🔋', effects: {}}, // Renamed from Pile
 
     // === OUTILS & ARMES ===
     'Hache': { type: 'tool', slot: 'weapon', icon: '🪓', durability: 10, power: 5, action: 'harvest_wood' },
@@ -151,9 +152,13 @@ export const ITEM_TYPES = {
 
     // === DIVERS ===
     'Boussole': {type: 'usable', icon: '🧭', action: 'find_mine'},
-    'Carte': {type: 'usable', icon: '🗺️', action: 'reveal_map'},
-    'Allumettes': {type: 'usable', icon: '🔥', durability: 5, action: 'build_campfire'},
-    'Clé du Trésor': { type: 'key', icon: '🔑', unique: true } 
+    'Carte': {type: 'usable', icon: '🗺️', action: 'reveal_map'}, // Icon fixed
+    'Allumettes': {type: 'usable', icon: '🔥', durability: 1, isFireStarter: true }, // Durability 1, no direct action
+    'Briquet': { type: 'usable', icon: '🔥', durability: 5, isFireStarter: true },
+    'Torche': { type: 'usable', icon: '🔦', durability: 10, isFireStarter: true },
+    'Pistolet de détresse': { type: 'usable', icon: '🔫', durability: 2 },
+    'Fusée de détresse': { type: 'usable', icon: '🧨', durability: 1 },
+    'Clé du Trésor': { type: 'key', icon: '🔑', unique: true },
 };
 
 export const TREASURE_COMBAT_KIT = {
@@ -183,10 +188,20 @@ export const TILE_TYPES = {
     FOREST: { name: 'Forêt', resource: { type: 'Bois', yield: 5, thirstCost: 1, hungerCost: 1, sleepCost: 1 }, harvests: 10, accessible: true, color: '#2d6a4f', background: ['bg_forest_1', 'bg_forest_2', 'bg_forest_3', 'bg_forest_4'] },
     WASTELAND: { name: 'Friche', accessible: true, color: '#9c6644', background: ['bg_wasteland_1', 'bg_wasteland_2', 'bg_wasteland_3', 'bg_wasteland_4'], regeneration: { cost: { 'Eau pure': 5 }, target: 'FOREST' } },
     PLAINS: { name: 'Plaine', accessible: true, color: '#80b918', background: ['bg_plains_1', 'bg_plains_2', 'bg_plains_3', 'bg_plains_4'] },
-    STONE_DEPOSIT: { name: 'Gisement de Pierre', accessible: true, color: '#8d99ae', background: ['bg_stone_1', 'bg_stone_2'], resource: { type: 'Pierre', yield: 3 }, harvests: 15 },
+    STONE_DEPOSIT: { name: 'Gisement de Pierre', accessible: true, color: '#8d99ae', background: ['bg_stone_1', 'bg_stone_2'], resource: { type: 'Pierre', yield: 3 }, harvests: 15 }, // Icon consistency for map legend
     CAMPFIRE: { name: 'Feu de Camp', accessible: true, color: '#e76f51', background: ['bg_campfire'] },
-    SHELTER_INDIVIDUAL: { name: 'Abri Individuel', accessible: true, color: '#fefae0', background: ['bg_shelter_individual'], sleepEffect: { sleep: 5, health: 3 } },
-    SHELTER_COLLECTIVE: { name: 'Abri Collectif', accessible: true, color: '#ffffff', background: ['bg_shelter_collective'], inventory: {}, sleepEffect: { sleep: 3, health: 5 } },
+    SHELTER_INDIVIDUAL: { 
+        name: 'Abri Individuel', accessible: true, color: '#fefae0', 
+        background: ['bg_shelter_individual'], 
+        sleepEffect: { sleep: 8, health: 3 }, 
+        inventory: {}, maxInventory: 50, durability: 20 
+    },
+    SHELTER_COLLECTIVE: { 
+        name: 'Abri Collectif', accessible: true, color: '#ffffff', 
+        background: ['bg_shelter_collective'], 
+        inventory: {}, maxInventory: 500, durability: 100,
+        sleepEffect: { sleep: 8, health: 5 } 
+    },
     MINE: { name: 'Mine', accessible: true, color: '#5e503f', background: ['bg_mine'], resource: { type: 'Minerai', yield: 1, thirstCost: 1, hungerCost: 1, sleepCost: 2 } },
     TREASURE_CHEST: { 
         name: 'Trésor Caché', 

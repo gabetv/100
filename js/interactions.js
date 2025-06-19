@@ -637,5 +637,56 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             break;
         }
+
+        case 'build_campfire_action': {
+            const woodCost = { 'Bois': 10 };
+            // Prioritize fire starters: Allumettes > Briquet > Torche
+            const fireStartersPriority = ['Allumettes', 'Briquet', 'Torche'];
+            let usedFireStarterName = null;
+
+            if (!State.hasResources(woodCost).success) {
+                UI.addChatMessage("Pas assez de bois pour le feu de camp.", "system");
+                if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
+                return;
+            }
+
+            for (const starterName of fireStartersPriority) {
+                if (player.inventory[starterName] && player.inventory[starterName] > 0) {
+                    usedFireStarterName = starterName;
+                    break;
+                }
+            }
+
+            if (!usedFireStarterName) {
+                UI.addChatMessage("Vous n'avez rien pour allumer le feu.", "system");
+                if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
+                return;
+            }
+
+            performTimedAction(player, ACTION_DURATIONS.CRAFT, 
+                () => UI.addChatMessage("Vous construisez un feu de camp...", "system"),
+                () => {
+                    State.applyResourceDeduction(woodCost);
+                    UI.showFloatingText(`-${woodCost['Bois']} Bois`, 'cost');
+
+                    // Consume one unit of the fire starter from inventory
+                    // The "durability" in ITEM_TYPES for these fire starters (1, 5, 10) indicates
+                    // their conceptual quality or number of uses if instance-level durability was tracked.
+                    // With simple inventory, consuming 1 from stack is the current implementation.
+                    player.inventory[usedFireStarterName]--;
+                    UI.showFloatingText(`-1 ${usedFireStarterName}`, 'cost');
+                    if (player.inventory[usedFireStarterName] <= 0) {
+                        delete player.inventory[usedFireStarterName];
+                        UI.addChatMessage(`${usedFireStarterName} (stack) épuisé.`, 'system');
+                    }
+                    
+                    State.updateTileType(player.x, player.y, TILE_TYPES.CAMPFIRE);
+                    UI.addChatMessage("Feu de camp construit !", "gain"); // Changed to 'gain' for positive feedback
+                    UI.triggerActionFlash('gain');
+                },
+                updateUICallbacks
+            );
+            break;
+        }
     }
 }

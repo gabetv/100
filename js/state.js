@@ -27,11 +27,15 @@ export function initializeGameState(config) {
     gameState.npcs = initNpcs(config, gameState.map);
     gameState.enemies = initEnemies(config, gameState.map);
     
-    const shelterTile = gameState.map.flat().find(tile => tile.type.name === TILE_TYPES.SHELTER_COLLECTIVE.name);
-    if (shelterTile) {
-        gameState.shelterLocation = { x: shelterTile.x, y: shelterTile.y }; 
-    } else {
-        console.error("Aucun abri collectif n'a été généré sur la carte.");
+    // Shelter location will now be set when player builds a collective shelter,
+    // or if one is found/pre-placed through other means in the future.
+    // For now, it starts as null. NPCs will adapt.
+    gameState.shelterLocation = null; 
+    
+    // Example: Find if a collective shelter already exists (e.g. from a scenario or older map gen)
+    const existingShelterTile = gameState.map.flat().find(tile => tile.type.name === TILE_TYPES.SHELTER_COLLECTIVE.name);
+    if (existingShelterTile) {
+        gameState.shelterLocation = { x: existingShelterTile.x, y: existingShelterTile.y };
     }
 }
 
@@ -55,20 +59,23 @@ export function applyBulkInventoryTransfer(itemName, amount, transferType) {
         return { success: false, message: "Ce lieu n'a pas de stockage." };
     }
 
-    let from, to, toCapacity, success;
+    let from, to, success;
 
     if (transferType === 'deposit') {
         from = player.inventory;
         to = tile.inventory;
-        success = transferItems(itemName, amount, from, to);
+        // Get capacity from tile's type definition in config
+        const tileMaxInv = tile.type.maxInventory;
+        const effectiveToCapacity = tileMaxInv !== undefined ? tileMaxInv : Infinity;
+        success = transferItems(itemName, amount, from, to, effectiveToCapacity);
         if (success) return { success: true, message: `Vous avez déposé ${amount} ${itemName}.` };
-        return { success: false, message: "Le dépôt a échoué. Quantité invalide ?" };
+        return { success: false, message: "Le dépôt a échoué. Quantité invalide ou stockage plein ?" };
     } 
     
     if (transferType === 'withdraw') {
         from = tile.inventory;
-        to = player.inventory;
-        toCapacity = player.maxInventory;
+        to = player.inventory; 
+        const toCapacity = player.maxInventory; // Capacity of player's inventory
         success = transferItems(itemName, amount, from, to, toCapacity);
         if (success) return { success: true, message: `Vous avez pris ${amount} ${itemName}.` };
         return { success: false, message: "Le retrait a échoué. Inventaire plein ou stock insuffisant ?" };
@@ -196,8 +203,24 @@ export function updateTileType(x, y, newType) {
     if (newType.background && newType.background.length > 0) {
         tile.backgroundKey = newType.background[Math.floor(Math.random() * newType.background.length)];
     }
-    tile.harvestsLeft = newType.harvests === Infinity ? Infinity : (newType.harvests || 0);
+    tile.harvestsLeft = (newType.harvests === Infinity) ? Infinity : (newType.harvests || 0);
     tile.resources = newType.resource ? { ...newType.resource } : null;
+    
+    // Initialize inventory for structures that have it (e.g. shelters)
+    if (newType.inventory && tile.inventory === undefined) {
+        tile.inventory = JSON.parse(JSON.stringify(newType.inventory)); // Create a fresh inventory object
+    } else if (!newType.inventory && tile.inventory !== undefined) {
+        delete tile.inventory; // Remove inventory if the new tile type doesn't have one
+    }
+    // isOpened for treasure chests
+    if (newType.name === TILE_TYPES.TREASURE_CHEST.name) tile.isOpened = false;
+    else if (tile.hasOwnProperty('isOpened')) delete tile.isOpened;
+
+    // If a collective shelter is built, update the global shelterLocation
+    if (newType.name === TILE_TYPES.SHELTER_COLLECTIVE.name) {
+        gameState.shelterLocation = { x, y };
+        console.log("Collective shelter built. Global shelterLocation updated to:", gameState.shelterLocation);
+    }
 }
 
 export function consumeItem(itemName) {
