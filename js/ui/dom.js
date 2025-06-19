@@ -6,9 +6,9 @@ export default DOM;
 export function initDOM() {
     // --- VUE PRINCIPALE & CANVAS ---
     DOM.mainViewCanvas = document.getElementById('main-view-canvas');
-    DOM.mainViewCtx = DOM.mainViewCanvas.getContext('2d');
+    if (DOM.mainViewCanvas) DOM.mainViewCtx = DOM.mainViewCanvas.getContext('2d');
     DOM.charactersCanvas = document.getElementById('characters-canvas');
-    DOM.charactersCtx = DOM.charactersCanvas.getContext('2d');
+    if (DOM.charactersCanvas) DOM.charactersCtx = DOM.charactersCanvas.getContext('2d');
 
     // --- PANNEAUX UI ---
     DOM.tileNameEl = document.getElementById('tile-name');
@@ -20,7 +20,7 @@ export function initDOM() {
     DOM.dayCounterEl = document.getElementById('day-counter');
     DOM.openEquipmentBtn = document.getElementById('open-equipment-btn');
 
-    // ### AJOUT : Boutons de navigation ###
+    // BOUTONS DE NAVIGATION
     DOM.navNorth = document.getElementById('nav-north');
     DOM.navSouth = document.getElementById('nav-south');
     DOM.navEast = document.getElementById('nav-east');
@@ -30,6 +30,7 @@ export function initDOM() {
     DOM.quickSlotWeapon = document.getElementById('quick-slot-weapon');
     DOM.quickSlotArmor = document.getElementById('quick-slot-armor');
     DOM.quickSlotBag = document.getElementById('quick-slot-bag');
+    DOM.quickSlotsPanel = document.getElementById('quick-slots-panel'); // Ajout si besoin pour UI.triggerShake
 
     // --- INVENTAIRE PAR CATÉGORIES ---
     DOM.inventoryCategoriesEl = document.getElementById('inventory-categories');
@@ -41,6 +42,12 @@ export function initDOM() {
     DOM.sleepBarSquaresEl = document.getElementById('sleep-bar-squares');
     DOM.healthStatusEl = document.getElementById('health-status');
 
+    // ### AJOUT/VÉRIFICATION : BOUTONS DE CONSOMMATION RAPIDE ###
+    DOM.consumeHealthBtn = document.getElementById('consume-health-btn');
+    DOM.consumeThirstBtn = document.getElementById('consume-thirst-btn');
+    DOM.consumeHungerBtn = document.getElementById('consume-hunger-btn');
+    // ### FIN AJOUT/VÉRIFICATION ###
+
     // --- HUD & SUPERPOSITIONS ---
     DOM.hudCoordsEl = document.getElementById('hud-coords');
     DOM.tileHarvestsInfoEl = document.getElementById('tile-harvests-info');
@@ -48,10 +55,10 @@ export function initDOM() {
 
     // --- CARTES ---
     DOM.minimapCanvas = document.getElementById('minimap-canvas');
-    DOM.minimapCtx = DOM.minimapCanvas.getContext('2d');
+    if (DOM.minimapCanvas) DOM.minimapCtx = DOM.minimapCanvas.getContext('2d');
     DOM.largeMapModal = document.getElementById('large-map-modal');
     DOM.largeMapCanvas = document.getElementById('large-map-canvas');
-    DOM.largeMapCtx = DOM.largeMapCanvas.getContext('2d');
+    if (DOM.largeMapCanvas) DOM.largeMapCtx = DOM.largeMapCanvas.getContext('2d');
     DOM.enlargeMapBtn = document.getElementById('enlarge-map-btn');
     DOM.closeLargeMapBtn = document.getElementById('close-large-map-btn');
     DOM.largeMapLegendEl = document.getElementById('large-map-legend');
@@ -96,4 +103,7 @@ export function initDOM() {
     DOM.itemContextMenu = document.getElementById('item-context-menu');
     DOM.contextMenuTitle = document.getElementById('context-menu-title');
     DOM.contextMenuActions = document.getElementById('context-menu-actions');
+
+    // Chat
+    DOM.quickChatButton = document.getElementById('quick-chat-button'); // Ajout si manquant
 }

@@ -4,9 +4,9 @@ import { getTotalResources } from '../player.js';
 import DOM from './dom.js';
 
 function drawSquaresBar(container, value, maxValue) {
-    if (!container) return; // Garde-fou
+    if (!container) return;
     container.innerHTML = '';
-    const numSquares = 10;
+    const numSquares = 10; // Nombre de carrés dans la barre
     const filledCount = Math.ceil((value / maxValue) * numSquares);
 
     for (let i = 0; i < numSquares; i++) {
@@ -48,7 +48,7 @@ export function updateQuickSlots(player) {
 
     for (const slotType in slots) {
         const slotEl = slots[slotType];
-        if (!slotEl) continue; // Si l'élément DOM n'existe pas
+        if (!slotEl) continue; 
 
         const equippedItem = player.equipment[slotType];
         const placeholder = slotEl.querySelector('.slot-placeholder-text');
@@ -82,26 +82,27 @@ export function updateInventory(player) {
     const categories = { consumable: [], tool: [], weapon: [], armor: [], body: [], bag: [], resource: [], usable: [] };
     for (const itemName in player.inventory) {
         if (player.inventory[itemName] > 0) {
-            const itemDef = ITEM_TYPES[itemName] || { type: 'resource', icon: '❓' }; // Valeur par défaut plus complète
+            const itemDef = ITEM_TYPES[itemName] || { type: 'resource', icon: '❓' };
             let type = itemDef.type;
-            // Gestion plus robuste pour classer les objets équipables
             if (itemDef.slot && (itemDef.type === 'tool' || itemDef.type === 'weapon' || itemDef.type === 'body' || itemDef.type === 'bag' || itemDef.type === 'armor')) {
-                type = itemDef.slot === 'body' && itemDef.type === 'armor' ? 'armor' : itemDef.slot; // Catégorie 'armor' si c'est une armure pour 'body'
+                type = itemDef.slot === 'body' && itemDef.type === 'armor' ? 'armor' : itemDef.slot;
             }
-            if (categories[type]) {
-                 categories[type].push(itemName);
-            } else if (categories.resource) { // Catégorie par défaut si type inconnu
+             if (categories[type]) { // Vérifier si la catégorie existe
+                categories[type].push(itemName);
+            } else if (categories.resource) { // Catégorie par défaut
+                console.warn(`Type d'item inconnu '${type}' pour '${itemName}', classé comme ressource.`);
                 categories.resource.push(itemName);
+            } else {
+                console.error(`Catégorie de ressource par défaut manquante pour l'item ${itemName}`);
             }
         }
     }
 
     const categoryOrder = [
         { key: 'consumable', name: 'Consommables' }, { key: 'tool', name: 'Outils' },
-        { key: 'weapon', name: 'Armes' }, { key: 'armor', name: 'Armures' }, // 'armor' au lieu de 'body' seulement
-        { key: 'body', name: 'Habits' }, // 'body' pour les vêtements non-armures
-        { key: 'bag', name: 'Sacs' }, { key: 'resource', name: 'Ressources' },
-        { key: 'usable', name: 'Objets Spéciaux' },
+        { key: 'weapon', name: 'Armes' }, { key: 'armor', name: 'Armures' },
+        { key: 'body', name: 'Habits' }, { key: 'bag', name: 'Sacs' }, 
+        { key: 'resource', name: 'Ressources' }, { key: 'usable', name: 'Objets Spéciaux' },
     ];
     
     let hasItems = false;
@@ -113,14 +114,13 @@ export function updateInventory(player) {
             const categoryDiv = document.createElement('div');
             categoryDiv.className = 'inventory-category';
             const header = document.createElement('div');
-            // Par défaut, les catégories sont fermées, sauf si elles ont un contenu important
-            header.className = 'category-header'; // Retrait de 'open' par défaut
-            if (cat.key === 'resource' || cat.key === 'consumable') header.classList.add('open'); // Ouvrir ressources et consommables par défaut
+            header.className = 'category-header'; 
+            if (cat.key === 'resource' || cat.key === 'consumable') header.classList.add('open');
 
             header.innerHTML = `<span>${cat.name}</span><span class="category-toggle">▶</span>`;
             const content = document.createElement('ul');
             content.className = 'category-content';
-            if (header.classList.contains('open')) content.classList.add('visible'); // Rendre visible si 'open'
+            if (header.classList.contains('open')) content.classList.add('visible');
 
             itemsInCategory.sort().forEach(itemName => {
                 const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
@@ -128,8 +128,8 @@ export function updateInventory(player) {
                 li.className = 'inventory-item';
                 if (itemDef.type === 'consumable') li.classList.add('clickable');
                 li.dataset.itemName = itemName;
-                li.setAttribute('draggable', 'true'); // Tous les objets sont déplaçables
-                li.dataset.itemCount = player.inventory[itemName]; // Ajouter le compte pour le D&D
+                li.setAttribute('draggable', 'true'); 
+                li.dataset.itemCount = player.inventory[itemName]; 
                 li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${player.inventory[itemName]}</span>`;
                 content.appendChild(li);
             });
@@ -165,38 +165,62 @@ export function addChatMessage(message, type, author) {
     if (!chatMessagesEl) return;
 
     const msgDiv = document.createElement('div');
-    msgDiv.classList.add('chat-message', type || 'system'); // 'system' par défaut si type non fourni
+    msgDiv.classList.add('chat-message', type || 'system'); 
     let content = author ? `<strong>${author}: </strong>` : '';
-    content += `<span>${message}</span>`; // Utiliser textContent pour éviter injection HTML si message vient de l'utilisateur
-    msgDiv.innerHTML = content; // OK si le contenu est contrôlé ou échappé
+    const spanMessage = document.createElement('span'); // Pour éviter l'injection HTML du message
+    spanMessage.textContent = message;
+    content += spanMessage.outerHTML;
+    msgDiv.innerHTML = content; 
     chatMessagesEl.appendChild(msgDiv);
-    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight; // Auto-scroll
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight; 
 }
 
 export function updateAllButtonsState(gameState) {
     if (!gameState || !gameState.player) return;
-    const isPlayerBusy = gameState.player.isBusy || !!gameState.player.animationState;
-    console.log("[updateAllButtonsState] Appelée. player.isBusy =", gameState.player.isBusy, "player.animationState =", !!gameState.player.animationState, "=> isPlayerBusy (calculé) =", isPlayerBusy);
+    const { player } = gameState;
+    const isPlayerBusy = player.isBusy || !!player.animationState;
+    // console.log("[updateAllButtonsState] Appelée. player.isBusy =", gameState.player.isBusy, "player.animationState =", !!gameState.player.animationState, "=> isPlayerBusy (calculé) =", isPlayerBusy);
 
     document.querySelectorAll('.nav-button-overlay').forEach(b => {
         b.disabled = isPlayerBusy;
     });
-    document.querySelectorAll('.consume-btn').forEach(b => {
-        b.disabled = isPlayerBusy;
-    });
     
-    // Si vous avez une référence au bouton quickChat dans DOM :
-    // if (DOM.quickChatButton) DOM.quickChatButton.disabled = isPlayerBusy;
+    // ### LOGIQUE AMÉLIORÉE POUR LES BOUTONS DE CONSOMMATION RAPIDE ###
+    if (DOM.consumeHealthBtn) {
+        let canHeal = false;
+        if ((player.inventory['Kit de Secours'] > 0) || 
+            (player.inventory['Bandage'] > 0) || 
+            (player.inventory['Médicaments'] > 0 && (player.status === 'Malade' || player.status === 'Empoisonné'))) {
+            canHeal = true;
+        }
+        DOM.consumeHealthBtn.disabled = isPlayerBusy || !canHeal;
+    }
+    if (DOM.consumeThirstBtn) {
+        let canDrink = false;
+        if ((player.inventory['Eau pure'] > 0) || (player.inventory['Noix de coco'] > 0)) {
+            canDrink = true;
+        }
+        DOM.consumeThirstBtn.disabled = isPlayerBusy || !canDrink;
+    }
+    if (DOM.consumeHungerBtn) {
+        let canEat = false;
+        if ((player.inventory['Viande cuite'] > 0) || 
+            (player.inventory['Poisson cuit'] > 0) || 
+            (player.inventory['Barre Énergétique'] > 0) || 
+            (player.inventory['Banane'] > 0)) {
+            canEat = true;
+        }
+        DOM.consumeHungerBtn.disabled = isPlayerBusy || !canEat;
+    }
+    // ### FIN LOGIQUE AMÉLIORÉE ###
+    
+    if (DOM.quickChatButton) DOM.quickChatButton.disabled = isPlayerBusy;
 
-    // Les boutons dans DOM.actionsEl sont gérés par updatePossibleActions.
-    // Mais on peut s'assurer qu'ils sont désactivés si le joueur est occupé au cas où.
     if (DOM.actionsEl) {
         DOM.actionsEl.querySelectorAll('button').forEach(b => {
             if (isPlayerBusy) {
                 b.disabled = true;
             }
-            // Ne pas faire b.disabled = false ici, car updatePossibleActions
-            // gère quelles actions spécifiques sont disponibles.
         });
     }
 }
