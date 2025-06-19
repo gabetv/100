@@ -42,9 +42,10 @@ export function updateQuickSlots(player) {
     const { quickSlotWeapon, quickSlotArmor, quickSlotBag, quickSlotFeet } = DOM; 
     const slots = {
         weapon: quickSlotWeapon,
-        body: quickSlotArmor,
+        body: quickSlotArmor, // Assuming 'body' is for armor slot as per previous definition
         bag: quickSlotBag,
         feet: quickSlotFeet,
+        // head: quickSlotHead, // If you add a quick slot for head
     };
 
     for (const slotType in slots) {
@@ -61,9 +62,10 @@ export function updateQuickSlots(player) {
 
         if (equippedItem) {
             if (placeholder) placeholder.style.display = 'none';
-            const itemDef = ITEM_TYPES[equippedItem.name] || { icon: equippedItem.icon || '❓' };
+            // Utiliser directement les infos de l'objet équipé, qui devraient inclure l'icône
+            const icon = equippedItem.icon || ITEM_TYPES[equippedItem.name]?.icon || '❓';
             const iconEl = document.createElement('span');
-            iconEl.textContent = itemDef.icon;
+            iconEl.textContent = icon;
             slotEl.prepend(iconEl);
             slotEl.dataset.itemName = equippedItem.name;
         } else {
@@ -80,18 +82,41 @@ export function updateInventory(player) {
     const total = getTotalResources(player.inventory); 
     DOM.inventoryCapacityEl.textContent = `(${total} / ${player.maxInventory})`;
 
-    const categories = { consumable: [], tool: [], weapon: [], armor: [], body: [], feet: [], bag: [], resource: [], usable: [] };
+    const categories = { 
+        consumable: [], 
+        tool: [], 
+        weapon: [], 
+        armor: [], 
+        body: [], // Pour Vêtements etc. non-armure
+        head: [], // Pour Chapeaux etc.
+        feet: [], 
+        bag: [], 
+        resource: [], 
+        usable: [],
+        key: [], // NOUVELLE CATÉGORIE
+    };
     
     for (const itemName in player.inventory) {
         if (player.inventory[itemName] > 0) {
             const itemDef = ITEM_TYPES[itemName] || { type: 'resource', icon: '❓' };
             let type = itemDef.type; 
 
-            if (itemDef.slot && (itemDef.type === 'tool' || itemDef.type === 'weapon' || itemDef.type === 'body' || itemDef.type === 'bag' || itemDef.type === 'armor' || itemDef.type === 'feet')) {
-                 type = (itemDef.slot === 'body' && itemDef.type === 'armor') ? 'armor' : itemDef.slot;
+            // Logique de classification améliorée
+            if (itemDef.slot) { // Si l'objet a un slot d'équipement défini
+                if (categories[itemDef.slot]) { // Si le slot correspond à une catégorie (weapon, body, head, feet, bag)
+                    type = itemDef.slot;
+                } else if (itemDef.type === 'armor' && itemDef.slot === 'body') { // Cas spécifique armure corporelle
+                    type = 'armor';
+                }
+                // Les outils peuvent aussi avoir un slot 'weapon', mais on veut les garder dans 'tool' si leur type est 'tool'
+                // Sauf si c'est explicitement une arme.
+                if (itemDef.type === 'tool' && categories.tool) {
+                    type = 'tool';
+                }
             }
-            
-             if (categories[type]) { 
+
+
+            if (categories[type]) { 
                 categories[type].push(itemName);
             } else if (categories.resource) { 
                 console.warn(`Type d'item '${type}' pour '${itemName}' n'a pas de catégorie dédiée, classé comme ressource.`);
@@ -108,10 +133,12 @@ export function updateInventory(player) {
         { key: 'weapon', name: 'Armes' }, 
         { key: 'armor', name: 'Armures' },  
         { key: 'body', name: 'Habits' },    
+        { key: 'head', name: 'Chapeaux' },    
         { key: 'feet', name: 'Chaussures' }, 
         { key: 'bag', name: 'Sacs' },       
         { key: 'resource', name: 'Ressources' }, 
         { key: 'usable', name: 'Objets Spéciaux' },
+        { key: 'key', name: 'Clés & Uniques' }, // NOUVELLE LIGNE
     ];
     
     let hasItems = false;
@@ -124,7 +151,8 @@ export function updateInventory(player) {
             categoryDiv.className = 'inventory-category';
             const header = document.createElement('div');
             header.className = 'category-header'; 
-            if (cat.key === 'resource' || cat.key === 'consumable' || cat.key === 'feet') header.classList.add('open');
+            // Ouvrir par défaut certaines catégories
+            if (['resource', 'consumable', 'tool', 'key'].includes(cat.key)) header.classList.add('open');
 
 
             header.innerHTML = `<span>${cat.name}</span><span class="category-toggle">▶</span>`;
@@ -136,7 +164,10 @@ export function updateInventory(player) {
                 const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
                 const li = document.createElement('li');
                 li.className = 'inventory-item';
-                if (itemDef.type === 'consumable') li.classList.add('clickable');
+                // Rendre cliquable les consommables et les parchemins
+                if (itemDef.type === 'consumable' || itemName.startsWith('Parchemin Atelier')) {
+                    li.classList.add('clickable');
+                }
                 li.dataset.itemName = itemName;
                 li.setAttribute('draggable', 'true'); 
                 li.dataset.itemCount = player.inventory[itemName]; 
@@ -156,19 +187,65 @@ export function updateDayCounter(day) {
 }
 
 export function updateTileInfoPanel(tile) {
-    if (!tile || !tile.type || !DOM.tileNameEl || !DOM.tileDescriptionEl || !DOM.tileHarvestsInfoEl) return;
+    if (!tile || !DOM.tileNameEl || !DOM.tileDescriptionEl || !DOM.tileHarvestsInfoEl) return;
 
-    DOM.tileNameEl.textContent = tile.type.name;
-    const descriptions = { 'Forêt': "L'air est lourd et humide...", 'Plaine': "Une plaine herbeuse...", 'Sable Doré': "Le sable chaud vous brûle les pieds...", 'Lagon': "L'eau turquoise vous invite...", 'Friche': "Le sol est nu...", 'Gisement de Pierre': "Des rochers affleurent...", 'Feu de Camp': "La chaleur des flammes danse...", 'Abri Individuel': "Un abri précaire...", 'Abri Collectif': "Un campement bien établi...", 'Mine': "L'entrée sombre de la mine..." };
-    DOM.tileDescriptionEl.textContent = descriptions[tile.type.name] || "Un lieu étrange...";
+    // Si la tuile a des bâtiments, afficher le nom du premier bâtiment prioritaire, sinon le terrain.
+    let mainDisplayName = tile.type.name; // Terrain de base
+    let mainDisplayDescription = "";
+    let mainHarvestsInfo = "";
+    let mainDurabilityInfo = "";
+
+    if (tile.buildings && tile.buildings.length > 0) {
+        // Priorité d'affichage (ex: un Atelier est plus "actif" qu'un simple mur)
+        // Pour l'instant, on prend le premier de la liste s'il y en a.
+        const mainBuildingInstance = tile.buildings[0]; 
+        const mainBuildingDef = TILE_TYPES[mainBuildingInstance.key];
+        if (mainBuildingDef) {
+            mainDisplayName = mainBuildingDef.name;
+            // Descriptions spécifiques aux bâtiments pourraient être ajoutées ici
+            // mainDisplayDescription = mainBuildingDef.description || "Une structure construite.";
+            mainDurabilityInfo = `Durabilité: ${mainBuildingInstance.durability}/${mainBuildingInstance.maxDurability}`;
+        }
+    }
+
+
+    DOM.tileNameEl.textContent = mainDisplayName;
+    const descriptions = { 
+        'Forêt': "L'air est lourd et humide...", 'Plaine': "Une plaine herbeuse...", 
+        'Sable Doré': "Le sable chaud vous brûle les pieds...", 'Lagon': "L'eau turquoise vous invite...", 
+        'Friche': "Le sol est nu...", 'Gisement de Pierre': "Des rochers affleurent...", 
+        'Feu de Camp': "La chaleur des flammes danse...", 
+        'Abri Individuel': "Un abri précaire...", 'Abri Collectif': "Un campement bien établi...", 
+        'Mine': "L'entrée sombre de la mine...", 'Trésor Caché': "Un coffre mystérieux scellé...",
+        'Atelier': "Un établi robuste pour l'artisanat.",
+        'Petit Puit': "Un trou peu profond, l'eau y semble trouble.",
+        'Puit Profond': "Un puit bien construit, l'eau y est plus claire.",
+        'Bibliothèque': "Des étagères remplies de savoirs anciens.",
+        'Forteresse': "Une imposante structure défensive.",
+        'Laboratoire': "Fioles et alambics bouillonnent doucement.",
+        'Forge': "La chaleur du métal en fusion emplit l'air.",
+        'Bananeraie': "Des bananiers chargés de fruits.",
+        'Sucrerie': "Des cannes à sucre prêtes à être transformées.",
+        'Cocoteraie': "Des cocotiers se balancent doucement.",
+        'Poulailler': "Des caquètements se font entendre.",
+        'Enclos à Cochons': "Grognements et bruits de fouissage.",
+        'Observatoire': "Une vue imprenable sur les environs."
+    };
+    DOM.tileDescriptionEl.textContent = mainDurabilityInfo ? `${mainDurabilityInfo}. ${descriptions[mainDisplayName] || "Un lieu étrange..."}` : descriptions[mainDisplayName] || "Un lieu étrange...";
     
-    if (tile.type.resource && tile.harvestsLeft > 0 && tile.type.harvests !== Infinity) {
-        DOM.tileHarvestsInfoEl.textContent = `Récoltes restantes: ${tile.harvestsLeft}`;
+    // Info de récolte pour le terrain de base (si pas de bâtiment prioritaire affiché ou si le bâtiment ne masque pas cette info)
+    if (tile.type.resource && tile.harvestsLeft > 0 && tile.type.harvests !== Infinity && tile.buildings.length === 0) { // N'afficher que si pas de bâtiments
+        mainHarvestsInfo = `Récoltes (terrain): ${tile.harvestsLeft}`;
+    }
+    
+    if (mainHarvestsInfo) {
+        DOM.tileHarvestsInfoEl.textContent = mainHarvestsInfo;
         DOM.tileHarvestsInfoEl.style.display = 'block';
     } else {
         DOM.tileHarvestsInfoEl.style.display = 'none';
     }
 }
+
 
 export function addChatMessage(message, type, author) {
     const chatMessagesEl = document.getElementById('chat-messages');
@@ -220,6 +297,7 @@ export function updateAllButtonsState(gameState) {
         let canEat = false;
         if ((player.inventory['Viande cuite'] > 0) || 
             (player.inventory['Poisson cuit'] > 0) || 
+            (player.inventory['Oeuf cuit'] > 0) || // Ajout oeuf cuit
             (player.inventory['Barre Énergétique'] > 0) || 
             (player.inventory['Banane'] > 0)) {
             canEat = true;
@@ -231,7 +309,7 @@ export function updateAllButtonsState(gameState) {
 
     if (DOM.actionsEl) {
         DOM.actionsEl.querySelectorAll('button').forEach(b => {
-            if (isPlayerBusy) {
+            if (isPlayerBusy && !b.classList.contains('action-always-enabled')) { // Permettre certains boutons même si occupé
                 b.disabled = true;
             }
         });
