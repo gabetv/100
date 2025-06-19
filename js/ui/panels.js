@@ -39,11 +39,12 @@ export function updateStatsPanel(player) {
 
 export function updateQuickSlots(player) {
     if (!player || !player.equipment) return;
-    const { quickSlotWeapon, quickSlotArmor, quickSlotBag } = DOM;
+    const { quickSlotWeapon, quickSlotArmor, quickSlotBag, quickSlotFeet } = DOM; 
     const slots = {
         weapon: quickSlotWeapon,
         body: quickSlotArmor,
         bag: quickSlotBag,
+        feet: quickSlotFeet,
     };
 
     for (const slotType in slots) {
@@ -79,30 +80,38 @@ export function updateInventory(player) {
     const total = getTotalResources(player.inventory); 
     DOM.inventoryCapacityEl.textContent = `(${total} / ${player.maxInventory})`;
 
-    const categories = { consumable: [], tool: [], weapon: [], armor: [], body: [], bag: [], resource: [], usable: [] };
+    const categories = { consumable: [], tool: [], weapon: [], armor: [], body: [], feet: [], bag: [], resource: [], usable: [] };
+    
     for (const itemName in player.inventory) {
         if (player.inventory[itemName] > 0) {
             const itemDef = ITEM_TYPES[itemName] || { type: 'resource', icon: '❓' };
-            let type = itemDef.type;
-            if (itemDef.slot && (itemDef.type === 'tool' || itemDef.type === 'weapon' || itemDef.type === 'body' || itemDef.type === 'bag' || itemDef.type === 'armor')) {
-                type = itemDef.slot === 'body' && itemDef.type === 'armor' ? 'armor' : itemDef.slot;
+            let type = itemDef.type; 
+
+            if (itemDef.slot && (itemDef.type === 'tool' || itemDef.type === 'weapon' || itemDef.type === 'body' || itemDef.type === 'bag' || itemDef.type === 'armor' || itemDef.type === 'feet')) {
+                 type = (itemDef.slot === 'body' && itemDef.type === 'armor') ? 'armor' : itemDef.slot;
             }
-             if (categories[type]) { // Vérifier si la catégorie existe
+            
+             if (categories[type]) { 
                 categories[type].push(itemName);
-            } else if (categories.resource) { // Catégorie par défaut
-                console.warn(`Type d'item inconnu '${type}' pour '${itemName}', classé comme ressource.`);
+            } else if (categories.resource) { 
+                console.warn(`Type d'item '${type}' pour '${itemName}' n'a pas de catégorie dédiée, classé comme ressource.`);
                 categories.resource.push(itemName);
             } else {
-                console.error(`Catégorie de ressource par défaut manquante pour l'item ${itemName}`);
+                console.error(`Catégorie de ressource par défaut manquante et type inconnu pour l'item ${itemName}`);
             }
         }
     }
 
     const categoryOrder = [
-        { key: 'consumable', name: 'Consommables' }, { key: 'tool', name: 'Outils' },
-        { key: 'weapon', name: 'Armes' }, { key: 'armor', name: 'Armures' },
-        { key: 'body', name: 'Habits' }, { key: 'bag', name: 'Sacs' }, 
-        { key: 'resource', name: 'Ressources' }, { key: 'usable', name: 'Objets Spéciaux' },
+        { key: 'consumable', name: 'Consommables' }, 
+        { key: 'tool', name: 'Outils' },
+        { key: 'weapon', name: 'Armes' }, 
+        { key: 'armor', name: 'Armures' },  
+        { key: 'body', name: 'Habits' },    
+        { key: 'feet', name: 'Chaussures' }, 
+        { key: 'bag', name: 'Sacs' },       
+        { key: 'resource', name: 'Ressources' }, 
+        { key: 'usable', name: 'Objets Spéciaux' },
     ];
     
     let hasItems = false;
@@ -115,7 +124,8 @@ export function updateInventory(player) {
             categoryDiv.className = 'inventory-category';
             const header = document.createElement('div');
             header.className = 'category-header'; 
-            if (cat.key === 'resource' || cat.key === 'consumable') header.classList.add('open');
+            if (cat.key === 'resource' || cat.key === 'consumable' || cat.key === 'feet') header.classList.add('open');
+
 
             header.innerHTML = `<span>${cat.name}</span><span class="category-toggle">▶</span>`;
             const content = document.createElement('ul');
@@ -167,11 +177,17 @@ export function addChatMessage(message, type, author) {
     const msgDiv = document.createElement('div');
     msgDiv.classList.add('chat-message', type || 'system'); 
     let content = author ? `<strong>${author}: </strong>` : '';
-    const spanMessage = document.createElement('span'); // Pour éviter l'injection HTML du message
+    const spanMessage = document.createElement('span'); 
     spanMessage.textContent = message;
     content += spanMessage.outerHTML;
     msgDiv.innerHTML = content; 
     chatMessagesEl.appendChild(msgDiv);
+    
+    if (DOM.bottomBarEl && !DOM.bottomBarEl.classList.contains('chat-enlarged')) {
+        while (chatMessagesEl.children.length > 3) {
+            chatMessagesEl.removeChild(chatMessagesEl.firstChild);
+        }
+    }
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight; 
 }
 
@@ -179,13 +195,11 @@ export function updateAllButtonsState(gameState) {
     if (!gameState || !gameState.player) return;
     const { player } = gameState;
     const isPlayerBusy = player.isBusy || !!player.animationState;
-    // console.log("[updateAllButtonsState] Appelée. player.isBusy =", gameState.player.isBusy, "player.animationState =", !!gameState.player.animationState, "=> isPlayerBusy (calculé) =", isPlayerBusy);
 
     document.querySelectorAll('.nav-button-overlay').forEach(b => {
         b.disabled = isPlayerBusy;
     });
     
-    // ### LOGIQUE AMÉLIORÉE POUR LES BOUTONS DE CONSOMMATION RAPIDE ###
     if (DOM.consumeHealthBtn) {
         let canHeal = false;
         if ((player.inventory['Kit de Secours'] > 0) || 
@@ -212,7 +226,6 @@ export function updateAllButtonsState(gameState) {
         }
         DOM.consumeHungerBtn.disabled = isPlayerBusy || !canEat;
     }
-    // ### FIN LOGIQUE AMÉLIORÉE ###
     
     if (DOM.quickChatButton) DOM.quickChatButton.disabled = isPlayerBusy;
 

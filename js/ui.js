@@ -1,52 +1,51 @@
 // js/ui.js
 import DOM from './ui/dom.js'; 
 
-// ### MODIFICATION : Importer explicitement les modules nécessaires pour les fonctions internes ###
-import * as Panels from './ui/panels.js';
-import * as Draw from './ui/draw.js';
-// import * as Effects from './ui/effects.js'; // Décommentez si des fonctions de effects.js sont appelées directement ici
-// import * as Modals from './ui/modals.js';   // Décommentez si des fonctions de modals.js sont appelées directement ici
+// Importer les modules en entier (namespace import)
+import * as PanelsModule from './ui/panels.js';
+import * as DrawModule from './ui/draw.js';
+import * as EffectsModule from './ui/effects.js';
+import * as ModalsModule from './ui/modals.js';
 
-// --- Exports directs des modules (pour l'extérieur, ex: main.js) ---
-// Ces exports permettent à main.js de faire UI.drawMainBackground, UI.showInventoryModal, etc.
+// --- Ré-exporter explicitement les fonctions que main.js (ou d'autres modules externes) utilisera via UI.fonction ---
 
 // Depuis ./ui/draw.js
-export { 
-    loadAssets, 
-    drawMainBackground, 
-    drawSceneCharacters, 
-    drawMinimap, 
-    drawLargeMap, 
-    populateLargeMapLegend 
-} from './ui/draw.js';
+export const loadAssets = DrawModule.loadAssets;
+export const drawMainBackground = DrawModule.drawMainBackground;
+export const drawSceneCharacters = DrawModule.drawSceneCharacters;
+export const drawMinimap = DrawModule.drawMinimap;
+export const drawLargeMap = DrawModule.drawLargeMap;
+export const populateLargeMapLegend = DrawModule.populateLargeMapLegend;
 
 // Depuis ./ui/effects.js
-export { 
-    showFloatingText, 
-    triggerActionFlash, 
-    triggerShake, 
-    resizeGameView 
-} from './ui/effects.js';
+export const showFloatingText = EffectsModule.showFloatingText;
+export const triggerActionFlash = EffectsModule.triggerActionFlash;
+export const triggerShake = EffectsModule.triggerShake;
+export const resizeGameView = EffectsModule.resizeGameView;
 
 // Depuis ./ui/modals.js
-export { 
-    showInventoryModal, hideInventoryModal, 
-    showEquipmentModal, hideEquipmentModal, updateEquipmentModal,
-    showCombatModal, hideCombatModal, updateCombatUI,
-    showQuantityModal, hideQuantityModal, setupQuantityModalListeners,
-    showLargeMap, hideLargeMap
-} from './ui/modals.js';
+export const showInventoryModal = ModalsModule.showInventoryModal;
+export const hideInventoryModal = ModalsModule.hideInventoryModal;
+export const showEquipmentModal = ModalsModule.showEquipmentModal;
+export const hideEquipmentModal = ModalsModule.hideEquipmentModal;
+export const updateEquipmentModal = ModalsModule.updateEquipmentModal;
+export const showCombatModal = ModalsModule.showCombatModal;
+export const hideCombatModal = ModalsModule.hideCombatModal;
+export const updateCombatUI = ModalsModule.updateCombatUI;
+export const showQuantityModal = ModalsModule.showQuantityModal;
+export const hideQuantityModal = ModalsModule.hideQuantityModal;
+export const setupQuantityModalListeners = ModalsModule.setupQuantityModalListeners;
+export const showLargeMap = ModalsModule.showLargeMap;
+export const hideLargeMap = ModalsModule.hideLargeMap;
 
 // Depuis ./ui/panels.js
-export { 
-    addChatMessage, 
-    updateAllButtonsState, 
-    updateQuickSlots, 
-    updateStatsPanel, 
-    updateInventory, 
-    updateDayCounter, 
-    updateTileInfoPanel 
-} from './ui/panels.js';
+export const addChatMessage = PanelsModule.addChatMessage;
+export const updateAllButtonsState = PanelsModule.updateAllButtonsState;
+export const updateQuickSlots = PanelsModule.updateQuickSlots;
+export const updateStatsPanel = PanelsModule.updateStatsPanel; // Explicitement ré-exporté
+export const updateInventory = PanelsModule.updateInventory;
+export const updateDayCounter = PanelsModule.updateDayCounter;
+export const updateTileInfoPanel = PanelsModule.updateTileInfoPanel;
 
 
 /**
@@ -61,27 +60,26 @@ export function updateAllUI(gameState) {
     }
     
     const { player, map, day } = gameState;
-    // Vérifier si map et les coordonnées du joueur sont valides
     if (!map || !map[player.y] || !map[player.y][player.x]) {
         console.warn("[ui.js] updateAllUI: Coordonnées du joueur invalides ou carte non définie.");
         return;
     }
     const currentTile = map[player.y][player.x];
     
-    // ### MODIFICATION : Utiliser les modules importés pour les appels internes ###
-    Panels.updateStatsPanel(player);
-    Panels.updateInventory(player);
-    Panels.updateDayCounter(day);
-    Panels.updateTileInfoPanel(currentTile);
-    Panels.updateQuickSlots(player); 
+    // Utiliser les fonctions des modules importés pour les appels INTERNES à ui.js
+    PanelsModule.updateStatsPanel(player); // Appel interne via le namespace PanelsModule
+    PanelsModule.updateInventory(player);
+    PanelsModule.updateDayCounter(day);
+    PanelsModule.updateTileInfoPanel(currentTile);
+    PanelsModule.updateQuickSlots(player); 
     
     if (gameState.config) {
-       Draw.drawMinimap(gameState, gameState.config); 
+       DrawModule.drawMinimap(gameState, gameState.config); 
     } else {
         console.warn("[ui.js] updateAllUI: gameState.config manquant pour drawMinimap.");
     }
     
-    if(DOM.hudCoordsEl) { // S'assurer que l'élément DOM existe
+    if(DOM.hudCoordsEl) { 
         DOM.hudCoordsEl.textContent = `(${player.x}, ${player.y})`;
     }
 }
@@ -96,7 +94,6 @@ export function renderScene(gameState) {
         console.warn("[ui.js] renderScene appelée sans gameState.");
         return;
     }
-    // ### MODIFICATION : Utiliser les modules importés pour les appels internes ###
-    Draw.drawMainBackground(gameState);
-    Draw.drawSceneCharacters(gameState);
+    DrawModule.drawMainBackground(gameState);
+    DrawModule.drawSceneCharacters(gameState);
 }

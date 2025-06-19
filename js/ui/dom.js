@@ -30,6 +30,7 @@ export function initDOM() {
     DOM.quickSlotWeapon = document.getElementById('quick-slot-weapon');
     DOM.quickSlotArmor = document.getElementById('quick-slot-armor');
     DOM.quickSlotBag = document.getElementById('quick-slot-bag');
+    DOM.quickSlotFeet = document.getElementById('quick-slot-feet'); // <<< NOUVELLE LIGNE
     DOM.quickSlotsPanel = document.getElementById('quick-slots-panel'); 
 
     // --- INVENTAIRE PAR CATÉGORIES ---

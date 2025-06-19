@@ -35,8 +35,11 @@
             <div id="main-view-wrapper">
                 <div id="quick-slots-panel">
                     <div id="quick-slot-weapon" class="quick-equip-slot-display" data-slot-type="weapon" title="Arme"><span class="slot-placeholder-text">Arme</span></div>
-                    <div id="quick-slot-armor" class="quick-equip-slot-display" data-slot-type="body" title="Armure"><span class="slot-placeholder-text">Habit</span></div>
+                    <div id="quick-slot-armor" class="quick-equip-slot-display" data-slot-type="body" title="Habit"><span class="slot-placeholder-text">Habit</span></div>
                     <div id="quick-slot-bag" class="quick-equip-slot-display" data-slot-type="bag" title="Sac"><span class="slot-placeholder-text">Sac</span></div>
+                    <!-- NOUVEAU SLOT VISUEL POUR LES PIEDS -->
+                    <div id="quick-slot-feet" class="quick-equip-slot-display" data-slot-type="feet" title="Pieds"><span class="slot-placeholder-text">Pieds</span></div>
+                    <!-- FIN NOUVEAU SLOT VISUEL -->
                 </div>
                 <div id="main-view-container">
                     <div id="survival-vignette"></div><div id="action-flash"></div>
@@ -141,7 +144,8 @@
                 </div>
                 <div id="equipment-slots">
                     <div class="equipment-slot-container"><label>Arme</label><div class="equipment-slot droppable" data-slot-type="weapon" data-owner="equipment"></div></div>
-                    <div class="equipment-slot-container"><label>Armure</label><div class="equipment-slot droppable" data-slot-type="body" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Habit/Armure</label><div class="equipment-slot droppable" data-slot-type="body" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Pieds</label><div class="equipment-slot droppable" data-slot-type="feet" data-owner="equipment"></div></div>
                 </div>
                 <div class="inventory-container">
                     <h3>Votre Inventaire (<span id="equipment-player-capacity">0 / 0</span>)</h3>
@@ -156,7 +160,6 @@
         <div id="context-menu-actions"></div>
     </div>
 
-    <!-- ### CORRECTION : UN SEUL POINT D'ENTRÉE POUR L'APPLICATION ### -->
     <script type="module" src="js/main.js"></script>
 
 </body>

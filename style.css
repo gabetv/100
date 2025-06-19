@@ -7,28 +7,96 @@
     --deposit-color: #2a9d8f;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); color: var(--text-light); overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; padding: 15px; }
+body { 
+    font-family: 'Poppins', sans-serif; 
+    background-color: var(--bg-main); 
+    color: var(--text-light); 
+    overflow: hidden; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    height: 100vh; 
+    padding: 10px; 
+}
 
 /* ---- MISE EN PAGE PRINCIPALE ---- */
-#game-container { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; max-width: 1800px; gap: 10px; }
-#main-area { flex-grow: 1; display: grid; grid-template-columns: 320px 1fr 400px; gap: 10px; overflow: hidden; }
+#game-container { 
+    position: relative; 
+    display: flex; 
+    flex-direction: column; 
+    width: 100%; 
+    height: 100%; 
+    aspect-ratio: 16 / 10; 
+    max-width: 1800px; 
+    max-height: calc(1800px * (10 / 16)); 
+    gap: 10px; 
+    margin: auto; 
+}
 
-/* Panneaux avec effet "verre dépoli" */
-.ui-panel { background-color: var(--bg-panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: var(--border-radius); padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 4px 15px var(--shadow-color); position: relative; z-index: 30; }
+#main-area { 
+    flex-grow: 1; 
+    display: grid; 
+    grid-template-columns: 320px 1fr 400px; 
+    gap: 10px; 
+    overflow: hidden; 
+}
 
-/* Wrapper pour centrer la vue principale */
-#main-view-wrapper { display: flex; justify-content: center; align-items: center; overflow: hidden; position: relative; z-index: 10; }
-#main-view-container { background-color: var(--bg-view); border-radius: var(--border-radius); overflow: hidden; position: relative; max-width: 1024px; max-height: 1024px; border: 3px solid #1a2a32; box-shadow: 0 0 25px rgba(0, 0, 0, 0.5); }
-#main-view-canvas { width: 100%; height: 100%; object-fit: cover; }
-#characters-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+.ui-panel { 
+    background-color: var(--bg-panel); 
+    backdrop-filter: blur(10px); 
+    -webkit-backdrop-filter: blur(10px); 
+    border-radius: var(--border-radius); 
+    padding: 20px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 15px; 
+    overflow-y: auto; 
+    border: 1px solid rgba(255, 255, 255, 0.1); 
+    box-shadow: 0 4px 15px var(--shadow-color); 
+    position: relative; 
+    z-index: 30; 
+}
 
-/* ---- PANNEAU D'ÉQUIPEMENT RAPIDE (Affichage seul) ---- */
+#main-view-wrapper { 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    overflow: hidden; 
+    position: relative; 
+    z-index: 10; 
+}
+#main-view-container { 
+    background-color: var(--bg-view); 
+    border-radius: var(--border-radius); 
+    overflow: hidden; 
+    position: relative; 
+    aspect-ratio: 1 / 1; 
+    width: 100%; 
+    height: 100%;
+    max-width: 1024px;  
+    max-height: 1024px; 
+    border: 3px solid #1a2a32; 
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.5); 
+}
+#main-view-canvas { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+}
+#characters-canvas { 
+    position: absolute; 
+    inset: 0; 
+    width: 100%; 
+    height: 100%; 
+    pointer-events: none; 
+    z-index: 2; 
+}
+
 #quick-slots-panel { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); z-index: 50; background-color: var(--bg-panel); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--border-radius); padding: 15px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 4px 15px var(--shadow-color); }
 .quick-equip-slot-display { width: 64px; height: 64px; background-color: rgba(0,0,0,0.3); border: 2px dashed rgba(255, 255, 255, 0.2); border-radius: 8px; display: flex; justify-content: center; align-items: center; font-size: 2.5em; transition: all 0.2s ease; color: rgba(255, 255, 255, 0.4); position: relative; cursor: default; }
 .slot-placeholder-text { font-size: 0.25em; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; }
 .quick-equip-slot-display.has-item { border-style: solid; border-color: rgba(255, 255, 255, 0.4); }
 
-/* ---- ÉLÉMENTS DANS LES PANNEAUX ---- */
 #main-controls button { width: 100%; padding: 12px; background-color: var(--action-color); color: var(--text-light); font-weight: 600; font-size: 1.1em; font-family: 'Poppins', sans-serif; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; border-bottom: 3px solid #2f5a7a; }
 #main-controls button:hover:not(:disabled) { background-color: #5e9ac4; transform: translateY(-2px); border-bottom-color: #457b9d; }
 
@@ -91,11 +159,50 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
 #nav-north { top: 15px; left: 50%; transform: translateX(-50%); } #nav-north:hover { transform: translateX(-50%) scale(1.1); } #nav-south { bottom: 15px; left: 50%; transform: translateX(-50%); } #nav-south:hover { transform: translateX(-50%) scale(1.1); } #nav-west { left: 15px; top: 50%; transform: translateY(-50%); } #nav-west:hover { transform: translateY(-50%) scale(1.1); } #nav-east { right: 15px; top: 50%; transform: translateY(-50%); } #nav-east:hover { transform: translateY(-50%) scale(1.1); }
 
 /* BARRE INFÉRIEURE */
-#bottom-bar { background-color: var(--bg-panel); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); height: 180px; flex-shrink: 0; display: flex; border-radius: var(--border-radius); padding: 15px; border: 1px solid rgba(255, 255, 255, 0.1); position: relative; z-index: 20; transition: height 0.3s ease-in-out; }
-#bottom-bar.chat-enlarged { height: 350px; }
+#bottom-bar { 
+    background-color: var(--bg-panel); 
+    backdrop-filter: blur(10px); 
+    -webkit-backdrop-filter: blur(10px); 
+    flex-shrink: 0; 
+    display: flex; 
+    border-radius: var(--border-radius); 
+    padding: 15px; 
+    border: 1px solid rgba(255, 255, 255, 0.1); 
+    position: relative; 
+    z-index: 20; 
+    transition: height 0.3s ease-in-out; 
+    min-height: 180px; 
+}
+/* MODIFICATION: Enlever .chat-enlarged pour la hauteur, gérer par JS la limite de lignes */
+/* #bottom-bar.chat-enlarged { 
+    height: 350px; 
+    min-height: 350px; 
+} */
+
 #chat-container { width: 100%; display: flex; flex-direction: column; }
 #chat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.1); } #chat-header h3 { margin: 0; border: none; padding: 0; font-size: 1em; } #toggle-chat-size-btn { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary); cursor: pointer; border-radius: 4px; padding: 2px 8px; font-size: 1.1em; transition: all 0.2s; } #toggle-chat-size-btn:hover { background: var(--action-color); color: var(--text-light); }
-#chat-messages { flex-grow: 1; overflow-y: auto; margin-bottom: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; min-height: 0; } .chat-message { margin-bottom: 8px; line-height: 1.4; } .chat-message.player { color: #a8dadc; } .chat-message.npc { color: #f4a261; } .chat-message.system { color: #e63946; font-style: italic; }
+
+/* MODIFICATION: Hauteur fixe pour 3 lignes approx. et overflow caché */
+#chat-messages { 
+    flex-grow: 1; /* Permet toujours de prendre l'espace disponible */
+    overflow-y: auto; /* Permet le scroll SI le chat est agrandi via le bouton */
+    margin-bottom: 10px; 
+    background: rgba(0,0,0,0.2); 
+    padding: 10px; 
+    border-radius: 8px; 
+    min-height: 0; /* Important pour flex-grow */
+    /* Calcul approximatif pour 3 lignes. Ajustez si nécessaire. */
+    /* line-height (1.4) * font-size (implicite ~14-16px) * 3 lignes + padding */
+    /* Cette hauteur sera la hauteur de base quand le chat n'est pas "enlarged" */
+    height: calc(1.4em * 3 + 20px); 
+} 
+#bottom-bar.chat-enlarged #chat-messages {
+    height: auto; /* Permet au chat de prendre plus de place quand il est agrandi */
+    /* Vous pourriez vouloir une max-height ici si bottom-bar.chat-enlarged a une hauteur fixe */
+    /* Par exemple: max-height: 250px; */
+}
+
+.chat-message { margin-bottom: 8px; line-height: 1.4; } .chat-message.player { color: #a8dadc; } .chat-message.npc { color: #f4a261; } .chat-message.system { color: #e63946; font-style: italic; }
 #chat-input-area { position: relative; flex-shrink: 0; display: flex; gap: 10px; align-items: center; } #chat-input-field { flex-grow: 1; background: none; border: 1px solid #ffffff40; border-radius: 8px; padding: 10px; color: var(--text-light); font-family: 'Poppins', sans-serif; } #chat-input-field:focus { outline: none; border-color: var(--action-color); }
 #quick-chat-button { background-color: var(--action-color); color: var(--text-light); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5em; line-height: 40px; text-align: center; cursor: pointer; transition: background-color 0.2s; flex-shrink: 0; }
 #quick-chat-button:hover { background-color: #5e9ac4; } #quick-chat-menu { display: none; position: absolute; bottom: 110%; left: 0; background-color: #1a2a32; border-radius: 8px; box-shadow: 0 -4px 15px rgba(0,0,0,0.3); padding: 10px; z-index: 10; width: 300px; } #quick-chat-menu.visible { display: block; } .quick-chat-item { padding: 10px; cursor: pointer; border-radius: 4px; transition: background-color 0.2s; } .quick-chat-item:hover { background-color: var(--action-color); }
@@ -119,8 +226,45 @@ body { font-family: 'Poppins', sans-serif; background-color: var(--bg-main); col
 .legend-color-box { width: 24px; height: 24px; border-radius: 4px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.2); }
 .legend-item .legend-character-icon { display: flex; justify-content: center; align-items: center; font-size: 1.5em; }
 
-@media (max-width: 1200px) { #main-area { grid-template-columns: 250px 1fr 320px; } } 
-@media (max-width: 900px) { body { padding: 5px; overflow: auto; } #game-container { gap: 10px; } #main-area { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; } #main-view-wrapper { grid-row: 1; height: 50vh; } #right-panel { grid-row: 2; } #left-panel { grid-row: 3; } .ui-panel { overflow-y: visible; padding: 15px; } .ui-panel section { padding: 12px; } .nav-button-overlay { width: 45px; height: 45px; font-size: 1.2em; } #bottom-bar { height: 200px; } #quick-slots-panel { top: 20px; left: 50%; transform: translateX(-50%); flex-direction: row; } }
+@media (max-width: 1200px) { 
+    #main-area { grid-template-columns: 250px 1fr 320px; } 
+} 
+@media (max-width: 900px) { 
+    body { padding: 5px; overflow: auto; } 
+    #game-container { 
+        gap: 10px; 
+        aspect-ratio: unset; 
+        width: 100%;
+        height: auto; 
+        min-height: 100vh; 
+        max-height: unset;
+    } 
+    #main-area { 
+        grid-template-columns: 1fr; 
+        grid-template-rows: auto; 
+        height: auto; 
+    } 
+    #main-view-wrapper { 
+        grid-row: 1; 
+        height: 60vw; 
+        max-height: 400px; 
+    }
+    #main-view-container {
+        width: auto; 
+        height: 100%;
+    }
+    #right-panel { grid-row: 2; } 
+    #left-panel { grid-row: 3; } 
+    .ui-panel { overflow-y: visible; padding: 15px; } 
+    .ui-panel section { padding: 12px; } 
+    .nav-button-overlay { width: 45px; height: 45px; font-size: 1.2em; } 
+    #bottom-bar { 
+        height: auto; 
+        min-height: 180px; 
+    } 
+    #quick-slots-panel { top: 10px; left: 50%; transform: translateX(-50%); flex-direction: row; padding: 10px; gap:10px; } 
+    .quick-equip-slot-display { width: 50px; height: 50px; font-size: 2em; }
+}
 
 .action-failed-shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
 @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
