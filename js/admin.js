@@ -1,6 +1,6 @@
 // js/admin.js
-import { ITEM_TYPES } from './config.js'; // CORRIGÉ: de '../config.js' à './config.js'
-import * as State from './state.js';       // CORRIGÉ: de '../state.js' à './state.js'
+import { ITEM_TYPES } from './config.js';
+import * as State from './state.js';
 import * as UI from './ui.js'; // Pour addChatMessage
 
 let adminModalEl = null;
@@ -25,37 +25,34 @@ function handleGiveAllResources() {
         return;
     }
 
+    // --- MODIFICATION : Augmenter maxInventory ---
+    player.maxInventory = 15000;
+    UI.addChatMessage(`Admin: Capacité d'inventaire augmentée à ${player.maxInventory}.`, "system_event");
+    // --- FIN MODIFICATION ---
+
     let itemsGivenCount = 0;
     const itemsToGiveDetails = {}; // Pour le log console
 
     for (const itemName in ITEM_TYPES) {
         const itemDef = ITEM_TYPES[itemName];
-        // Donner ressources, consommables, clés, et 'usable' simples.
-        // Exclure les équipements (type: tool, weapon, shield, armor, body, head, feet, bag)
-        // car ils ne stackent pas de la même manière et sont destinés à être équipés.
         if (itemDef.type === 'resource' ||
             itemDef.type === 'consumable' ||
             itemDef.type === 'key' ||
-            (itemDef.type === 'usable' && !itemDef.slot && itemName !== 'Torche') || // 'usable' sans slot (ex: Boussole, Sifflet, Carte). Exclure Torche (qui a un slot)
-            (itemName === 'Torche' && itemDef.slot === 'weapon') // Inclure spécifiquement la torche si elle est de type 'weapon'
+            (itemDef.type === 'usable' && !itemDef.slot && itemName !== 'Torche') ||
+            (itemName === 'Torche' && itemDef.slot === 'weapon')
            ) {
 
-            let quantity = 100; // Quantité par défaut
+            let quantity = 100;
             if (itemDef.type === 'key' || itemDef.unique) {
                 quantity = 1;
             } else if (itemDef.uses || (itemDef.hasOwnProperty('durability') && itemDef.type === 'consumable')) {
-                // Pour les objets avec 'uses' (comme Carte) ou consommables avec durabilité (comme Allumettes, Briquet)
-                quantity = 5; // En donner quelques-uns
+                quantity = 5;
             } else if (itemName === 'Torche') {
-                quantity = 5; // 5 torches
+                quantity = 5;
             }
 
-
-            // Ne pas donner si c'est un parchemin déjà connu
             if (itemDef.teachesRecipe && State.state.knownRecipes[itemDef.teachesRecipe]) {
-                // Si on veut quand même donner le parchemin même si connu, commenter cette condition
-                // Pour l'instant, on ne le donne pas s'il est connu pour éviter le spam.
-                // Si on veut le donner, on peut ajouter 1 à player.inventory et logger, puis continuer.
+                // Ne rien faire si la recette est déjà connue
             } else {
                  State.addResourceToPlayer(itemName, quantity);
                  itemsGivenCount++;
@@ -64,19 +61,16 @@ function handleGiveAllResources() {
         }
     }
 
-    // Donner spécifiquement 1 exemplaire de chaque parchemin non encore connu
-    // (même si la logique ci-dessus avec type 'consumable' les couvre, ceci est plus explicite)
     for (const itemName in ITEM_TYPES) {
         const itemDef = ITEM_TYPES[itemName];
         if (itemDef.teachesRecipe && !State.state.knownRecipes[itemDef.teachesRecipe]) {
-            if (!itemsToGiveDetails[itemName]) { // S'il n'a pas déjà été ajouté par la boucle précédente
+            if (!itemsToGiveDetails[itemName]) {
                  State.addResourceToPlayer(itemName, 1);
-                 itemsGivenCount++; // Compter comme un type d'item distinct si pas déjà compté
+                 itemsGivenCount++;
                  itemsToGiveDetails[itemName] = (itemsToGiveDetails[itemName] || 0) + 1;
             }
         }
     }
-
 
     if (itemsGivenCount > 0) {
         UI.addChatMessage(`Admin: ${itemsGivenCount} types d'objets/ressources ajoutés à l'inventaire.`, "system_event");
@@ -93,20 +87,20 @@ function handleGiveAllResources() {
 
 function adminTriggerClickHandler() {
     clickCount++;
-    if (clickTimer) clearTimeout(clickTimer); // Annule le timer précédent si on clique à nouveau
+    if (clickTimer) clearTimeout(clickTimer);
 
     if (clickCount >= REQUIRED_CLICKS) {
-        clickCount = 0; // Reset
+        clickCount = 0;
         showAdminModal();
     } else {
         clickTimer = setTimeout(() => {
-            clickCount = 0; // Reset après un délai si le nombre requis n'est pas atteint
-        }, 700); // Ex: 5 clics en 0.7 secondes
+            clickCount = 0;
+        }, 700);
     }
 }
 
 export function initAdminControls() {
-    console.log("admin.js: initAdminControls() a été appelée."); // Log de test
+    console.log("admin.js: initAdminControls() a été appelée.");
     adminModalEl = document.getElementById('admin-modal');
     const giveAllBtn = document.getElementById('admin-give-all-resources-btn');
     const closeAdminBtn = document.getElementById('admin-close-modal-btn');
@@ -115,7 +109,7 @@ export function initAdminControls() {
         console.error("Admin: Modal elements not found in DOM. (#admin-modal, #admin-give-all-resources-btn, #admin-close-modal-btn)");
         return;
     }
-    console.log("Admin: Modal elements trouvés."); // Log de test
+    console.log("Admin: Modal elements trouvés.");
 
     giveAllBtn.addEventListener('click', handleGiveAllResources);
     closeAdminBtn.addEventListener('click', hideAdminModal);
@@ -124,15 +118,15 @@ export function initAdminControls() {
     adminTriggerEl.id = 'admin-trigger-dot';
     adminTriggerEl.style.cssText = `
         position: fixed;
-        bottom: 3px; /* Ajusté pour être plus discret */
-        left: 3px;   /* Ajusté pour être plus discret */
-        width: 8px;  /* Plus petit */
-        height: 8px; /* Plus petit */
-        background-color: rgba(128,0,0,0.4); /* Rouge foncé semi-transparent */
+        bottom: 3px;
+        left: 3px;
+        width: 8px;
+        height: 8px;
+        background-color: rgba(128,0,0,0.4);
         z-index: 10000;
         cursor: pointer;
         border-radius: 50%;
-        opacity: 0.3; /* Plus discret */
+        opacity: 0.3;
         transition: opacity 0.3s, background-color 0.3s;
     `;
     adminTriggerEl.title = `Admin Panel (${REQUIRED_CLICKS} clicks)`;
@@ -146,11 +140,11 @@ export function initAdminControls() {
     });
 
     document.body.appendChild(adminTriggerEl);
-    console.log("Admin: Trigger dot ajouté au body."); // Log de test
+    console.log("Admin: Trigger dot ajouté au body.");
     adminTriggerEl.addEventListener('click', adminTriggerClickHandler);
 
     document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'm') { // Ctrl+Alt+M (M pour Menu)
+        if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'm') {
             e.preventDefault();
             if (adminModalEl.classList.contains('hidden')) {
                 showAdminModal();
