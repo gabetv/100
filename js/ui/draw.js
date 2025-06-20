@@ -1,10 +1,10 @@
 // js/ui/draw.js
-import { TILE_TYPES, CONFIG } from '../config.js'; // Ajout CONFIG pour FOG_OF_WAR_REVEAL_THRESHOLD
-import DOM from './dom.js';
+import { TILE_TYPES, CONFIG } from '../config.js'; // Ajout CONFIG pour FOG_OF_WAR_REVEAL_THRESHOLD | '../' pour remonter de 'ui' à 'js'
+import DOM from './dom.js'; // './' car dom.js est dans le même dossier 'ui'
 
 const loadedAssets = {};
 
-const TILE_ICONS = { // Renommé 'Sable Doré' en 'Plage'
+const TILE_ICONS = { 
     'Lagon': '🌊', 'Plage': '🏖️', 'Forêt': '🌲', 'Friche': '🍂',
     'Plaine': '🌳', 'Gisement de Pierre': '⛰️', 'Feu de Camp': '🔥',
     'Abri Individuel': '⛺', 'Abri Collectif': '🏠', 'Mine': '⛏️',
@@ -196,7 +196,7 @@ export function drawSceneCharacters(gameState) {
 
 export function drawMinimap(gameState, config) {
     if (!gameState || !gameState.map || !gameState.player || !config) return;
-    const { map, player, npcs, enemies, globallyRevealedTiles } = gameState; // Ajout globallyRevealedTiles
+    const { map, player, npcs, enemies, globallyRevealedTiles } = gameState; 
     const { MAP_WIDTH, MAP_HEIGHT, MINIMAP_DOT_SIZE } = config;
     const { minimapCanvas, minimapCtx } = DOM;
     if(!minimapCtx || !minimapCanvas) return;
@@ -209,7 +209,7 @@ export function drawMinimap(gameState, config) {
         for (let x = 0; x < MAP_WIDTH; x++) {
             const tileKey = `${x},${y}`;
             if (!player.visitedTiles.has(tileKey) && !globallyRevealedTiles.has(tileKey)) {
-                minimapCtx.fillStyle = '#111'; // Couleur pour les tuiles non découvertes
+                minimapCtx.fillStyle = '#111'; 
                 minimapCtx.fillRect(x * MINIMAP_DOT_SIZE, y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
             } else if (map[y] && map[y][x] && map[y][x].type) {
                 minimapCtx.fillStyle = map[y][x].type.color || '#ff00ff';
@@ -254,7 +254,7 @@ export function drawMinimap(gameState, config) {
 
 export function drawLargeMap(gameState, config) {
     if (!gameState || !gameState.map || !gameState.player || !config) return;
-    const { map, player, npcs, enemies, globallyRevealedTiles } = gameState; // Ajout globallyRevealedTiles
+    const { map, player, npcs, enemies, globallyRevealedTiles } = gameState; 
     const { MAP_WIDTH, MAP_HEIGHT } = config;
     const { largeMapCanvas, largeMapCtx } = DOM;
     if(!largeMapCtx || !largeMapCanvas) return;
@@ -285,7 +285,7 @@ export function drawLargeMap(gameState, config) {
             const drawY = headerSize + y * cellSize;
 
             if (!player.visitedTiles.has(tileKey) && !globallyRevealedTiles.has(tileKey)) {
-                largeMapCtx.fillStyle = '#000'; // Noir pour non découvert
+                largeMapCtx.fillStyle = '#000'; 
                 largeMapCtx.fillRect(drawX, drawY, cellSize, cellSize);
                 continue;
             }
@@ -397,7 +397,7 @@ export function populateLargeMapLegend() {
     enemyItem.className = 'legend-item';
     enemyItem.innerHTML = `<div class="legend-color-box legend-character-icon" style="color: #dc2626;">▲</div><span>Ennemis</span>`;
     largeMapLegendEl.appendChild(enemyItem);
-    const unknownItem = document.createElement('div'); // Légende pour case noire
+    const unknownItem = document.createElement('div'); 
     unknownItem.className = 'legend-item';
     unknownItem.innerHTML = `<div class="legend-color-box" style="background-color: #000;"></div><span>Non découvert</span>`;
     largeMapLegendEl.appendChild(unknownItem);

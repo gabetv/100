@@ -136,28 +136,6 @@ body {
 #actions button:disabled { background-color: #2f4553; color: #9ab4c2; cursor: not-allowed; border-bottom-color: #1a2a32; transform: none; }
 #actions button:disabled:hover { transform: none; }
 
-/* Styles for the old build submenu, will be removed if main button opens modal */
-/* #main-build-btn { margin-bottom: 5px; } */
-/* #build-submenu-content {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding-left: 15px;
-    border-left: 2px solid rgba(255,255,255,0.2);
-    margin-left: 5px;
-    max-height: 200px;
-    overflow-y: auto;
-}
-#build-submenu-content button {
-    font-size: 0.9em;
-    padding: 10px;
-    background-color: rgba(69, 123, 157, 0.7);
-}
-#build-submenu-content button:hover:not(:disabled) {
-    background-color: rgba(94, 154, 196, 0.8);
-} */
-
-
 #minimap-section h3 button#enlarge-map-btn { margin-left: auto; }
 #enlarge-map-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary); cursor: pointer; border-radius: 4px; padding: 0 6px; font-size: 1.2em; transition: all 0.2s; }
 #enlarge-map-btn:hover { background: var(--action-color); color: var(--text-light); }
@@ -484,3 +462,72 @@ body {
 #build-modal-grid::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 4px; }
 #build-modal-grid::-webkit-scrollbar-thumb { background: var(--action-color); border-radius: 4px; }
 #build-modal-grid::-webkit-scrollbar-thumb:hover { background: #5e9ac4; }
+
+/* ---- MODALE ADMIN ---- */
+#admin-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10001; /* Au-dessus des autres modales */
+    background-color: rgba(10, 20, 30, 0.85); /* Fond plus sombre */
+    backdrop-filter: blur(6px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    opacity: 0; /* Caché par défaut via JS, mais bon à avoir */
+    transition: opacity 0.2s ease-in-out;
+    pointer-events: none; /* Ignorer les clics quand caché */
+}
+#admin-modal:not(.hidden) { /* Styles quand la modale est visible */
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#admin-modal-content {
+    background-color: var(--bg-panel); /* Utilise le fond des panneaux UI existants */
+    border: 2px solid var(--accent-color); /* Bordure accentuée */
+    border-radius: var(--border-radius);
+    padding: 25px 30px;
+    width: 100%;
+    max-width: 380px; /* Taille modérée */
+    box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 18px; /* Espacement entre les éléments */
+}
+#admin-modal-content h2 {
+    text-align: center;
+    margin-bottom: 10px; /* Réduit pour un look plus compact */
+    color: var(--accent-color);
+    font-size: 1.5em; /* Taille de titre standard pour modale */
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 12px;
+}
+#admin-modal-content button {
+    padding: 12px 15px;
+    font-size: 1em;
+    font-weight: 600;
+    font-family: 'Poppins', sans-serif;
+    border: none;
+    border-radius: 6px; /* Bordures plus douces */
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+#admin-modal-content button:active {
+    transform: translateY(1px);
+}
+
+#admin-give-all-resources-btn {
+    background-color: var(--action-color);
+    color: var(--text-light);
+}
+#admin-give-all-resources-btn:hover {
+    background-color: #5e9ac4; /* Couleur hover de var(--action-color) */
+}
+#admin-close-modal-btn {
+    background-color: #5a6470; /* Gris plus neutre */
+    color: var(--text-light);
+}
+#admin-close-modal-btn:hover {
+    background-color: #6b7280;
+}

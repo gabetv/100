@@ -1,10 +1,10 @@
 // js/ui/modals.js
-import { ITEM_TYPES, COMBAT_CONFIG, TILE_TYPES } from '../config.js';
-import { getTotalResources } from '../player.js';
-import * as State from '../state.js'; // Pour State.hasResources et State.applyResourceDeduction
-import DOM from './dom.js';
-import * as Draw from './draw.js';
-import { handleCombatAction, handlePlayerAction } from '../interactions.js'; // handlePlayerAction pour construire
+import { ITEM_TYPES, COMBAT_CONFIG, TILE_TYPES } from '../config.js'; // '../' pour remonter de 'ui' à 'js'
+import { getTotalResources } from '../player.js'; // '../' pour remonter de 'ui' à 'js'
+import * as State from '../state.js'; // '../' pour remonter de 'ui' à 'js'
+import DOM from './dom.js'; // './' car dom.js est dans le même dossier 'ui'
+import * as Draw from './draw.js'; // './' car draw.js est dans le même dossier 'ui'
+import { handleCombatAction, handlePlayerAction } from '../interactions.js'; // '../' pour remonter de 'ui' à 'js'
 
 let quantityConfirmCallback = null;
 
@@ -247,15 +247,13 @@ function populateBuildModal(gameState) {
         const bt = TILE_TYPES[key];
         if (!bt.isBuilding || !bt.cost) return false;
         
-        // Vérifier si le bâtiment peut être construit sur le type de terrain actuel
         if (tile.type.name !== TILE_TYPES.PLAINS.name && key !== 'MINE' && key !== 'CAMPFIRE') {
             return false;
         }
         
-        // Vérifier si une recette est nécessaire et connue (pour les bâtiments appris par parchemin)
         const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === bt.name && item.isBuildingRecipe);
         if (buildingRecipeParchemin && !knownRecipes[bt.name]) {
-            return false; // Recette requise mais non connue
+            return false; 
         }
         return true;
     });
@@ -290,7 +288,7 @@ function populateBuildModal(gameState) {
         costsDiv.innerHTML = '<h4>Coûts :</h4>';
         const costsList = document.createElement('ul');
         const costs = { ...buildingType.cost };
-        const toolReqArray = costs.toolRequired; // Séparer les outils
+        const toolReqArray = costs.toolRequired; 
         delete costs.toolRequired;
 
         if (Object.keys(costs).length > 0) {
@@ -346,13 +344,12 @@ function populateBuildModal(gameState) {
 
 
         buildButton.onclick = () => {
-            // Utiliser la fonction globale qui gère les UI updates
             if (window.handleGlobalPlayerAction) {
                 window.handleGlobalPlayerAction('build_structure', { structureKey: bKey });
-            } else { // Fallback si la fonction globale n'est pas encore définie (devrait l'être)
+            } else { 
                  handlePlayerAction('build_structure', { structureKey: bKey }, { updateAllUI: window.fullUIUpdate, updatePossibleActions: window.updatePossibleActions, updateAllButtonsState: () => window.UI.updateAllButtonsState(State.state) });
             }
-            hideBuildModal(); // Fermer la modale après avoir cliqué
+            hideBuildModal(); 
         };
         actionDiv.appendChild(buildButton);
 
@@ -362,4 +359,5 @@ function populateBuildModal(gameState) {
         card.appendChild(toolsDiv);
         card.appendChild(actionDiv);
         DOM.buildModalGridEl.appendChild(card);
-    });}
+    });
+}

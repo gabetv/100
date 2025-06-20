@@ -1,7 +1,7 @@
 // js/ui/panels.js
-import { ITEM_TYPES, TILE_TYPES } from '../config.js'; 
-import { getTotalResources } from '../player.js';
-import DOM from './dom.js';
+import { ITEM_TYPES, TILE_TYPES } from '../config.js'; // '../' pour remonter de 'ui' à 'js'
+import { getTotalResources } from '../player.js'; // '../' pour remonter de 'ui' à 'js'
+import DOM from './dom.js'; // './' car dom.js est dans le même dossier 'ui'
 
 function drawSquaresBar(container, value, maxValue) {
     if (!container) return;
@@ -103,7 +103,7 @@ export function updateInventory(player) {
                 const li = document.createElement('li');
                 li.className = 'inventory-item';
                 if (itemDef.type === 'consumable' || itemName.startsWith('Parchemin Atelier') || itemName === 'Eau salée' || itemDef.slot || itemName === 'Carte') {
-                    li.classList.add('clickable'); // Clickable pour consommer, équiper, utiliser (carte)
+                    li.classList.add('clickable'); 
                 }
                 li.dataset.itemName = itemName;
                 li.setAttribute('draggable', 'true'); 
@@ -225,7 +225,6 @@ export function updateAllButtonsState(gameState) {
             }
         });
     }
-     // Désactiver les boutons dans la modale de construction si le joueur est occupé
     if (DOM.buildModalGridEl) {
         DOM.buildModalGridEl.querySelectorAll('button').forEach(b => {
              if (isPlayerBusy && !b.classList.contains('action-always-enabled')) { 
@@ -257,10 +256,10 @@ export function updateGroundItemsPanel(tile) {
             if (groundItems[itemName] > 0) {
                 const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
                 const li = document.createElement('li');
-                li.className = 'inventory-item clickable'; // Clickable pour ramasser
+                li.className = 'inventory-item clickable'; 
                 li.dataset.itemName = itemName;
                 li.dataset.itemCount = groundItems[itemName];
-                li.setAttribute('draggable', 'true'); // Draggable pour ramasser
+                li.setAttribute('draggable', 'true'); 
                 li.dataset.owner = 'ground';
 
                 li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${groundItems[itemName]}</span>`;
@@ -290,7 +289,7 @@ export function updateBottomBarEquipmentPanel(player) {
         slotContainer.appendChild(label);
 
         const slotEl = document.createElement('div');
-        slotEl.className = 'equipment-slot-small droppable'; // Droppable pour équiper
+        slotEl.className = 'equipment-slot-small droppable'; 
         slotEl.dataset.slotType = slotInfo.type;
         slotEl.dataset.owner = 'equipment';
 
@@ -299,10 +298,10 @@ export function updateBottomBarEquipmentPanel(player) {
             const itemDef = ITEM_TYPES[equippedItem.name] || { icon: equippedItem.icon || '❓' };
             const itemDiv = document.createElement('div');
             itemDiv.className = 'inventory-item'; 
-            itemDiv.setAttribute('draggable', 'true'); // Draggable pour déséquiper vers inventaire
+            itemDiv.setAttribute('draggable', 'true'); 
             itemDiv.dataset.itemName = equippedItem.name;
-            itemDiv.dataset.owner = 'equipment'; // L'item appartient à l'équipement
-            itemDiv.dataset.slotType = slotInfo.type; // Le slot d'origine de l'item
+            itemDiv.dataset.owner = 'equipment'; 
+            itemDiv.dataset.slotType = slotInfo.type; 
 
             const iconEl = document.createElement('span');
             iconEl.className = 'inventory-icon';

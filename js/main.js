@@ -1,13 +1,14 @@
 // js/main.js
 import * as UI from './ui.js';
-import { initDOM } from './ui/dom.js';
-import DOM from './ui/dom.js';
-import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES, SEARCH_ZONE_CONFIG } from './config.js';
-import * as State from './state.js';
-import { decayStats, getTotalResources } from './player.js';
-import { updateNpcs, npcChatter } from './npc.js';
-import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js';
-import * as Interactions from './interactions.js';
+import { initDOM } from './ui/dom.js'; // Assurez-vous que ce chemin est correct (js/ui/dom.js)
+import DOM from './ui/dom.js';         // Assurez-vous que ce chemin est correct (js/ui/dom.js)
+import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES, SEARCH_ZONE_CONFIG } from './config.js'; // './' car config.js est dans js/
+import * as State from './state.js'; // './' car state.js est dans js/
+import { decayStats, getTotalResources } from './player.js'; // './' car player.js est dans js/
+import { updateNpcs, npcChatter } from './npc.js'; // './' car npc.js est dans js/
+import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js'; // './' car enemy.js est dans js/
+import * as Interactions from './interactions.js'; // './' car interactions.js est dans js/
+import { initAdminControls } from './admin.js'; // './' car admin.js est dans js/
 
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
@@ -261,19 +262,19 @@ function gameLoop(currentTime) {
 
     if (player.animationState) {
         const anim = player.animationState;
-        const safeDeltaTime = Math.min(deltaTime, 50); // Limiter le deltaTime pour éviter les sauts
+        const safeDeltaTime = Math.min(deltaTime, 50); 
         anim.progress += safeDeltaTime / ACTION_DURATIONS.MOVE_TRANSITION;
 
         if (anim.progress >= 1) {
             if (anim.type === 'out') {
                 State.applyPlayerMove(anim.direction);
-                UI.renderScene(State.state); // Redessiner après le déplacement logique
+                UI.renderScene(State.state); 
                 anim.type = 'in';
                 anim.progress = 0;
-            } else { // type 'in'
+            } else { 
                 player.animationState = null;
-                player.isBusy = false; // Le joueur n'est plus occupé APRÈS l'animation d'entrée
-                fullUIUpdate(); // Mettre à jour l'UI après que l'animation soit finie
+                player.isBusy = false; 
+                fullUIUpdate(); 
             }
         }
     }
@@ -316,11 +317,11 @@ function handleNavigation(direction) {
         // Géré dans applyRandomStatCost si le joueur n'a plus de stats
     }
 
-    player.isBusy = true; // Le joueur devient occupé dès le début de l'animation de sortie
+    player.isBusy = true; 
     player.animationState = { type: 'out', direction: direction, progress: 0 };
 
-    updatePossibleActions(); // Mettre à jour les actions possibles (qui devraient être vides/désactivées)
-    UI.updateAllButtonsState(State.state); // Désactiver les boutons pendant l'animation
+    updatePossibleActions(); 
+    UI.updateAllButtonsState(State.state); 
 }
 
 function handleSpecificConsume(statType) {
@@ -418,15 +419,14 @@ function handleConsumeClick(itemName) {
     } else { if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl); }
 }
 
-// Rendre fullUIUpdate et d'autres fonctions nécessaires globalement accessibles pour les callbacks des modales
 window.fullUIUpdate = function() {
     if (!State.state || !State.state.player) return;
     UI.updateAllUI(State.state);
-    updatePossibleActions(); // S'assurer que les actions sont aussi mises à jour
-    UI.updateAllButtonsState(State.state); // Et l'état des boutons
+    updatePossibleActions(); 
+    UI.updateAllButtonsState(State.state); 
 
     if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.updateEquipmentModal(State.state);
-    if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.showInventoryModal(State.state); // Peut nécessiter une logique de rafraîchissement
+    if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.showInventoryModal(State.state); 
     if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) {
         if (State.state && State.state.config) {
             UI.drawLargeMap(State.state, State.state.config);
@@ -434,14 +434,14 @@ window.fullUIUpdate = function() {
         }
     }
     if (DOM.buildModal && !DOM.buildModal.classList.contains('hidden')) {
-        UI.populateBuildModal(State.state); // Rafraîchir la modale de construction
+        UI.populateBuildModal(State.state); 
     }
     if (DOM.bottomBarEl) {
         UI.updateGroundItemsPanel(State.state.map[State.state.player.y][State.state.player.x]);
     }
 };
 window.updatePossibleActions = updatePossibleActions;
-window.UI = UI; // Pour UI.updateAllButtonsState
+window.UI = UI; 
 
 window.handleGlobalPlayerAction = (actionId, data) => {
     Interactions.handlePlayerAction(actionId, data, { 
@@ -536,9 +536,9 @@ function handleDrop(e) {
                 const result = State.pickUpItemFromGround(itemName, 1);
                 UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
             }
-            transferProcessed = true; // Même si la modale s'ouvre, on considère le "drop" comme traité
+            transferProcessed = true; 
         }
-    } else if (dropZone.closest('#inventory-modal')) { // Inventaire partagé
+    } else if (dropZone.closest('#inventory-modal')) { 
         let transferType = '';
         if (draggedItemInfo.sourceOwner === 'player-inventory' && destOwner === 'shared') transferType = 'deposit';
         else if (draggedItemInfo.sourceOwner === 'shared' && destOwner === 'player-inventory') transferType = 'withdraw';
@@ -552,7 +552,7 @@ function handleDrop(e) {
             } else { State.applyBulkInventoryTransfer(draggedItemInfo.itemName, 1, transferType); }
             transferProcessed = true;
         }
-    } else if (destOwner === 'ground' && draggedItemInfo.sourceOwner === 'player-inventory') { // Déposer au sol
+    } else if (destOwner === 'ground' && draggedItemInfo.sourceOwner === 'player-inventory') { 
         const itemName = draggedItemInfo.itemName;
         const maxAmount = draggedItemInfo.itemCount;
         if (maxAmount > 1) {
@@ -659,7 +659,6 @@ function setupEventListeners() {
 
     if (DOM.equipmentModal) setupDragAndDropForContainer(DOM.equipmentModal);
     if (DOM.inventoryModal) setupDragAndDropForContainer(DOM.inventoryModal);
-    // Pas de drag/drop pour buildModal a priori, mais l'event listener ne fera pas de mal
     if (DOM.buildModal) setupDragAndDropForContainer(DOM.buildModal); 
 
 
@@ -684,24 +683,22 @@ function setupEventListeners() {
     }
 
     window.addEventListener('keydown', e => {
-        if (document.activeElement === DOM.chatInputEl || DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) return; // Ne pas interférer si input chat ou modale quantité est active
+        if (document.activeElement === DOM.chatInputEl || DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) return; 
         if (e.key === 'Escape') {
             if (DOM.buildModal && !DOM.buildModal.classList.contains('hidden')) UI.hideBuildModal();
             else if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
             else if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
             else if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) UI.hideLargeMap();
             else if (DOM.combatModal && !DOM.combatModal.classList.contains('hidden')) UI.hideCombatModal();
-            // La modale de quantité est déjà gérée par son propre listener Escape si elle est active
-        } else if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w' || e.key.toLowerCase() === 'z') handleNavigation('north'); // Ajout W
+        } else if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w' || e.key.toLowerCase() === 'z') handleNavigation('north'); 
         else if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') handleNavigation('south');
-        else if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'q') handleNavigation('west'); // Ajout A
+        else if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'q') handleNavigation('west'); 
         else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') handleNavigation('east');
         else if (e.key.toLowerCase() === 'e') UI.showEquipmentModal(State.state); 
         else if (e.key.toLowerCase() === 'm') handleGlobalPlayerAction('open_large_map', {});
-        else if (e.key.toLowerCase() === 'c') UI.showBuildModal(State.state); // Raccourci Construction
-        else if (e.key.toLowerCase() === 'i') { // Raccourci pour ouvrir/fermer l'inventaire partagé (si applicable)
+        else if (e.key.toLowerCase() === 'c') UI.showBuildModal(State.state); 
+        else if (e.key.toLowerCase() === 'i') { 
             if (DOM.inventoryModal && DOM.inventoryModal.classList.contains('hidden')) {
-                // Vérifier si une action d'ouverture de stockage est disponible
                 const tile = State.state.map[State.state.player.y][State.state.player.x];
                 const buildingWithInv = tile.buildings.find(b => TILE_TYPES[b.key]?.inventory || TILE_TYPES[b.key]?.maxInventory);
                 const tileHasInv = tile.type.inventory || tile.type.maxInventory;
@@ -711,7 +708,7 @@ function setupEventListeners() {
             }
         }
     });
-    window.gameState = State.state; // Pour debug ou accès facile depuis la console
+    window.gameState = State.state; 
     UI.setupQuantityModalListeners();
 }
 
@@ -754,7 +751,7 @@ async function init() {
         console.log("DOM initialisé.");
         await UI.loadAssets(SPRITESHEET_PATHS);
         console.log("Assets chargés.");
-        fullResizeAndRedraw(); // Premier dessin après chargement des assets
+        fullResizeAndRedraw(); 
         window.addEventListener('resize', fullResizeAndRedraw);
 
         State.initializeGameState(CONFIG);
@@ -762,14 +759,17 @@ async function init() {
         UI.addChatMessage("Bienvenue aventurier, trouve vite d'autres aventuriers pour s'organiser ensemble!", "system_event", "Ancien");
 
         if (State.state && !State.state.config) {
-            State.state.config = CONFIG; // Fallback, devrait être fait dans initializeGameState
+            State.state.config = CONFIG; 
             console.warn("State.state.config a été redéfini dans init de main.js, vérifier initializeGameState.");
         }
 
         setupEventListeners();
         console.log("Écouteurs d'événements configurés.");
-        UI.updateBottomBarEquipmentPanel(State.state.player); // Mise à jour initiale
-        window.fullUIUpdate(); // Mise à jour complète de l'UI initiale
+
+        initAdminControls(); 
+
+        UI.updateBottomBarEquipmentPanel(State.state.player); 
+        window.fullUIUpdate(); 
         requestAnimationFrame(gameLoop);
 
         if (State.state) {

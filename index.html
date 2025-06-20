@@ -183,7 +183,17 @@
         </div>
     </div>
 
-    <script type="module" src="js/main.js"></script>
+    <!-- MODALE ADMIN (cachée par défaut) -->
+    <div id="admin-modal" class="hidden">
+        <div id="admin-modal-content">
+            <h2>Menu Admin</h2>
+            <button id="admin-give-all-resources-btn">Donner Toutes les Ressources de Base</button>
+            <!-- Vous pourriez ajouter d'autres boutons admin ici à l'avenir -->
+            <button id="admin-close-modal-btn">Fermer</button>
+        </div>
+    </div>
 
+    <script type="module" src="js/main.js"></script>
+    <!-- Le script admin est maintenant importé et initialisé depuis main.js -->
 </body>
 </html>
