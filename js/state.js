@@ -121,8 +121,8 @@ export function applyBulkInventoryTransfer(itemName, amount, transferType) {
         if (!tile.inventory) tile.inventory = JSON.parse(JSON.stringify(TILE_TYPES[buildingWithInventory.key].inventory));
         targetInventory = tile.inventory;
         targetCapacity = TILE_TYPES[buildingWithInventory.key].maxInventory || Infinity;
-    } else if (tile.type.inventory) { // Cas d'un trésor ou autre type de tuile avec inventaire direct
-        if (!tile.inventory) tile.inventory = JSON.parse(JSON.stringify(tile.type.inventory)); // Initialiser si besoin
+    } else if (tile.type.inventory) { 
+        if (!tile.inventory) tile.inventory = JSON.parse(JSON.stringify(tile.type.inventory)); 
         targetInventory = tile.inventory;
         targetCapacity = tile.type.maxInventory || Infinity;
     } else {
@@ -152,29 +152,43 @@ export function applyBulkInventoryTransfer(itemName, amount, transferType) {
 }
 
 export function startCombat(player, enemy) {
-    if (gameState.combatState) return;
+    if (gameState.combatState) return; // Ne pas démarrer un nouveau combat si un est déjà en cours
     player.isBusy = true;
     gameState.combatState = {
-        enemy: enemy,
+        enemy: enemy, // L'ennemi peut être une instance locale (pour fouille) ou de la liste globale
         isPlayerTurn: true,
         log: [`Un ${enemy.name} vous attaque !`],
     };
-    console.log("Combat started with:", enemy.name);
+    console.log("Combat started with:", enemy.name, enemy.isSearchEncounter ? "(Search Encounter)" : "(Regular Enemy)");
 }
 
 export function endCombat(victory) {
     const { combatState, player } = gameState;
     if (!combatState) return;
 
+    const enemyDefeated = combatState.enemy; // Garder une référence avant de nullifier combatState
+
     if (victory) {
-        const enemy = combatState.enemy;
-        // La gestion du loot est faite dans interactions.js/playerAttack
+        // Le loot est géré dans playerAttack.
+        
+        // Si l'ennemi N'ÉTAIT PAS un spawn de fouille temporaire (donc il n'a pas enemyDefeated.isSearchEncounter = true)
+        // OU si on avait décidé de quand même ajouter les ennemis de fouille à la liste globale,
+        // alors on le retire de la liste globale gameState.enemies.
+        if (!enemyDefeated.isSearchEncounter) {
+            gameState.enemies = gameState.enemies.filter(e => e.id !== enemyDefeated.id);
+            console.log(`Regular enemy ${enemyDefeated.name} (ID: ${enemyDefeated.id}) removed from global list.`);
+        } else {
+            // Si c'est un isSearchEncounter, et qu'on a suivi la logique de ne PAS l'ajouter à gameState.enemies
+            // alors il n'y a rien à faire ici pour le retirer de cette liste. Il disparaîtra car il n'y est pas.
+            console.log(`Search encounter enemy ${enemyDefeated.name} (ID: ${enemyDefeated.id}) was defeated.`);
+        }
     }
 
-    player.isBusy = false;
-    gameState.combatState = null;
+    player.isBusy = false; // Le joueur n'est plus occupé par le combat
+    gameState.combatState = null; // Très important : faire ça APRÈS avoir utilisé combatState.enemy
     console.log("Combat ended.");
 }
+
 
 export function addEnemy(enemy) {
     if (enemy) {
@@ -183,53 +197,26 @@ export function addEnemy(enemy) {
 }
 
 export function equipItem(itemName) {
-    console.log(`[State.equipItem] Appelée avec l'objet : '${itemName}'`);
     const player = gameState.player;
     const itemDef = ITEM_TYPES[itemName];
-
-    if (!itemDef || !player.inventory[itemName]) {
-        console.error(`[State.equipItem] ÉCHEC : L'objet '${itemName}' est introuvable ou n'est plus dans l'inventaire.`);
-        return { success: false, message: "Objet introuvable." };
-    }
-
+    if (!itemDef || !player.inventory[itemName]) return { success: false, message: "Objet introuvable." };
     const slot = itemDef.slot;
-    console.log(`[State.equipItem] L'objet a le slot : '${slot}'.`);
-
-    if (!slot || !player.equipment.hasOwnProperty(slot)) {
-        console.error(`[State.equipItem] ÉCHEC : L'objet n'a pas de slot valide ou le joueur n'a pas cet emplacement d'équipement. Slot de l'objet : ${slot}`);
-        return { success: false, message: "Vous ne pouvez pas équiper ceci." };
-    }
-
+    if (!slot || !player.equipment.hasOwnProperty(slot)) return { success: false, message: "Vous ne pouvez pas équiper ceci." };
     if (player.equipment[slot]) {
-        console.log(`[State.equipItem] Le slot '${slot}' est déjà occupé par '${player.equipment[slot].name}'. Tentative de déséquipement.`);
         const unequipResult = unequipItem(slot);
-        if (!unequipResult.success) {
-            console.error(`[State.equipItem] ÉCHEC : Le déséquipement de l'objet précédent a échoué. Message: ${unequipResult.message}`);
-            return unequipResult;
-        }
+        if (!unequipResult.success) return unequipResult;
     }
-
     player.inventory[itemName]--;
     if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
-
     const newEquip = { name: itemName, ...itemDef };
-    if (newEquip.hasOwnProperty('durability')) { 
-      newEquip.currentDurability = newEquip.durability;
-    }
+    if (newEquip.hasOwnProperty('durability')) newEquip.currentDurability = newEquip.durability;
     player.equipment[slot] = newEquip;
-
-
     if (itemDef.stats) {
         for (const stat in itemDef.stats) {
-            if (stat.startsWith('max') && player.hasOwnProperty(stat)) {
-                player[stat] += itemDef.stats[stat];
-            }
-            else if (player.hasOwnProperty(stat)) {
-                 player[stat] += itemDef.stats[stat];
-            }
+            if (stat.startsWith('max') && player.hasOwnProperty(stat)) player[stat] += itemDef.stats[stat];
+            else if (player.hasOwnProperty(stat)) player[stat] += itemDef.stats[stat];
         }
     }
-    console.log(`[State.equipItem] SUCCÈS : '${itemName}' a été équipé dans le slot '${slot}'.`);
     return { success: true, message: `${itemName} équipé.` };
 }
 
@@ -237,27 +224,20 @@ export function unequipItem(slot) {
     const player = gameState.player;
     const item = player.equipment[slot];
     if (!item) return { success: false, message: "Aucun objet dans cet emplacement." };
-
-    if (getTotalResources(player.inventory) >= player.maxInventory) {
-        return { success: false, message: "Inventaire plein." };
-    }
+    if (getTotalResources(player.inventory) >= player.maxInventory) return { success: false, message: "Inventaire plein." };
     addResourceToPlayer(item.name, 1);
     player.equipment[slot] = null;
-
     if (item.stats) {
         for (const stat in item.stats) {
             if (stat.startsWith('max') && player.hasOwnProperty(stat)) {
                 player[stat] -= item.stats[stat];
                 const currentStatName = stat.substring(3).toLowerCase(); 
-                if (player.hasOwnProperty(currentStatName)) {
-                    player[currentStatName] = Math.min(player[currentStatName], player[stat]);
-                }
+                if (player.hasOwnProperty(currentStatName)) player[currentStatName] = Math.min(player[currentStatName], player[stat]);
             } else if (player.hasOwnProperty(stat)) {
                 player[stat] -= item.stats[stat];
             }
         }
     }
-
     return { success: true, message: `${item.name} déséquipé.` };
 }
 
@@ -269,64 +249,34 @@ export function addResourceToPlayer(resourceType, amount) {
 export function addBuildingToTile(x, y, buildingKey) {
     const tile = gameState.map[y][x];
     const buildingType = TILE_TYPES[buildingKey];
-
-    if (!tile || !buildingType || !buildingType.isBuilding) {
-        return { success: false, message: "Type de bâtiment invalide ou tuile introuvable." };
-    }
-    if (tile.buildings.length >= CONFIG.MAX_BUILDINGS_PER_TILE) {
-        return { success: false, message: "Nombre maximum de bâtiments atteint sur cette tuile." };
-    }
-    if (!tile.type.buildable) {
-         return { success: false, message: "Vous ne pouvez pas construire ici." };
-    }
-     if (tile.type.name !== TILE_TYPES.PLAINS.name && buildingKey !== 'MINE' && buildingKey !== 'CAMPFIRE') {
+    if (!tile || !buildingType || !buildingType.isBuilding) return { success: false, message: "Type de bâtiment invalide ou tuile introuvable." };
+    if (tile.buildings.length >= CONFIG.MAX_BUILDINGS_PER_TILE) return { success: false, message: "Nombre maximum de bâtiments atteint sur cette tuile." };
+    if (!tile.type.buildable) return { success: false, message: "Vous ne pouvez pas construire ici." };
+    if (tile.type.name !== TILE_TYPES.PLAINS.name && buildingKey !== 'MINE' && buildingKey !== 'CAMPFIRE') {
         if (Object.values(TILE_TYPES).find(t => t === tile.type)?.name !== TILE_TYPES.PLAINS.name) {
              return { success: false, message: "Ce bâtiment ne peut être construit que sur une Plaine."};
         }
     }
-
-    tile.buildings.push({
-        key: buildingKey,
-        durability: buildingType.durability,
-        maxDurability: buildingType.durability,
-    });
-
-    if (buildingType.inventory && !tile.inventory) { // Si le bâtiment a un inventaire et que la tuile n'en a pas encore un "global"
-        tile.inventory = JSON.parse(JSON.stringify(buildingType.inventory));
-    }
-
-
-    if (buildingKey === 'SHELTER_COLLECTIVE') {
-        gameState.shelterLocation = { x, y };
-    }
-
-    const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === buildingType.name && item.isBuildingRecipe);
-    if (buildingRecipeParchemin) {
-        // gameState.knownRecipes[buildingType.name] = 'built'; 
-    }
-
+    tile.buildings.push({ key: buildingKey, durability: buildingType.durability, maxDurability: buildingType.durability });
+    if (buildingType.inventory && !tile.inventory) tile.inventory = JSON.parse(JSON.stringify(buildingType.inventory));
+    if (buildingKey === 'SHELTER_COLLECTIVE') gameState.shelterLocation = { x, y };
+    // const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === buildingType.name && item.isBuildingRecipe);
+    // if (buildingRecipeParchemin) { gameState.knownRecipes[buildingType.name] = 'built'; }
     return { success: true, message: `${buildingType.name} construit.` };
 }
 
 export function damageBuilding(tileX, tileY, buildingIndexInTileArray, damageAmount = 1) {
     const tile = gameState.map[tileY][tileX];
     if (!tile || !tile.buildings[buildingIndexInTileArray]) return { destroyed: false };
-
     const building = tile.buildings[buildingIndexInTileArray];
     building.durability -= damageAmount;
-
     if (building.durability <= 0) {
         const buildingName = TILE_TYPES[building.key].name;
-        const buildingKeyDestroyed = building.key; // Sauvegarder la clé avant de splice
+        const buildingKeyDestroyed = building.key;
         tile.buildings.splice(buildingIndexInTileArray, 1);
-
-        // Si le bâtiment détruit était celui qui fournissait l'inventaire à la tuile et qu'il n'y a plus d'autres bâtiments avec inventaire
         if (TILE_TYPES[buildingKeyDestroyed]?.inventory && !tile.buildings.some(b => TILE_TYPES[b.key]?.inventory)) {
-            // Optionnel : vider tile.inventory ou le transférer au sol si désiré
-            // tile.inventory = {}; // Ou null, selon la logique de gestion
+            // tile.inventory = {}; // Ou gestion du drop des items au sol
         }
-
-
         if (buildingKeyDestroyed === 'SHELTER_COLLECTIVE' && gameState.shelterLocation && gameState.shelterLocation.x === tileX && gameState.shelterLocation.y === tileY) {
             const anotherShelter = gameState.map.flat().find(t => t.buildings.some(b => b.key === 'SHELTER_COLLECTIVE'));
             gameState.shelterLocation = anotherShelter ? { x: anotherShelter.x, y: anotherShelter.y } : null;
@@ -339,9 +289,7 @@ export function damageBuilding(tileX, tileY, buildingIndexInTileArray, damageAmo
 export function updateTileType(x, y, newTerrainTypeKey) {
     const tile = gameState.map[y][x];
     const newTerrainType = TILE_TYPES[newTerrainTypeKey];
-
     if (!tile || !newTerrainType) return;
-
     tile.type = newTerrainType;
     if (newTerrainType.background && newTerrainType.background.length > 0) {
         tile.backgroundKey = newTerrainType.background[Math.floor(Math.random() * newTerrainType.background.length)];
@@ -354,13 +302,10 @@ export function hasResources(costs) {
     const player = gameState.player;
     const tile = gameState.map[player.y][player.x];
     const groundItems = tile.groundItems || {};
-
     for (const resource in costs) {
         const playerAmount = player.inventory[resource] || 0;
         const groundAmount = groundItems[resource] || 0;
-        if (playerAmount + groundAmount < costs[resource]) {
-            return { success: false, missing: resource };
-        }
+        if (playerAmount + groundAmount < costs[resource]) return { success: false, missing: resource };
     }
     return { success: true };
 }
@@ -369,55 +314,35 @@ export function applyResourceDeduction(costs) {
     const player = gameState.player;
     const tile = gameState.map[player.y][player.x];
     const groundItems = tile.groundItems || {};
-
     for (const resource in costs) {
         let needed = costs[resource];
-
         if (player.inventory[resource] > 0) {
             const takeFromPlayer = Math.min(needed, player.inventory[resource]);
             player.inventory[resource] -= takeFromPlayer;
-            if (player.inventory[resource] <= 0) {
-                delete player.inventory[resource];
-            }
+            if (player.inventory[resource] <= 0) delete player.inventory[resource];
             needed -= takeFromPlayer;
         }
-
         if (needed > 0 && groundItems[resource] > 0) {
             const takeFromGround = Math.min(needed, groundItems[resource]);
             groundItems[resource] -= takeFromGround;
-            if (groundItems[resource] <= 0) {
-                delete groundItems[resource];
-            }
+            if (groundItems[resource] <= 0) delete groundItems[resource];
             needed -= takeFromGround;
         }
-
-        if (needed > 0) {
-            console.warn(`[applyResourceDeduction] Manque de ${resource} après tentative de déduction.`);
-        }
+        if (needed > 0) console.warn(`[applyResourceDeduction] Manque de ${resource} après tentative de déduction.`);
     }
 }
 
 export function consumeItem(itemName) {
     const player = gameState.player;
     const itemDef = ITEM_TYPES[itemName];
-    let result;
+    let result = playerConsumeItemLogic(itemName, player);
 
-    result = playerConsumeItemLogic(itemName, player);
-
-    if (!result.success && !itemDef?.teachesRecipe && !(itemName === 'Carte' && itemDef?.uses)) {
-        return result;
-    }
-
-    if (itemName === 'Carte' && itemDef?.uses) {
-        return { success: true, message: "Vous consultez la carte.", floatingTexts: [] };
-    }
+    if (!result.success && !itemDef?.teachesRecipe && !(itemName === 'Carte' && itemDef?.uses)) return result;
+    if (itemName === 'Carte' && itemDef?.uses) return { success: true, message: "Vous consultez la carte.", floatingTexts: [] };
 
     if (itemDef?.teachesRecipe) {
         if (gameState.knownRecipes[itemDef.teachesRecipe] && !itemDef.isBuildingRecipe) { 
             result.message = `Vous relisez le parchemin de ${itemDef.teachesRecipe}. Vous connaissez déjà cette recette.`;
-            if (itemDef.type !== 'consumable' && result.success !== true) { 
-            }
-
         } else {
             gameState.knownRecipes[itemDef.teachesRecipe] = true;
             result.message = `Vous avez appris la recette : ${itemDef.teachesRecipe} !`;
@@ -425,26 +350,20 @@ export function consumeItem(itemName) {
                  if (player.inventory[itemName] > 0) { 
                     player.inventory[itemName]--;
                     if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
-                 } else {
-                     return { success: false, message: "Erreur: Parchemin non trouvé pour apprendre la recette."};
-                 }
+                 } else { return { success: false, message: "Erreur: Parchemin non trouvé pour apprendre la recette."}; }
             }
         }
         result.success = true; 
     } else if (itemDef?.effects?.custom) {
         if (itemDef.effects.custom === 'porteBonheur') {
             if (Math.random() < 0.5) {
-                player.health = player.maxHealth;
-                player.thirst = player.maxThirst;
-                player.hunger = player.maxHunger;
-                player.sleep = player.maxSleep;
+                player.health = player.maxHealth; player.thirst = player.maxThirst;
+                player.hunger = player.maxHunger; player.sleep = player.maxSleep;
                 if (!result.floatingTexts) result.floatingTexts = [];
                 result.floatingTexts.push("Stats restaurées !");
             }
             if (Math.random() < 0.5) {
-                const parcheminOfftableKey = Object.keys(ITEM_TYPES).find(key =>
-                    key.startsWith('Parchemin Atelier') && ITEM_TYPES[key].rarity === 'offtable'
-                );
+                const parcheminOfftableKey = Object.keys(ITEM_TYPES).find(key => key.startsWith('Parchemin Atelier') && ITEM_TYPES[key].rarity === 'offtable');
                 if (parcheminOfftableKey) {
                     addResourceToPlayer(parcheminOfftableKey, 1);
                     if (!result.floatingTexts) result.floatingTexts = [];
@@ -467,28 +386,16 @@ export function consumeItem(itemName) {
         result.success = true;
         if (!result.message) result.message = `Vous utilisez: ${itemName}.`;
     }
-
     return result;
 }
 
-// --- Fonctions spécifiques aux ressources au sol ---
-
 export function dropItemOnGround(itemName, quantity) {
     const player = gameState.player;
-    if (!player.inventory[itemName] || player.inventory[itemName] < quantity) {
-        return { success: false, message: "Quantité insuffisante dans l'inventaire." };
-    }
-
+    if (!player.inventory[itemName] || player.inventory[itemName] < quantity) return { success: false, message: "Quantité insuffisante dans l'inventaire." };
     const tile = gameState.map[player.y][player.x];
-    if (!tile.groundItems) {
-        tile.groundItems = {}; // S'assurer que l'objet existe
-    }
-
+    if (!tile.groundItems) tile.groundItems = {};
     player.inventory[itemName] -= quantity;
-    if (player.inventory[itemName] <= 0) {
-        delete player.inventory[itemName];
-    }
-
+    if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
     tile.groundItems[itemName] = (tile.groundItems[itemName] || 0) + quantity;
     return { success: true, message: `Vous avez déposé ${quantity} ${itemName} au sol.` };
 }
@@ -496,21 +403,11 @@ export function dropItemOnGround(itemName, quantity) {
 export function pickUpItemFromGround(itemName, quantity) {
     const player = gameState.player;
     const tile = gameState.map[player.y][player.x];
-
-    if (!tile.groundItems || !tile.groundItems[itemName] || tile.groundItems[itemName] < quantity) {
-        return { success: false, message: "Quantité insuffisante au sol." };
-    }
-
+    if (!tile.groundItems || !tile.groundItems[itemName] || tile.groundItems[itemName] < quantity) return { success: false, message: "Quantité insuffisante au sol." };
     const currentTotalResources = getTotalResources(player.inventory);
-    if (currentTotalResources + quantity > player.maxInventory) {
-        return { success: false, message: "Inventaire plein." };
-    }
-
+    if (currentTotalResources + quantity > player.maxInventory) return { success: false, message: "Inventaire plein." };
     tile.groundItems[itemName] -= quantity;
-    if (tile.groundItems[itemName] <= 0) {
-        delete tile.groundItems[itemName];
-    }
-
+    if (tile.groundItems[itemName] <= 0) delete tile.groundItems[itemName];
     player.inventory[itemName] = (player.inventory[itemName] || 0) + quantity;
     return { success: true, message: `Vous avez ramassé ${quantity} ${itemName}.` };
 }
