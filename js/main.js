@@ -12,11 +12,18 @@ import * as Interactions from './interactions.js';
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
 let draggedItemInfo = null;
-let currentBuildMenuStructureKey = null;
+// let currentBuildMenuStructureKey = null; // Remplacé par le menu déroulant dynamique
 
 function updatePossibleActions() {
     if (!DOM.actionsEl) return;
-    DOM.actionsEl.innerHTML = '';
+    DOM.actionsEl.innerHTML = ''; // Nettoyer les anciennes actions
+
+    // Cache pour le sous-menu de construction
+    let buildSubmenu = DOM.actionsEl.querySelector('#build-submenu-container');
+    if (buildSubmenu) {
+        buildSubmenu.innerHTML = ''; // Nettoyer le contenu du sous-menu s'il existe
+    }
+
 
     if (!State.state || !State.state.player) return;
     const { player, map, combatState, enemies, knownRecipes } = State.state;
@@ -28,17 +35,20 @@ function updatePossibleActions() {
     const tileType = tile.type;
     const enemyOnTile = findEnemyOnTile(player.x, player.y, enemies);
 
-    const createButton = (text, actionId, data = {}, disabled = false, title = '') => {
+    const createButton = (text, actionId, data = {}, disabled = false, title = '', parent = DOM.actionsEl) => {
         const button = document.createElement('button');
         button.textContent = text;
         button.disabled = disabled;
         button.title = title;
-        button.onclick = () => {
+        button.onclick = (e) => {
+            // Empêcher la propagation si le clic vient d'un bouton dans le sous-menu de construction
+            // pour ne pas déclencher le toggle du menu principal de construction.
+            if (parent.id === 'build-submenu-content') {
+                e.stopPropagation();
+            }
             Interactions.handlePlayerAction(actionId, data, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
-            // Remplacé la logique de toggle_build_menu et build_specific_structure car elles sont maintenant gérées dans handlePlayerAction ou via des actions dédiées.
-            // Si un menu de construction spécifique est toujours nécessaire, il faudra le réintroduire avec une logique adaptée.
         };
-        DOM.actionsEl.appendChild(button);
+        parent.appendChild(button);
         return button;
     };
 
@@ -138,53 +148,73 @@ function updatePossibleActions() {
 
 
     if (tile.type.buildable && tile.buildings.length < CONFIG.MAX_BUILDINGS_PER_TILE) {
-        const buildHeader = document.createElement('h4');
-        buildHeader.textContent = "Construire";
-        DOM.actionsEl.appendChild(buildHeader);
+        const buildMenuContainer = document.createElement('div');
+        buildMenuContainer.id = 'build-menu-container';
+
+        const mainBuildButton = document.createElement('button');
+        mainBuildButton.id = 'main-build-btn';
+        mainBuildButton.textContent = "🏗️ Construire ▼";
+        DOM.actionsEl.appendChild(mainBuildButton);
+
+        const buildSubmenuContent = document.createElement('div');
+        buildSubmenuContent.id = 'build-submenu-content';
+        buildSubmenuContent.classList.add('hidden'); // Caché par défaut
+        DOM.actionsEl.appendChild(buildSubmenuContent);
+
+        mainBuildButton.onclick = () => {
+            buildSubmenuContent.classList.toggle('hidden');
+            mainBuildButton.textContent = buildSubmenuContent.classList.contains('hidden') ? "🏗️ Construire ▼" : "🏗️ Construire ▲";
+        };
+
 
         const constructibleBuildings = Object.keys(TILE_TYPES).filter(key => {
             const bt = TILE_TYPES[key];
             if (!bt.isBuilding || !bt.cost) return false;
-
             if (tile.type.name !== TILE_TYPES.PLAINS.name) {
                 return key === 'MINE' || key === 'CAMPFIRE';
             }
             return true;
         });
 
-        constructibleBuildings.forEach(bKey => {
-            const buildingType = TILE_TYPES[bKey];
-            let costString = "";
-            const costs = { ...buildingType.cost };
-            const toolReqArray = costs.toolRequired;
-            delete costs.toolRequired;
+        if (constructibleBuildings.length > 0) {
+            constructibleBuildings.forEach(bKey => {
+                const buildingType = TILE_TYPES[bKey];
+                let costString = "";
+                const costs = { ...buildingType.cost };
+                const toolReqArray = costs.toolRequired;
+                delete costs.toolRequired;
 
-            for (const item in costs) {
-                costString += `${costs[item]} ${item}, `;
-            }
-            if (toolReqArray) costString += `Outil: ${toolReqArray.join('/')}, `;
-            costString = costString.length > 0 ? costString.slice(0, -2) : "Aucun coût";
+                for (const item in costs) {
+                    costString += `${costs[item]} ${item}, `;
+                }
+                if (toolReqArray) costString += `Outil: ${toolReqArray.join('/')}, `;
+                costString = costString.length > 0 ? costString.slice(0, -2) : "Aucun coût";
 
-            const hasEnoughResources = State.hasResources(costs).success;
-            let hasRequiredTool = true;
-            if (toolReqArray) {
-                hasRequiredTool = toolReqArray.some(toolName =>
-                    player.equipment.weapon && player.equipment.weapon.name === toolName
+                const hasEnoughResources = State.hasResources(costs).success;
+                let hasRequiredTool = true;
+                if (toolReqArray) {
+                    hasRequiredTool = toolReqArray.some(toolName =>
+                        player.equipment.weapon && player.equipment.weapon.name === toolName
+                    );
+                }
+                const canBuild = hasEnoughResources && hasRequiredTool;
+                const buildingIcon = buildingType.icon || ITEM_TYPES[buildingType.name]?.icon || '🏛️';
+
+                createButton(
+                    `${buildingIcon} ${buildingType.name} (${costString})`,
+                    'build_structure',
+                    { structureKey: bKey },
+                    !canBuild,
+                    !canBuild ? "Ressources ou outil manquant" : `Construire un ${buildingType.name}`,
+                    buildSubmenuContent // Ajouter au sous-menu
                 );
-            }
-            const canBuild = hasEnoughResources && hasRequiredTool;
-            const buildingIcon = buildingType.icon || ITEM_TYPES[buildingType.name]?.icon || '🏛️';
-
-
-            createButton(
-                `${buildingIcon} Construire ${buildingType.name} (${costString})`,
-                'build_structure', // Modifié pour utiliser 'build_structure' directement
-                { structureKey: bKey },
-                !canBuild,
-                !canBuild ? "Ressources ou outil manquant" : `Construire un ${buildingType.name}`
-            );
-        });
+            });
+        } else {
+             mainBuildButton.disabled = true; // Désactiver si rien à construire
+             mainBuildButton.textContent = "🏗️ Construire";
+        }
     }
+
 
     if (tile.buildings && tile.buildings.length > 0) {
         const buildingsHeader = document.createElement('h4');
@@ -331,6 +361,17 @@ function handleNavigation(direction) {
         return;
     }
 
+    // Bug Fix: Check if any stat is already 0 before applying cost
+    let canMove = true;
+    if (player.thirst === 0 || player.hunger === 0 || player.sleep === 0) {
+        // Optionnel: permettre le mouvement mais le joueur prendra des dégâts via decayStats
+        // Pour l'instant, on bloque si une stat essentielle au mouvement est à 0.
+        // On pourrait choisir de bloquer seulement si TOUTES sont à 0.
+        // Ici, on est plus strict : si UNE est à 0 et qu'elle serait choisie, on ne peut pas bouger.
+        // La logique dans applyRandomStatCost est modifiée pour ne pas décrémenter si déjà à 0.
+    }
+
+
     const currentEnemyOnTile = findEnemyOnTile(player.x, player.y, enemies);
     if (currentEnemyOnTile) {
         UI.addChatMessage("Vous ne pouvez pas fuir, vous devez combattre !", "system");
@@ -350,8 +391,15 @@ function handleNavigation(direction) {
         UI.addChatMessage("Vous ne pouvez pas aller dans cette direction.", "system");
         return;
     }
+    
+    // Appliquer le coût seulement si possible
+    if (!Interactions.applyRandomStatCost(player, 1, "déplacement")) {
+        // Ce cas ne devrait plus arriver si applyRandomStatCost retourne toujours true (sauf erreur interne)
+        // Mais on garde la logique de ne pas bouger si une stat à 0 est nécessaire pour le coût.
+        // En pratique, applyRandomStatCost va choisir une stat non-nulle si possible.
+        // Si toutes sont nulles, le joueur est en grande difficulté.
+    }
 
-    Interactions.applyRandomStatCost(player, 1, "déplacement");
 
     player.isBusy = true;
     player.animationState = { type: 'out', direction: direction, progress: 0 };
@@ -432,6 +480,15 @@ function handleConsumeClick(itemName) {
          Interactions.handlePlayerAction('consume_eau_salee', {itemName: 'Eau salée'}, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
          return;
     }
+    
+    // Si c'est un équipement, on l'équipe
+    if (itemDef && itemDef.slot && ['weapon', 'shield', 'body', 'head', 'feet', 'bag'].includes(itemDef.slot)) {
+        const equipResult = State.equipItem(itemName);
+        UI.addChatMessage(equipResult.message, equipResult.success ? 'system' : 'system_error');
+        if (equipResult.success) fullUIUpdate();
+        return;
+    }
+
 
     if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.teachesRecipe) ) {
         if (itemDef && !itemDef.teachesRecipe) {
@@ -466,8 +523,6 @@ function fullUIUpdate() {
         UI.updateEquipmentModal(State.state);
     }
     if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) {
-        // S'assurer que la modale d'inventaire est bien mise à jour si elle est ouverte
-        // Cela peut nécessiter de passer gameState à showInventoryModal ou d'avoir une fonction updateInventoryModal
         UI.showInventoryModal(State.state);
     }
     if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) {
@@ -515,7 +570,7 @@ function handleDragStart(e) {
         itemName: itemEl.dataset.itemName,
         itemCount: parseInt(itemEl.dataset.itemCount || '1', 10),
         sourceOwner: ownerEl.dataset.owner,
-        sourceSlotType: itemEl.dataset.slotType
+        sourceSlotType: itemEl.dataset.slotType // Pour le déséquipement depuis un slot d'équipement
     };
     setTimeout(() => itemEl.classList.add('dragging'), 0);
 }
@@ -561,6 +616,7 @@ function handleDrop(e) {
                 UI.addChatMessage("Cet objet ne va pas dans cet emplacement.", "system");
             }
         } else if (draggedItemInfo.sourceOwner === 'equipment' && destOwner === 'player-inventory') {
+             // Déséquipement : sourceSlotType vient de l'item glissé depuis un slot d'équipement
             if (draggedItemInfo.sourceSlotType) {
                 State.unequipItem(draggedItemInfo.sourceSlotType);
             }
@@ -615,27 +671,34 @@ function setupEventListeners() {
     if (DOM.openEquipmentBtn) DOM.openEquipmentBtn.addEventListener('click', () => UI.showEquipmentModal(State.state));
     if (DOM.closeEquipmentModalBtn) DOM.closeEquipmentModalBtn.addEventListener('click', UI.hideEquipmentModal);
 
-    if (DOM.enlargeMapBtn) DOM.enlargeMapBtn.addEventListener('click', () => UI.showLargeMap(State.state));
+    if (DOM.enlargeMapBtn) {
+        DOM.enlargeMapBtn.addEventListener('click', () => {
+             // Utiliser handlePlayerAction pour ouvrir la carte, ce qui gérera la consommation/durabilité
+            Interactions.handlePlayerAction('open_large_map', {}, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
+        });
+    }
     if (DOM.closeLargeMapBtn) DOM.closeLargeMapBtn.addEventListener('click', UI.hideLargeMap);
 
     if (DOM.toggleChatSizeBtn && DOM.bottomBarEl) {
         DOM.toggleChatSizeBtn.addEventListener('click', () => {
             DOM.bottomBarEl.classList.toggle('chat-enlarged');
-            // La hauteur de chat-messages est gérée par CSS avec .chat-enlarged sur bottom-bar
             if (DOM.toggleChatSizeBtn) {
                 DOM.toggleChatSizeBtn.textContent = DOM.bottomBarEl.classList.contains('chat-enlarged') ? '⌄' : '⌃';
             }
+             // S'assurer que le chat scroll vers le bas après redimensionnement
+            if (DOM.chatMessagesEl) DOM.chatMessagesEl.scrollTop = DOM.chatMessagesEl.scrollHeight;
         });
     }
+
 
     if (DOM.closeInventoryModalBtn) {
         DOM.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
     }
 
     if (DOM.inventoryCategoriesEl) DOM.inventoryCategoriesEl.addEventListener('click', e => {
-        const itemEl = e.target.closest('.inventory-item.clickable');
+        const itemEl = e.target.closest('.inventory-item'); // Plus besoin de .clickable ici, on gère tout
         if (itemEl && itemEl.dataset.itemName) {
-            handleConsumeClick(itemEl.dataset.itemName);
+            handleConsumeClick(itemEl.dataset.itemName); // La fonction handleConsumeClick décidera si c'est équipable ou consommable
         }
         else {
             const header = e.target.closest('.category-header');
@@ -650,15 +713,24 @@ function setupEventListeners() {
     if (DOM.inventoryModal) setupDragAndDropForModal(DOM.inventoryModal);
 
     window.addEventListener('keydown', e => {
+        if (document.activeElement === DOM.chatInputEl) return; // Ne pas intercepter les touches si l'utilisateur tape dans le chat
+
         if (e.key === 'Escape') {
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
             else if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
             else if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) UI.hideLargeMap();
             else if (DOM.combatModal && !DOM.combatModal.classList.contains('hidden')) UI.hideCombatModal();
             else if (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
+        } else if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'z') handleNavigation('north');
+        else if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') handleNavigation('south');
+        else if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'q') handleNavigation('west');
+        else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') handleNavigation('east');
+        else if (e.key.toLowerCase() === 'e') UI.showEquipmentModal(State.state); // Touche E pour équipement
+        else if (e.key.toLowerCase() === 'm') { // Touche M pour la carte
+             Interactions.handlePlayerAction('open_large_map', {}, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
         }
     });
-    window.gameState = State.state; // Pour accès global facile (ex: combat UI)
+    window.gameState = State.state;
     UI.setupQuantityModalListeners();
 }
 
@@ -669,7 +741,33 @@ function endGame(isVictory) {
     if(State.state.combatState) UI.hideCombatModal();
     const finalMessage = isVictory ? "Félicitations ! Vous avez survécu 100 jours !" : "Vous n'avez pas survécu...";
     UI.addChatMessage(finalMessage, 'system');
-    document.querySelectorAll('button').forEach(b => b.disabled = true);
+
+    // Afficher une modale de fin de jeu
+    const endModal = document.createElement('div');
+    endModal.id = 'end-game-modal';
+    endModal.style.cssText = `
+        position: fixed; inset: 0; background-color: rgba(0,0,0,0.8);
+        z-index: 10000; display: flex; flex-direction: column;
+        justify-content: center; align-items: center; color: white;
+        font-size: 2em; text-align: center; padding: 20px;
+    `;
+    const messageEl = document.createElement('p');
+    messageEl.textContent = finalMessage;
+    const reloadButton = document.createElement('button');
+    reloadButton.textContent = "Recommencer";
+    reloadButton.style.cssText = `
+        padding: 15px 30px; font-size: 0.8em; margin-top: 30px;
+        background-color: var(--action-color); color: var(--text-light);
+        border: none; border-radius: 8px; cursor: pointer;
+    `;
+    reloadButton.onclick = () => window.location.reload();
+
+    endModal.appendChild(messageEl);
+    endModal.appendChild(reloadButton);
+    document.body.appendChild(endModal);
+
+
+    document.querySelectorAll('button').forEach(b => { if (b !== reloadButton) b.disabled = true; });
     if (DOM.chatInputEl) DOM.chatInputEl.disabled = true;
 }
 
@@ -689,12 +787,13 @@ async function init() {
         fullResizeAndRedraw();
         window.addEventListener('resize', fullResizeAndRedraw);
 
-        // Appel à initializeGameState de State
-        State.initializeGameState(CONFIG); // Utilisation directe de la fonction importée
+        State.initializeGameState(CONFIG);
         console.log("État du jeu initialisé.");
+        
+        // Message de bienvenue
+        UI.addChatMessage("Bienvenue aventurier, trouve vite d'autres aventuriers pour s'organiser ensemble!", "system_event", "Ancien");
 
-        // S'assurer que State.state.config est bien défini après l'initialisation
-        // C'est déjà fait dans initializeGameState, mais une double vérification ne fait pas de mal
+
         if (State.state && !State.state.config) {
             State.state.config = CONFIG;
             console.warn("State.state.config a été redéfini dans init de main.js, vérifier initializeGameState.");
@@ -707,10 +806,10 @@ async function init() {
         fullUIUpdate();
         requestAnimationFrame(gameLoop);
 
-        if (State.state) { // Vérifier que State.state est bien défini
+        if (State.state) {
             State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
             State.state.gameIntervals.push(setInterval(() => {
-                if (State.state.npcs && State.state.npcs.length > 0 && !State.state.combatState && State.state.player.isBusy && !State.state.player.animationState) {
+                if (State.state.npcs && State.state.npcs.length > 0 && !State.state.combatState && (!State.state.player.isBusy || !State.state.player.animationState) ) { // Modifié pour ne chatter que si joueur pas occupé
                     npcChatter(State.state.npcs);
                 }
             }, CONFIG.CHAT_MESSAGE_INTERVAL_MS));

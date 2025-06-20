@@ -7,7 +7,8 @@ import { TILE_TYPES, CONFIG, ITEM_TYPES } from './config.js';
 
 const gameState = {
     map: [],
-    player: null,
+    player: null, // Sera un objet joueur unique pour l'instant
+    // Pour une future version multijoueur, players pourrait être un objet/Map: { 'playerId1': playerObject1, ... }
     npcs: [],
     enemies: [],
     day: 1,
@@ -21,6 +22,8 @@ const gameState = {
         'Planche': true, // Exemple de recette de base
         // D'autres recettes initiales pourraient être ajoutées ici
     },
+    mapTileGlobalVisitCounts: new Map(), // Pour le brouillard de guerre global: Map<"x,y", Set<playerId>>
+    globallyRevealedTiles: new Set(),   // Pour le brouillard de guerre global: Set<"x,y">
 };
 
 // Exporte l'objet gameState lui-même pour un accès direct
@@ -28,15 +31,63 @@ export const state = gameState;
 
 // Exporte la fonction initializeGameState
 export function initializeGameState(config) {
-    console.log("State.initializeGameState appelée avec config:", config); // Log pour débogage
-    gameState.config = config; // S'assurer que gameState.config est défini tôt
-    gameState.map = generateMap(config);
-    gameState.player = initPlayer(config);
+    console.log("State.initializeGameState appelée avec config:", config);
+    gameState.config = config;
+    gameState.map = generateMap(config); // Génère la carte en premier
+
+    // Initialisation du joueur (pour l'instant un seul)
+    gameState.player = initPlayer(config, 'player1'); // Donne un ID au joueur
+
+    // Trouver une position de départ unique sur une "Plage"
+    let startX, startY, attempts = 0;
+    const occupiedStarts = new Set(); // Pourrait être utilisé si plusieurs joueurs sont initialisés
+
+    do {
+        startX = Math.floor(Math.random() * config.MAP_WIDTH);
+        startY = Math.floor(Math.random() * config.MAP_HEIGHT);
+        attempts++;
+        if (attempts > 200) { // Sécurité pour éviter boucle infinie
+            console.error("Impossible de trouver une case de départ de type Plage libre !");
+            // Fallback sur une case accessible par défaut, ou la première plage trouvée
+            const fallbackBeach = gameState.map.flat().find(t => t.type.name === TILE_TYPES.PLAGE.name && t.type.accessible);
+            if (fallbackBeach) {
+                startX = fallbackBeach.x;
+                startY = fallbackBeach.y;
+            } else { // Si vraiment aucune plage, fallback sur le centre (ce qui ne devrait pas arriver)
+                startX = Math.floor(config.MAP_WIDTH / 2);
+                startY = Math.floor(config.MAP_HEIGHT / 2);
+            }
+            break;
+        }
+    } while (
+        !gameState.map[startY] ||
+        !gameState.map[startY][startX] ||
+        gameState.map[startY][startX].type.name !== TILE_TYPES.PLAGE.name ||
+        !gameState.map[startY][startX].type.accessible ||
+        occupiedStarts.has(`${startX},${startY}`)
+    );
+
+    gameState.player.x = startX;
+    gameState.player.y = startY;
+    occupiedStarts.add(`${startX},${startY}`);
+
+    // Marquer la tuile de départ comme visitée
+    gameState.player.visitedTiles.add(`${startX},${startY}`);
+    // Contribuer au compteur global de visites pour la tuile de départ
+    const startTileKey = `${startX},${startY}`;
+    if (!gameState.mapTileGlobalVisitCounts.has(startTileKey)) {
+        gameState.mapTileGlobalVisitCounts.set(startTileKey, new Set());
+    }
+    gameState.mapTileGlobalVisitCounts.get(startTileKey).add(gameState.player.id);
+    if (gameState.mapTileGlobalVisitCounts.get(startTileKey).size >= CONFIG.FOG_OF_WAR_REVEAL_THRESHOLD) {
+        gameState.globallyRevealedTiles.add(startTileKey);
+    }
+
+
     gameState.npcs = initNpcs(config, gameState.map);
     gameState.enemies = initEnemies(config, gameState.map);
 
     gameState.shelterLocation = null;
-
     const existingShelterTile = gameState.map.flat().find(tile =>
         tile.buildings && tile.buildings.some(b => b.key === 'SHELTER_COLLECTIVE')
     );
@@ -45,6 +96,7 @@ export function initializeGameState(config) {
     }
     console.log("GameState initialisé:", gameState);
 }
+
 
 export function applyPlayerMove(direction) {
     const { x, y } = gameState.player;
@@ -56,6 +108,18 @@ export function applyPlayerMove(direction) {
 
     gameState.player.x = newX;
     gameState.player.y = newY;
+
+    // Mise à jour du brouillard de guerre
+    gameState.player.visitedTiles.add(`${newX},${newY}`);
+    const tileKey = `${newX},${newY}`;
+    if (!gameState.mapTileGlobalVisitCounts.has(tileKey)) {
+        gameState.mapTileGlobalVisitCounts.set(tileKey, new Set());
+    }
+    gameState.mapTileGlobalVisitCounts.get(tileKey).add(gameState.player.id); // Utilise l'ID du joueur
+
+    if (gameState.mapTileGlobalVisitCounts.get(tileKey).size >= CONFIG.FOG_OF_WAR_REVEAL_THRESHOLD) {
+        gameState.globallyRevealedTiles.add(tileKey);
+    }
 }
 
 export function applyBulkInventoryTransfer(itemName, amount, transferType) {
@@ -167,8 +231,12 @@ export function equipItem(itemName) {
     if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
 
     const newEquip = { name: itemName, ...itemDef };
-    if (newEquip.durability) newEquip.currentDurability = newEquip.durability;
+    // Si l'objet a une durabilité définie dans ITEM_TYPES, initialiser currentDurability
+    if (newEquip.hasOwnProperty('durability')) { // Vérifier si la propriété 'durability' existe (pas 'uses')
+      newEquip.currentDurability = newEquip.durability;
+    }
     player.equipment[slot] = newEquip;
+
 
     if (itemDef.stats) {
         for (const stat in itemDef.stats) {
@@ -199,6 +267,11 @@ export function unequipItem(slot) {
         return { success: false, message: "Inventaire plein." };
     }
 
+    // Lors du déséquipement, on remet l'objet dans l'inventaire avec son nom.
+    // La durabilité actuelle (currentDurability) est une propriété de l'instance d'équipement,
+    // pas de l'item type. Pour simplifier, on assume que l'objet remis dans l'inventaire
+    // est "comme neuf" ou que la durabilité n'est pas suivie pour les objets non équipés.
+    // Si on voulait suivre la durabilité des objets en inventaire, il faudrait un système plus complexe.
     addResourceToPlayer(item.name, 1);
     player.equipment[slot] = null;
 
@@ -301,36 +374,42 @@ export function consumeItem(itemName) {
     const itemDef = ITEM_TYPES[itemName];
     let result;
 
-    // Appel à la logique de base de consommation (décrémenter item, appliquer effets numériques)
-    result = playerConsumeItemLogic(itemName, player); // Utilise la fonction renommée
+    result = playerConsumeItemLogic(itemName, player);
 
-    // Si la consommation de base a échoué (ex: objet non consommable, pas en inventaire), retourner l'erreur
-    if (!result.success && !itemDef?.teachesRecipe) { // Sauf si c'est un parchemin (qui sera géré après)
+    if (!result.success && !itemDef?.teachesRecipe && !(itemName === 'Carte' && itemDef?.uses)) {
         return result;
     }
 
+    if (itemName === 'Carte' && itemDef?.uses) {
+        // La décrémentation de la carte est gérée par l'action d'ouverture de la carte dans main.js
+        // Si on arrive ici, c'est que l'action a déjà été validée.
+        // On ne fait que retourner un message de succès.
+        return { success: true, message: "Vous consultez la carte.", floatingTexts: [] };
+    }
 
-    // Logique spécifique après la consommation de base ou si c'est un parchemin
+
     if (itemDef?.teachesRecipe) {
-        if (!player.inventory[itemName] || player.inventory[itemName] <= 0) { // Vérifier si on a bien l'item avant de l'apprendre
-            return { success: false, message: "Vous n'avez plus ce parchemin." };
+        if (!player.inventory[itemName] || player.inventory[itemName] < (result.success ? 0:1) ) { // S'il a été consommé par playerConsumeItemLogic, il est à 0. Sinon, on vérifie >0
+             // Correction : playerConsumeItemLogic décrémente déjà si itemDef.type = consumable.
+             // Si teachesRecipe est sur un item non "consumable", il n'est pas décrémenté.
+             // On s'assure qu'on en a encore un pour l'apprendre.
+            if (!player.inventory[itemName] || player.inventory[itemName] <= 0) {
+                 return { success: false, message: "Vous n'avez plus ce parchemin." };
+            }
         }
         if (gameState.knownRecipes[itemDef.teachesRecipe]) {
-            // Optionnel: consommer quand même et juste afficher un message, ou ne pas consommer.
-            // Si on consomme quand même :
-            player.inventory[itemName]--;
-            if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
             result.message = `Vous relisez le parchemin de ${itemDef.teachesRecipe}. Vous connaissez déjà cette recette.`;
-            result.success = true; // Assurer que le résultat est un succès même si la recette est connue
         } else {
             gameState.knownRecipes[itemDef.teachesRecipe] = true;
-            player.inventory[itemName]--; // Consommer le parchemin
-            if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
             result.message = `Vous avez appris la recette : ${itemDef.teachesRecipe} !`;
-            result.success = true;
         }
+         // Assurer la décrémentation si ce n'est pas un 'consumable' de base mais qu'il enseigne une recette
+        if (itemDef.type !== 'consumable') {
+            player.inventory[itemName]--;
+            if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
+        }
+        result.success = true;
     } else if (itemDef?.effects?.custom) {
-        // Gérer les effets custom ici
         if (itemDef.effects.custom === 'porteBonheur') {
             if (Math.random() < 0.5) {
                 player.health = player.maxHealth;
@@ -352,7 +431,7 @@ export function consumeItem(itemName) {
             }
         } else if (itemDef.effects.custom === 'eauSaleeEffect') {
             if (player.status === 'Malade') {
-                player.health = Math.max(0, player.health - 1);
+                if(player.health > 0) player.health = Math.max(0, player.health - 1);
                 if (!result.floatingTexts) result.floatingTexts = [];
                 result.floatingTexts.push('-1❤️ (Maladie aggravée)');
             } else {
@@ -363,9 +442,8 @@ export function consumeItem(itemName) {
                 }
             }
         }
-        // Assurer le succès si on est arrivé ici avec un effet custom
         result.success = true;
-        if (!result.message) result.message = `Vous utilisez: ${itemName}.`; // Message par défaut si pas déjà défini
+        if (!result.message) result.message = `Vous utilisez: ${itemName}.`;
     }
 
     return result;

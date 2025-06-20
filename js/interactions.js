@@ -9,15 +9,15 @@ import DOM from './ui/dom.js';
 // Fonction pour appliquer les coûts de base d'une action (faim, soif, sommeil)
 function applyActionCosts(player, costs) {
     let floatingTextParts = [];
-    if (costs.thirst) {
+    if (costs.thirst && player.thirst > 0) { // Vérifier avant de décrémenter
         player.thirst = Math.max(0, player.thirst - costs.thirst);
         floatingTextParts.push(`-${costs.thirst}💧`);
     }
-    if (costs.hunger) {
+    if (costs.hunger && player.hunger > 0) { // Vérifier avant de décrémenter
         player.hunger = Math.max(0, player.hunger - costs.hunger);
         floatingTextParts.push(`-${costs.hunger}🍗`);
     }
-    if (costs.sleep) {
+    if (costs.sleep && player.sleep > 0) { // Vérifier avant de décrémenter
         player.sleep = Math.max(0, player.sleep - costs.sleep);
         floatingTextParts.push(`-${costs.sleep}🌙`);
     }
@@ -28,38 +28,53 @@ function applyActionCosts(player, costs) {
 
 // Fonction pour appliquer un coût aléatoire à une stat (exportée)
 export function applyRandomStatCost(player, amount = 1, actionNameForLog = "") {
-    const rand = Math.random();
-    let chosenStat;
+    let chosenStatName = null;
     let statIcon = '';
+    const availableStats = [];
 
-    if (rand < 0.10) { // 10% Soif
-        chosenStat = 'thirst';
-        statIcon = '💧';
-    } else if (rand < 0.50) { // 40% Faim (0.10 + 0.40 = 0.50)
-        chosenStat = 'hunger';
-        statIcon = '🍗';
-    } else { // 50% Sommeil
-        chosenStat = 'sleep';
-        statIcon = '🌙';
+    if (player.thirst > 0) availableStats.push({ name: 'thirst', icon: '💧' });
+    if (player.hunger > 0) availableStats.push({ name: 'hunger', icon: '🍗' });
+    if (player.sleep > 0) availableStats.push({ name: 'sleep', icon: '🌙' });
+
+    if (availableStats.length === 0) {
+        // Si toutes les stats sont à 0, le joueur est peut-être déjà en train de perdre de la vie.
+        // On ne peut plus appliquer de coût ici.
+        // Alternativement, on pourrait forcer un coût en vie, mais decayStats s'en charge.
+        UI.addChatMessage("Vous êtes à bout de forces !", "warning");
+        return true; // Ou false si cela doit bloquer l'action, mais généralement on laisse l'action se faire et le joueur subit les conséquences via decayStats
+    }
+    
+    // Pondération: Soif (10%), Faim (40%), Sommeil (50%)
+    const rand = Math.random();
+    let selectedStatChoice = null;
+
+    if (rand < 0.10 && player.thirst > 0) {
+        selectedStatChoice = availableStats.find(s => s.name === 'thirst');
+    } else if (rand < 0.50 && player.hunger > 0) { // 0.10 + 0.40
+        selectedStatChoice = availableStats.find(s => s.name === 'hunger');
+    } else if (player.sleep > 0) { // Le reste pour sommeil
+        selectedStatChoice = availableStats.find(s => s.name === 'sleep');
     }
 
-    player[chosenStat] = Math.max(0, player[chosenStat] - amount);
-    const costText = `-${amount}${statIcon}`;
-
-    if (costText) {
+    // Fallback si la stat pondérée est déjà à 0 mais d'autres ne le sont pas
+    if (!selectedStatChoice && availableStats.length > 0) {
+        selectedStatChoice = availableStats[Math.floor(Math.random() * availableStats.length)];
+    }
+    
+    if (selectedStatChoice) {
+        chosenStatName = selectedStatChoice.name;
+        statIcon = selectedStatChoice.icon;
+        player[chosenStatName] = Math.max(0, player[chosenStatName] - amount);
+        const costText = `-${amount}${statIcon}`;
         UI.showFloatingText(costText, 'cost');
-    }
 
-    if (player.thirst <= 0 && player.hunger <= 0 && player.sleep <= 0) {
-         UI.addChatMessage("Vous êtes complètement épuisé !", "warning");
-         return false; // Indique que le joueur est épuisé
+        const maxStatValue = player[`max${chosenStatName.charAt(0).toUpperCase() + chosenStatName.slice(1)}`];
+        if (player[chosenStatName] <= (maxStatValue * 0.1) && player[chosenStatName] > 0 ) {
+            UI.addChatMessage(`Attention, votre ${chosenStatName} est très basse !`, "warning");
+        }
     }
-    // Vérifie si la stat est basse après la déduction
-    const maxStatValue = player[`max${chosenStat.charAt(0).toUpperCase() + chosenStat.slice(1)}`];
-    if (player[chosenStat] <= (maxStatValue * 0.1) && player[chosenStat] > 0 ) {
-        UI.addChatMessage(`Attention, votre ${chosenStat} est très basse !`, "warning");
-    }
-    return true; // L'action peut continuer (même si le joueur est bas en stat)
+    // Si toutes les stats sont à 0, le message "complètement épuisé" est géré par decayStats ou la vérification initiale
+    return true;
 }
 
 
@@ -113,7 +128,7 @@ function performToolAction(player, toolSlot, actionType, onComplete, updateUICal
     }
 
     console.log("[performToolAction] Outil correct, lancement de performTimedAction pour", actionType);
-    performTimedAction(player, ACTION_DURATIONS.HARVEST,
+    performTimedAction(player, ACTION_DURATIONS.HARVEST, // Ou une durée spécifique si l'action l'a
         () => {
             console.log("[performToolAction -> performTimedAction] onStart: Utilisation de", tool.name);
             UI.addChatMessage(`Utilisation de ${tool.name}...`, 'system');
@@ -122,14 +137,23 @@ function performToolAction(player, toolSlot, actionType, onComplete, updateUICal
             console.log("[performToolAction -> performTimedAction] onComplete: Exécution du callback de l'action outil.");
             onComplete(tool.power);
 
-            if (tool.hasOwnProperty('currentDurability')) {
+            // Gérer la durabilité de l'outil équipé
+            if (tool.hasOwnProperty('currentDurability') && typeof tool.currentDurability === 'number') {
                 tool.currentDurability--;
                 console.log(`[performToolAction] Durabilité de ${tool.name} réduite à ${tool.currentDurability}`);
                 if (tool.currentDurability <= 0) {
                     UI.addChatMessage(`${tool.name} s'est cassé !`, 'system_warning');
-                    State.state.player.equipment[toolSlot] = null;
+                    State.state.player.equipment[toolSlot] = null; // Retire l'objet cassé
                 }
+            } else if (tool.hasOwnProperty('uses')) { // Pour les objets comme 'Carte' qui ont des 'uses'
+                 tool.uses--;
+                 if (tool.uses <= 0) {
+                     UI.addChatMessage(`${tool.name} est épuisé !`, 'system_warning');
+                     State.state.player.equipment[toolSlot] = null;
+                 }
             }
+
+
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) {
                 UI.updateEquipmentModal(State.state);
             }
@@ -178,7 +202,7 @@ function playerAttack() {
     combatState.enemy.currentHealth = Math.max(0, combatState.enemy.currentHealth - damage);
     combatState.log.unshift(`Vous infligez ${damage} dégâts avec ${weapon ? weapon.name : 'vos poings'}.`);
 
-    if (weapon && weapon.hasOwnProperty('currentDurability')) {
+    if (weapon && weapon.hasOwnProperty('currentDurability') && typeof weapon.currentDurability === 'number') {
         weapon.currentDurability--;
         if (weapon.currentDurability <= 0) {
             combatState.log.unshift(`${weapon.name} s'est cassé !`);
@@ -277,21 +301,17 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         case 'initiate_combat':
         case 'take_hidden_item':
         case 'open_treasure':
-        case 'build_structure':
+        // case 'build_structure': // Construire coûte déjà des ressources matérielles
         case 'use_building_action':
         case 'consume_eau_salee': // Ne pas appliquer le coût aléatoire pour boire eau salée
+        case 'open_large_map': // Consulter la carte ne devrait pas coûter de stat de survie
             shouldApplyBaseCost = false;
             break;
     }
 
     if (shouldApplyBaseCost) {
-        // Note: applyRandomStatCost est déjà exportée, donc on l'appelle directement depuis interactions.js
-        // si on est dans interactions.js. Si handlePlayerAction est appelé depuis main.js,
-        // main.js doit utiliser Interactions.applyRandomStatCost.
-        // Pour simplifier, on assume que si cette fonction est dans interactions.js, elle appelle directement
-        // la version locale (non préfixée par Interactions.).
         if (!applyRandomStatCost(player, 1, actionId)) {
-            // L'action peut continuer même si le joueur est épuisé.
+            // L'action peut continuer même si le joueur est épuisé (la fonction retourne true sauf si erreur interne)
         }
     }
 
@@ -357,11 +377,18 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 hunger: resource.hungerCost || 0,
                 sleep: resource.sleepCost || 0,
             };
-            if (player.thirst < specificResourceCosts.thirst || player.hunger < specificResourceCosts.hunger || player.sleep < specificResourceCosts.sleep) {
-                UI.addChatMessage("Vous êtes trop épuisé pour cette récolte spécifique.", "system");
-                return;
+
+            let canProceed = true;
+            if (specificResourceCosts.thirst > 0 && player.thirst === 0) canProceed = false;
+            if (specificResourceCosts.hunger > 0 && player.hunger === 0) canProceed = false;
+            if (specificResourceCosts.sleep > 0 && player.sleep === 0) canProceed = false;
+
+            if (!canProceed) {
+                 UI.addChatMessage("Vous êtes trop épuisé pour cette récolte (une de vos jauges de base est à 0).", "system");
+                 return;
             }
             applyActionCosts(player, specificResourceCosts);
+
 
             performTimedAction(player, ACTION_DURATIONS.HARVEST,
                 () => UI.addChatMessage(`Récolte de ${resource.type}...`, "system"),
@@ -475,7 +502,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     } else {
                         UI.addChatMessage("La chasse n'a rien donné.", "system");
                     }
-                    if (weapon.hasOwnProperty('currentDurability')) {
+                    if (weapon.hasOwnProperty('currentDurability') && typeof weapon.currentDurability === 'number') {
                         weapon.currentDurability--;
                         if (weapon.currentDurability <= 0) {
                             UI.addChatMessage(`${weapon.name} s'est cassé !`, 'system_warning');
@@ -957,7 +984,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         UI.addChatMessage(`Vous ouvrez l'interface de ${buildingDef.name}. (UI à implémenter)`, "system_event");
                     }
 
-                    if (!specificActionDef.durabilityGain) {
+                    if (!specificActionDef.durabilityGain) { // Appliquer usure si pas de gain de durabilité spécifique
                         const damageResult = State.damageBuilding(player.x, player.y, bldIndex, 1);
                         UI.addChatMessage(`${buildingDef.name} perd 1 durabilité.`, "system_event");
                         if (damageResult.destroyed) {
@@ -967,6 +994,32 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 },
                 updateUICallbacks,
                 { buildingKey }
+            );
+            break;
+        }
+        case 'open_large_map': { // Nouvelle action pour la carte
+            if (!player.inventory['Carte'] || player.inventory['Carte'] <= 0) {
+                UI.addChatMessage("Vous avez besoin d'une Carte pour voir le plan de l'île.", "system");
+                if (DOM.enlargeMapBtn) UI.triggerShake(DOM.enlargeMapBtn);
+                return;
+            }
+            performTimedAction(player, ACTION_DURATIONS.USE_MAP,
+                () => UI.addChatMessage("Vous dépliez la carte...", "system"),
+                () => {
+                    const mapItem = ITEM_TYPES['Carte'];
+                    // Décrémenter le nombre de cartes (si c'est un stack) ou gérer la durabilité (si c'est un objet unique avec durabilité)
+                    // Pour l'instant, on décrémente le stack car c'est plus simple avec la structure actuelle.
+                    player.inventory['Carte']--;
+                    if (player.inventory['Carte'] <= 0) {
+                        delete player.inventory['Carte'];
+                        UI.addChatMessage("Votre dernière carte s'est usée.", "system_warning");
+                    } else {
+                         UI.addChatMessage(`Carte utilisée, il vous en reste ${player.inventory['Carte']}.`, "system");
+                    }
+                    UI.showLargeMap(State.state);
+                    // Pas besoin de fullUIUpdate() ici car showLargeMap s'en charge.
+                },
+                updateUICallbacks
             );
             break;
         }
