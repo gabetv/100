@@ -37,22 +37,25 @@ export const hideQuantityModal = ModalsModule.hideQuantityModal;
 export const setupQuantityModalListeners = ModalsModule.setupQuantityModalListeners;
 export const showLargeMap = ModalsModule.showLargeMap;
 export const hideLargeMap = ModalsModule.hideLargeMap;
+export const showBuildModal = ModalsModule.showBuildModal; // Nouvelle exportation
+export const hideBuildModal = ModalsModule.hideBuildModal; // Nouvelle exportation
+export const populateBuildModal = ModalsModule.populateBuildModal; // Nouvelle exportation (utilisée par showBuildModal)
+
 
 // Depuis ./ui/panels.js
 export const addChatMessage = PanelsModule.addChatMessage;
 export const updateAllButtonsState = PanelsModule.updateAllButtonsState;
 export const updateQuickSlots = PanelsModule.updateQuickSlots;
-export const updateStatsPanel = PanelsModule.updateStatsPanel; // Explicitement ré-exporté
+export const updateStatsPanel = PanelsModule.updateStatsPanel;
 export const updateInventory = PanelsModule.updateInventory;
 export const updateDayCounter = PanelsModule.updateDayCounter;
 export const updateTileInfoPanel = PanelsModule.updateTileInfoPanel;
-export const updateGroundItemsPanel = PanelsModule.updateGroundItemsPanel; // Pour le nouveau panneau
-export const updateBottomBarEquipmentPanel = PanelsModule.updateBottomBarEquipmentPanel; // Pour le nouveau panneau
+export const updateGroundItemsPanel = PanelsModule.updateGroundItemsPanel;
+export const updateBottomBarEquipmentPanel = PanelsModule.updateBottomBarEquipmentPanel;
 
 
 /**
  * Met à jour tous les éléments statiques de l'interface utilisateur (sauf la scène principale).
- * Cette fonction est typiquement appelée depuis main.js via UI.updateAllUI().
  * @param {object} gameState L'état actuel du jeu.
  */
 export function updateAllUI(gameState) {
@@ -68,14 +71,13 @@ export function updateAllUI(gameState) {
     }
     const currentTile = map[player.y][player.x];
     
-    // Utiliser les fonctions des modules importés pour les appels INTERNES à ui.js
-    PanelsModule.updateStatsPanel(player); // Appel interne via le namespace PanelsModule
+    PanelsModule.updateStatsPanel(player);
     PanelsModule.updateInventory(player);
     PanelsModule.updateDayCounter(day);
     PanelsModule.updateTileInfoPanel(currentTile);
-    PanelsModule.updateQuickSlots(player);
-    PanelsModule.updateGroundItemsPanel(currentTile); // Ajout pour le panneau des objets au sol
-    PanelsModule.updateBottomBarEquipmentPanel(player); // Ajout pour le panneau d'équipement dans la barre du bas
+    PanelsModule.updateQuickSlots(player); // Même si supprimé visuellement, la fonction peut exister
+    PanelsModule.updateGroundItemsPanel(currentTile);
+    PanelsModule.updateBottomBarEquipmentPanel(player);
     
     if (gameState.config) {
        DrawModule.drawMinimap(gameState, gameState.config); 
@@ -90,7 +92,6 @@ export function updateAllUI(gameState) {
 
 /**
  * Redessine toute la scène principale du jeu (arrière-plan et personnages).
- * Cette fonction est typiquement appelée depuis main.js via UI.renderScene().
  * @param {object} gameState 
  */
 export function renderScene(gameState) {

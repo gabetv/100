@@ -38,8 +38,6 @@ export function updateStatsPanel(player) {
 }
 
 export function updateQuickSlots(player) {
-    // Cette fonction est maintenant obsolète car les quick slots ont été supprimés.
-    // On pourrait la supprimer ou la laisser commentée si on envisage de les réintroduire.
     // console.log("updateQuickSlots est appelée mais les quick slots sont supprimés de l'UI.");
 }
 
@@ -51,18 +49,9 @@ export function updateInventory(player) {
     DOM.inventoryCapacityEl.textContent = `(${total} / ${player.maxInventory})`;
 
     const categories = { 
-        consumable: [], 
-        tool: [], 
-        weapon: [], 
-        shield: [],
-        armor: [], 
-        body: [], 
-        head: [], 
-        feet: [], 
-        bag: [], 
-        resource: [], 
-        usable: [],
-        key: [], 
+        consumable: [], tool: [], weapon: [], shield: [], armor: [], 
+        body: [], head: [], feet: [], bag: [], 
+        resource: [], usable: [], key: [], 
     };
     
     for (const itemName in player.inventory) {
@@ -71,48 +60,32 @@ export function updateInventory(player) {
             let type = itemDef.type; 
 
             if (itemDef.slot) { 
-                if (categories[itemDef.slot]) { 
-                    type = itemDef.slot;
-                } else if (itemDef.type === 'armor' && itemDef.slot === 'body') { 
-                    type = 'armor';
-                } else if (itemDef.type === 'shield' && itemDef.slot === 'shield') {
-                    type = 'shield';
-                }
-                if (itemDef.type === 'tool' && categories.tool) { 
-                    type = 'tool';
-                }
+                if (categories[itemDef.slot]) { type = itemDef.slot; }
+                else if (itemDef.type === 'armor' && itemDef.slot === 'body') { type = 'armor'; }
+                else if (itemDef.type === 'shield' && itemDef.slot === 'shield') { type = 'shield'; }
+                if (itemDef.type === 'tool' && categories.tool) { type = 'tool'; }
             }
 
-            if (categories[type]) { 
-                categories[type].push(itemName);
-            } else if (categories.resource) { 
+            if (categories[type]) { categories[type].push(itemName); }
+            else if (categories.resource) { 
                 console.warn(`Type d'item '${type}' pour '${itemName}' n'a pas de catégorie dédiée, classé comme ressource.`);
                 categories.resource.push(itemName);
-            } else {
-                console.error(`Catégorie de ressource par défaut manquante et type inconnu pour l'item ${itemName}`);
-            }
+            } else { console.error(`Catégorie de ressource par défaut manquante et type inconnu pour l'item ${itemName}`); }
         }
     }
 
     const categoryOrder = [
-        { key: 'consumable', name: 'Consommables' }, 
-        { key: 'tool', name: 'Outils' },
-        { key: 'weapon', name: 'Armes' }, 
-        { key: 'shield', name: 'Boucliers' },
-        { key: 'armor', name: 'Armures (Corps)' },
-        { key: 'body', name: 'Habits (Corps)' },   
-        { key: 'head', name: 'Chapeaux' },    
-        { key: 'feet', name: 'Chaussures' }, 
-        { key: 'bag', name: 'Sacs' },       
-        { key: 'resource', name: 'Ressources' }, 
-        { key: 'usable', name: 'Objets Spéciaux' },
-        { key: 'key', name: 'Clés & Uniques' }, 
+        { key: 'consumable', name: 'Consommables' }, { key: 'tool', name: 'Outils' },
+        { key: 'weapon', name: 'Armes' }, { key: 'shield', name: 'Boucliers' },
+        { key: 'armor', name: 'Armures (Corps)' },{ key: 'body', name: 'Habits (Corps)' },   
+        { key: 'head', name: 'Chapeaux' }, { key: 'feet', name: 'Chaussures' }, 
+        { key: 'bag', name: 'Sacs' }, { key: 'resource', name: 'Ressources' }, 
+        { key: 'usable', name: 'Objets Spéciaux' }, { key: 'key', name: 'Clés & Uniques' }, 
     ];
     
     let hasItems = false;
     categoryOrder.forEach(cat => {
         const itemsInCategory = categories[cat.key];
-
         if (itemsInCategory && itemsInCategory.length > 0) {
             hasItems = true;
             const categoryDiv = document.createElement('div');
@@ -120,7 +93,6 @@ export function updateInventory(player) {
             const header = document.createElement('div');
             header.className = 'category-header'; 
             if (['resource', 'consumable', 'tool', 'key'].includes(cat.key)) header.classList.add('open');
-
             header.innerHTML = `<span>${cat.name}</span><span class="category-toggle">▶</span>`;
             const content = document.createElement('ul');
             content.className = 'category-content';
@@ -130,8 +102,8 @@ export function updateInventory(player) {
                 const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
                 const li = document.createElement('li');
                 li.className = 'inventory-item';
-                if (itemDef.type === 'consumable' || itemName.startsWith('Parchemin Atelier') || itemName === 'Eau salée') {
-                    li.classList.add('clickable');
+                if (itemDef.type === 'consumable' || itemName.startsWith('Parchemin Atelier') || itemName === 'Eau salée' || itemDef.slot || itemName === 'Carte') {
+                    li.classList.add('clickable'); // Clickable pour consommer, équiper, utiliser (carte)
                 }
                 li.dataset.itemName = itemName;
                 li.setAttribute('draggable', 'true'); 
@@ -153,7 +125,7 @@ export function updateDayCounter(day) {
 }
 
 export function updateTileInfoPanel(tile) { 
-    if (!tile || !DOM.tileNameEl || !DOM.tileHarvestsInfoEl) return; // DOM.tileDescriptionEl supprimé
+    if (!tile || !DOM.tileNameEl || !DOM.tileHarvestsInfoEl) return;
 
     let mainDisplayName = tile.type.name; 
     let mainHarvestsInfo = "";
@@ -169,10 +141,8 @@ export function updateTileInfoPanel(tile) {
     }
 
     DOM.tileNameEl.textContent = mainDisplayName;
-    // const descriptions = { ... }; // Logique de description supprimée
-    // DOM.tileDescriptionEl.textContent = ...; // Supprimé
 
-    if (mainDurabilityInfo && DOM.tileHarvestsInfoEl) { // Afficher dura si bâtiment principal
+    if (mainDurabilityInfo && DOM.tileHarvestsInfoEl) { 
         DOM.tileHarvestsInfoEl.textContent = mainDurabilityInfo;
         DOM.tileHarvestsInfoEl.style.display = 'block';
     } else if (tile.type.resource && tile.harvestsLeft > 0 && tile.type.harvests !== Infinity && (!tile.buildings || tile.buildings.length === 0) && DOM.tileHarvestsInfoEl) {
@@ -183,7 +153,6 @@ export function updateTileInfoPanel(tile) {
         DOM.tileHarvestsInfoEl.style.display = 'none';
     }
 }
-
 
 export function addChatMessage(message, type, author) {
     const chatMessagesEl = document.getElementById('chat-messages');
@@ -256,6 +225,14 @@ export function updateAllButtonsState(gameState) {
             }
         });
     }
+     // Désactiver les boutons dans la modale de construction si le joueur est occupé
+    if (DOM.buildModalGridEl) {
+        DOM.buildModalGridEl.querySelectorAll('button').forEach(b => {
+             if (isPlayerBusy && !b.classList.contains('action-always-enabled')) { 
+                b.disabled = true;
+            }
+        });
+    }
 }
 
 export function updateGroundItemsPanel(tile) {
@@ -264,7 +241,7 @@ export function updateGroundItemsPanel(tile) {
     const groundItems = tile.groundItems || {};
     const list = DOM.bottomBarGroundItemsEl.querySelector('.ground-items-list');
     if (list) {
-        list.innerHTML = ''; // Vider la liste existante
+        list.innerHTML = ''; 
     } else {
         console.error("Élément .ground-items-list non trouvé dans #bottom-bar-ground-items");
         return;
@@ -280,10 +257,10 @@ export function updateGroundItemsPanel(tile) {
             if (groundItems[itemName] > 0) {
                 const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
                 const li = document.createElement('li');
-                li.className = 'inventory-item clickable';
+                li.className = 'inventory-item clickable'; // Clickable pour ramasser
                 li.dataset.itemName = itemName;
                 li.dataset.itemCount = groundItems[itemName];
-                li.setAttribute('draggable', 'true');
+                li.setAttribute('draggable', 'true'); // Draggable pour ramasser
                 li.dataset.owner = 'ground';
 
                 li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${groundItems[itemName]}</span>`;
@@ -300,43 +277,38 @@ export function updateBottomBarEquipmentPanel(player) {
     slotsContainer.innerHTML = '';
 
     const slotTypesAndLabels = [
-        { type: 'head', label: 'Chapeau' },
-        { type: 'weapon', label: 'Arme' },
-        { type: 'shield', label: 'Bouclier' },
-        { type: 'body', label: 'Habit' },
-        { type: 'feet', label: 'Pieds' },
-        { type: 'bag', label: 'Sac' }
+        { type: 'head', label: 'Chapeau' }, { type: 'weapon', label: 'Arme' },
+        { type: 'shield', label: 'Bouclier' }, { type: 'body', label: 'Habit' },
+        { type: 'feet', label: 'Pieds' }, { type: 'bag', label: 'Sac' }
     ];
 
     slotTypesAndLabels.forEach(slotInfo => {
         const slotContainer = document.createElement('div');
         slotContainer.className = 'equipment-slot-container-small';
-
         const label = document.createElement('label');
         label.textContent = slotInfo.label;
         slotContainer.appendChild(label);
 
         const slotEl = document.createElement('div');
-        slotEl.className = 'equipment-slot-small droppable';
+        slotEl.className = 'equipment-slot-small droppable'; // Droppable pour équiper
         slotEl.dataset.slotType = slotInfo.type;
         slotEl.dataset.owner = 'equipment';
 
         const equippedItem = player.equipment[slotInfo.type];
         if (equippedItem) {
             const itemDef = ITEM_TYPES[equippedItem.name] || { icon: equippedItem.icon || '❓' };
-            
             const itemDiv = document.createElement('div');
             itemDiv.className = 'inventory-item'; 
-            itemDiv.setAttribute('draggable', 'true');
+            itemDiv.setAttribute('draggable', 'true'); // Draggable pour déséquiper vers inventaire
             itemDiv.dataset.itemName = equippedItem.name;
-            itemDiv.dataset.owner = 'equipment';
-            itemDiv.dataset.slotType = slotInfo.type;
+            itemDiv.dataset.owner = 'equipment'; // L'item appartient à l'équipement
+            itemDiv.dataset.slotType = slotInfo.type; // Le slot d'origine de l'item
 
             const iconEl = document.createElement('span');
             iconEl.className = 'inventory-icon';
             iconEl.textContent = itemDef.icon;
             itemDiv.appendChild(iconEl);
-            slotEl.appendChild(itemDiv); // L'item (draggable) est DANS le slot (droppable)
+            slotEl.appendChild(itemDiv); 
         }
         slotContainer.appendChild(slotEl);
         slotsContainer.appendChild(slotContainer);

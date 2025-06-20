@@ -36,7 +36,7 @@ export function generateMap(config) {
                 }
             }
             if (isCoastal) {
-                map[y][x] = { type: TILE_TYPES.PLAGE }; // Modifié SAND_GOLDEN en PLAGE
+                map[y][x] = { type: TILE_TYPES.PLAGE };
             } else {
                 map[y][x] = { type: (Math.random() < 0.6) ? TILE_TYPES.FOREST : TILE_TYPES.PLAINS };
             }
@@ -91,7 +91,7 @@ export function generateMap(config) {
     );
 
     if (keyX !== -1 && map[keyY] && map[keyY][keyX]) { 
-        map[keyY][keyX].hiddenItemName = 'Clé du Trésor'; // Utiliser directement le nom de l'item
+        map[keyY][keyX].hiddenItemName = 'Clé du Trésor';
         specialLocations.push({x: keyX, y: keyY});
         console.log(`Hidden key placed at (${keyX}, ${keyY})`);
     }
@@ -161,7 +161,8 @@ export function generateMap(config) {
                 buildings: [], 
             };
 
-            if (type.isBuilding) {
+            if (type.isBuilding && !tileObject.buildings.find(b => b.key === Object.keys(TILE_TYPES).find(k => TILE_TYPES[k] === type))) {
+                 // S'assure de ne pas dupliquer si le type de terrain est déjà un bâtiment par défaut (ne devrait pas arriver avec la logique actuelle)
                 tileObject.buildings.push({
                     key: Object.keys(TILE_TYPES).find(k => TILE_TYPES[k] === type), 
                     durability: type.durability,

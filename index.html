@@ -29,7 +29,6 @@
 
             <!-- ### VUE PRINCIPALE ### -->
             <div id="main-view-wrapper">
-                <!-- #quick-slots-panel SUPPRIMÉ -->
                 <div id="main-view-container">
                     <div id="survival-vignette"></div><div id="action-flash"></div>
                     <canvas id="main-view-canvas"></canvas><canvas id="characters-canvas"></canvas>
@@ -42,7 +41,11 @@
             <div id="right-panel" class="ui-panel">
                 <section id="tile-info"><h3><span>Lieu: <span id="tile-name">Forêt</span> <span id="hud-coords" class="coords-display">(7,10)</span></span></h3><p id="tile-harvests-info" class="tile-detail"></p></section>
                 <section id="interaction-panel"><h3>Actions Possibles</h3><div id="actions"></div></section>
-                <section id="inventory-section"><h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3><div id="inventory-categories" class="droppable" data-owner="player-inventory"></div></section>
+                <section id="inventory-section"><h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3>
+                    <div id="inventory-categories" class="droppable" data-owner="player-inventory">
+                        <!-- Les catégories d'inventaire seront générées par JS -->
+                    </div>
+                </section>
             </div>
         </div>
 
@@ -66,7 +69,9 @@
 
             <div id="bottom-bar-ground-items" class="bottom-bar-section droppable" data-owner="ground">
                 <h4>Objets et ressources au sol</h4>
-                <ul class="inventory-list ground-items-list"></ul>
+                <ul class="inventory-list ground-items-list">
+                    <!-- Les objets au sol seront générés par JS -->
+                </ul>
             </div>
         </div>
     </div>
@@ -90,7 +95,7 @@
                     <ul id="modal-player-inventory" class="inventory-list droppable" data-owner="player-inventory"></ul>
                 </div>
                 <div class="inventory-container">
-                    <h3>Stockage Commun</h3>
+                    <h3>Stockage Commun (<span id="modal-shared-capacity">0 / ∞</span>)</h3>
                     <ul id="modal-shared-inventory" class="inventory-list droppable" data-owner="shared"></ul>
                 </div>
             </div>
@@ -165,6 +170,17 @@
     <div id="item-context-menu" class="hidden">
         <h4 id="context-menu-title"></h4>
         <div id="context-menu-actions"></div>
+    </div>
+
+    <!-- NOUVELLE MODALE DE CONSTRUCTION -->
+    <div id="build-modal" class="hidden">
+        <div id="build-modal-content">
+            <button id="close-build-modal-btn">&times;</button>
+            <h2>Constructions Disponibles</h2>
+            <div id="build-modal-grid">
+                <!-- Les constructions seront générées par JS ici -->
+            </div>
+        </div>
     </div>
 
     <script type="module" src="js/main.js"></script>

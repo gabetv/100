@@ -1,14 +1,13 @@
 // js/state.js
 import { generateMap } from './map.js';
-import { initPlayer, getTotalResources, consumeItem as playerConsumeItemLogic, transferItems } from './player.js'; // Retiré hasResources et deductResources d'ici
-import { initNpcs } from './npc.js'; // Assurez-vous que cet import est correct
+import { initPlayer, getTotalResources, consumeItem as playerConsumeItemLogic, transferItems } from './player.js';
+import { initNpcs } from './npc.js';
 import { initEnemies } from './enemy.js';
 import { TILE_TYPES, CONFIG, ITEM_TYPES } from './config.js';
 
 const gameState = {
     map: [],
-    player: null, // Sera un objet joueur unique pour l'instant
-    // Pour une future version multijoueur, players pourrait être un objet/Map: { 'playerId1': playerObject1, ... }
+    player: null,
     npcs: [],
     enemies: [],
     day: 1,
@@ -17,43 +16,35 @@ const gameState = {
     shelterLocation: null,
     isGameOver: false,
     combatState: null,
-    config: null, // Sera initialisé avec CONFIG
-    knownRecipes: {
-        // 'Planche': true, // Retiré, les recettes sont apprises via parchemins
-        // D'autres recettes initiales pourraient être ajoutées ici
-    },
-    mapTileGlobalVisitCounts: new Map(), // Pour le brouillard de guerre global: Map<"x,y", Set<playerId>>
-    globallyRevealedTiles: new Set(),   // Pour le brouillard de guerre global: Set<"x,y">
+    config: null,
+    knownRecipes: {},
+    mapTileGlobalVisitCounts: new Map(), 
+    globallyRevealedTiles: new Set(),   
 };
 
-// Exporte l'objet gameState lui-même pour un accès direct
 export const state = gameState;
 
-// Exporte la fonction initializeGameState
 export function initializeGameState(config) {
     console.log("State.initializeGameState appelée avec config:", config);
     gameState.config = config;
-    gameState.map = generateMap(config); // Génère la carte en premier
+    gameState.map = generateMap(config); 
 
-    // Initialisation du joueur (pour l'instant un seul)
-    gameState.player = initPlayer(config, 'player1'); // Donne un ID au joueur
+    gameState.player = initPlayer(config, 'player1'); 
 
-    // Trouver une position de départ unique sur une "Plage"
     let startX, startY, attempts = 0;
-    const occupiedStarts = new Set(); // Pourrait être utilisé si plusieurs joueurs sont initialisés
+    const occupiedStarts = new Set(); 
 
     do {
         startX = Math.floor(Math.random() * config.MAP_WIDTH);
         startY = Math.floor(Math.random() * config.MAP_HEIGHT);
         attempts++;
-        if (attempts > 200) { // Sécurité pour éviter boucle infinie
+        if (attempts > 200) { 
             console.error("Impossible de trouver une case de départ de type Plage libre !");
-            // Fallback sur une case accessible par défaut, ou la première plage trouvée
             const fallbackBeach = gameState.map.flat().find(t => t.type.name === TILE_TYPES.PLAGE.name && t.type.accessible);
             if (fallbackBeach) {
                 startX = fallbackBeach.x;
                 startY = fallbackBeach.y;
-            } else { // Si vraiment aucune plage, fallback sur le centre (ce qui ne devrait pas arriver)
+            } else { 
                 startX = Math.floor(config.MAP_WIDTH / 2);
                 startY = Math.floor(config.MAP_HEIGHT / 2);
             }
@@ -71,9 +62,7 @@ export function initializeGameState(config) {
     gameState.player.y = startY;
     occupiedStarts.add(`${startX},${startY}`);
 
-    // Marquer la tuile de départ comme visitée
     gameState.player.visitedTiles.add(`${startX},${startY}`);
-    // Contribuer au compteur global de visites pour la tuile de départ
     const startTileKey = `${startX},${startY}`;
     if (!gameState.mapTileGlobalVisitCounts.has(startTileKey)) {
         gameState.mapTileGlobalVisitCounts.set(startTileKey, new Set());
@@ -82,7 +71,6 @@ export function initializeGameState(config) {
     if (gameState.mapTileGlobalVisitCounts.get(startTileKey).size >= CONFIG.FOG_OF_WAR_REVEAL_THRESHOLD) {
         gameState.globallyRevealedTiles.add(startTileKey);
     }
-
 
     gameState.npcs = initNpcs(config, gameState.map);
     gameState.enemies = initEnemies(config, gameState.map);
@@ -97,7 +85,6 @@ export function initializeGameState(config) {
     console.log("GameState initialisé:", gameState);
 }
 
-
 export function applyPlayerMove(direction) {
     const { x, y } = gameState.player;
     let newX = x, newY = y;
@@ -109,13 +96,12 @@ export function applyPlayerMove(direction) {
     gameState.player.x = newX;
     gameState.player.y = newY;
 
-    // Mise à jour du brouillard de guerre
     gameState.player.visitedTiles.add(`${newX},${newY}`);
     const tileKey = `${newX},${newY}`;
     if (!gameState.mapTileGlobalVisitCounts.has(tileKey)) {
         gameState.mapTileGlobalVisitCounts.set(tileKey, new Set());
     }
-    gameState.mapTileGlobalVisitCounts.get(tileKey).add(gameState.player.id); // Utilise l'ID du joueur
+    gameState.mapTileGlobalVisitCounts.get(tileKey).add(gameState.player.id); 
 
     if (gameState.mapTileGlobalVisitCounts.get(tileKey).size >= CONFIG.FOG_OF_WAR_REVEAL_THRESHOLD) {
         gameState.globallyRevealedTiles.add(tileKey);
@@ -135,13 +121,13 @@ export function applyBulkInventoryTransfer(itemName, amount, transferType) {
         if (!tile.inventory) tile.inventory = JSON.parse(JSON.stringify(TILE_TYPES[buildingWithInventory.key].inventory));
         targetInventory = tile.inventory;
         targetCapacity = TILE_TYPES[buildingWithInventory.key].maxInventory || Infinity;
-    } else if (tile.type.inventory) {
+    } else if (tile.type.inventory) { // Cas d'un trésor ou autre type de tuile avec inventaire direct
+        if (!tile.inventory) tile.inventory = JSON.parse(JSON.stringify(tile.type.inventory)); // Initialiser si besoin
         targetInventory = tile.inventory;
         targetCapacity = tile.type.maxInventory || Infinity;
     } else {
         return { success: false, message: "Ce lieu n'a pas de stockage." };
     }
-
 
     let from, to, success;
 
@@ -182,11 +168,7 @@ export function endCombat(victory) {
 
     if (victory) {
         const enemy = combatState.enemy;
-        Object.keys(enemy.loot).forEach(resource => {
-            addResourceToPlayer(resource, enemy.loot[resource]);
-        });
-
-        gameState.enemies = gameState.enemies.filter(e => e.id !== enemy.id);
+        // La gestion du loot est faite dans interactions.js/playerAttack
     }
 
     player.isBusy = false;
@@ -231,8 +213,7 @@ export function equipItem(itemName) {
     if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
 
     const newEquip = { name: itemName, ...itemDef };
-    // Si l'objet a une durabilité définie dans ITEM_TYPES, initialiser currentDurability
-    if (newEquip.hasOwnProperty('durability')) { // Vérifier si la propriété 'durability' existe (pas 'uses')
+    if (newEquip.hasOwnProperty('durability')) { 
       newEquip.currentDurability = newEquip.durability;
     }
     player.equipment[slot] = newEquip;
@@ -240,20 +221,14 @@ export function equipItem(itemName) {
 
     if (itemDef.stats) {
         for (const stat in itemDef.stats) {
-            // Gérer les stats de type maxHealth, maxThirst, etc.
             if (stat.startsWith('max') && player.hasOwnProperty(stat)) {
                 player[stat] += itemDef.stats[stat];
             }
-            // Gérer les stats directes comme damage, defense, etc.
-            // Celles-ci ne sont généralement pas des propriétés directes du joueur mais utilisées au calcul.
-            // Pour `maxInventory` sur les sacs, ou d'autres stats d'équipement.
             else if (player.hasOwnProperty(stat)) {
                  player[stat] += itemDef.stats[stat];
             }
         }
     }
-
-
     console.log(`[State.equipItem] SUCCÈS : '${itemName}' a été équipé dans le slot '${slot}'.`);
     return { success: true, message: `${itemName} équipé.` };
 }
@@ -266,12 +241,6 @@ export function unequipItem(slot) {
     if (getTotalResources(player.inventory) >= player.maxInventory) {
         return { success: false, message: "Inventaire plein." };
     }
-
-    // Lors du déséquipement, on remet l'objet dans l'inventaire avec son nom.
-    // La durabilité actuelle (currentDurability) est une propriété de l'instance d'équipement,
-    // pas de l'item type. Pour simplifier, on assume que l'objet remis dans l'inventaire
-    // est "comme neuf" ou que la durabilité n'est pas suivie pour les objets non équipés.
-    // Si on voulait suivre la durabilité des objets en inventaire, il faudrait un système plus complexe.
     addResourceToPlayer(item.name, 1);
     player.equipment[slot] = null;
 
@@ -279,8 +248,7 @@ export function unequipItem(slot) {
         for (const stat in item.stats) {
             if (stat.startsWith('max') && player.hasOwnProperty(stat)) {
                 player[stat] -= item.stats[stat];
-                // S'assurer que la stat actuelle ne dépasse pas le nouveau max
-                const currentStatName = stat.substring(3).toLowerCase(); // ex: health de maxHealth
+                const currentStatName = stat.substring(3).toLowerCase(); 
                 if (player.hasOwnProperty(currentStatName)) {
                     player[currentStatName] = Math.min(player[currentStatName], player[stat]);
                 }
@@ -317,28 +285,25 @@ export function addBuildingToTile(x, y, buildingKey) {
         }
     }
 
-
     tile.buildings.push({
         key: buildingKey,
         durability: buildingType.durability,
         maxDurability: buildingType.durability,
     });
 
-    if (buildingType.inventory && !tile.inventory) {
+    if (buildingType.inventory && !tile.inventory) { // Si le bâtiment a un inventaire et que la tuile n'en a pas encore un "global"
         tile.inventory = JSON.parse(JSON.stringify(buildingType.inventory));
     }
+
 
     if (buildingKey === 'SHELTER_COLLECTIVE') {
         gameState.shelterLocation = { x, y };
     }
 
-    // Si c'est un bâtiment appris par parchemin, on le marque comme construit pour la logique de recette
     const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === buildingType.name && item.isBuildingRecipe);
     if (buildingRecipeParchemin) {
-        // Optionnel : marquer la recette comme "utilisée" si on ne veut pas reconstruire le même bâtiment via parchemin
-        // gameState.knownRecipes[buildingType.name] = 'built'; // Ou une autre logique
+        // gameState.knownRecipes[buildingType.name] = 'built'; 
     }
-
 
     return { success: true, message: `${buildingType.name} construit.` };
 }
@@ -352,8 +317,17 @@ export function damageBuilding(tileX, tileY, buildingIndexInTileArray, damageAmo
 
     if (building.durability <= 0) {
         const buildingName = TILE_TYPES[building.key].name;
+        const buildingKeyDestroyed = building.key; // Sauvegarder la clé avant de splice
         tile.buildings.splice(buildingIndexInTileArray, 1);
-        if (building.key === 'SHELTER_COLLECTIVE' && gameState.shelterLocation && gameState.shelterLocation.x === tileX && gameState.shelterLocation.y === tileY) {
+
+        // Si le bâtiment détruit était celui qui fournissait l'inventaire à la tuile et qu'il n'y a plus d'autres bâtiments avec inventaire
+        if (TILE_TYPES[buildingKeyDestroyed]?.inventory && !tile.buildings.some(b => TILE_TYPES[b.key]?.inventory)) {
+            // Optionnel : vider tile.inventory ou le transférer au sol si désiré
+            // tile.inventory = {}; // Ou null, selon la logique de gestion
+        }
+
+
+        if (buildingKeyDestroyed === 'SHELTER_COLLECTIVE' && gameState.shelterLocation && gameState.shelterLocation.x === tileX && gameState.shelterLocation.y === tileY) {
             const anotherShelter = gameState.map.flat().find(t => t.buildings.some(b => b.key === 'SHELTER_COLLECTIVE'));
             gameState.shelterLocation = anotherShelter ? { x: anotherShelter.x, y: anotherShelter.y } : null;
         }
@@ -376,12 +350,6 @@ export function updateTileType(x, y, newTerrainTypeKey) {
     tile.resources = newTerrainType.resource ? { ...newTerrainType.resource } : null;
 }
 
-
-/**
- * Vérifie si le joueur ET les objets au sol sur la tuile actuelle ont les ressources nécessaires.
- * @param {object} costs - Objet de coûts { 'item': amount }.
- * @returns {object} - { success: true } ou { success: false, missing: 'item' }.
- */
 export function hasResources(costs) {
     const player = gameState.player;
     const tile = gameState.map[player.y][player.x];
@@ -397,11 +365,6 @@ export function hasResources(costs) {
     return { success: true };
 }
 
-/**
- * Déduit les ressources de l'inventaire du joueur ET/OU des objets au sol.
- * Priorise l'inventaire du joueur.
- * @param {object} costs - Objet de coûts { 'item': amount }.
- */
 export function applyResourceDeduction(costs) {
     const player = gameState.player;
     const tile = gameState.map[player.y][player.x];
@@ -410,7 +373,6 @@ export function applyResourceDeduction(costs) {
     for (const resource in costs) {
         let needed = costs[resource];
 
-        // D'abord depuis l'inventaire du joueur
         if (player.inventory[resource] > 0) {
             const takeFromPlayer = Math.min(needed, player.inventory[resource]);
             player.inventory[resource] -= takeFromPlayer;
@@ -420,7 +382,6 @@ export function applyResourceDeduction(costs) {
             needed -= takeFromPlayer;
         }
 
-        // Puis depuis le sol si encore besoin
         if (needed > 0 && groundItems[resource] > 0) {
             const takeFromGround = Math.min(needed, groundItems[resource]);
             groundItems[resource] -= takeFromGround;
@@ -431,7 +392,6 @@ export function applyResourceDeduction(costs) {
         }
 
         if (needed > 0) {
-            // Cela ne devrait pas arriver si hasResources a été appelé avant
             console.warn(`[applyResourceDeduction] Manque de ${resource} après tentative de déduction.`);
         }
     }
@@ -449,47 +409,28 @@ export function consumeItem(itemName) {
     }
 
     if (itemName === 'Carte' && itemDef?.uses) {
-        // La décrémentation de la carte est gérée par l'action d'ouverture de la carte dans main.js
-        // Si on arrive ici, c'est que l'action a déjà été validée.
-        // On ne fait que retourner un message de succès.
         return { success: true, message: "Vous consultez la carte.", floatingTexts: [] };
     }
 
-
     if (itemDef?.teachesRecipe) {
-        if (!player.inventory[itemName] && (result.success ? player.inventory[itemName] !== 0 : true)) {
-            // Correction : playerConsumeItemLogic décrémente déjà si itemDef.type = consumable.
-            // Si teachesRecipe est sur un item non "consumable", il n'est pas décrémenté.
-            // On s'assure qu'on en a encore un pour l'apprendre.
-            // La condition est complexe ici, s'assurer que si result.success est vrai (donc consommé), l'inventaire est à 0.
-            // Si result.success est faux (non consommé par playerConsumeItemLogic), alors il faut vérifier qu'on a l'item.
-            // Simplifions : si on a appris la recette et que l'item était un parchemin, il est consommé.
-            // On vérifie donc si la recette est déjà connue *avant* de décrémenter à nouveau
-        }
-        if (gameState.knownRecipes[itemDef.teachesRecipe] && !itemDef.isBuildingRecipe) { // Ne pas re-consommer si déjà connu (sauf bâtiment)
+        if (gameState.knownRecipes[itemDef.teachesRecipe] && !itemDef.isBuildingRecipe) { 
             result.message = `Vous relisez le parchemin de ${itemDef.teachesRecipe}. Vous connaissez déjà cette recette.`;
-            // Ne pas décrémenter à nouveau si c'est un consommable de base qui a déjà été décrémenté.
-            // Et ne pas décrémenter si on relit une recette déjà connue (sauf si c'est la première lecture d'un consommable)
-            if (itemDef.type !== 'consumable' && result.success !== true) { // Si ce n'est PAS un consommable, ou si playerConsumeItemLogic ne l'a pas décrémenté
-                // On ne décrémente pas, car on relit juste.
+            if (itemDef.type !== 'consumable' && result.success !== true) { 
             }
 
         } else {
             gameState.knownRecipes[itemDef.teachesRecipe] = true;
             result.message = `Vous avez appris la recette : ${itemDef.teachesRecipe} !`;
-            // Assurer la décrémentation si ce n'est pas un 'consumable' de base mais qu'il enseigne une recette
-            // et que ce n'est pas le cas où playerConsumeItemLogic l'a déjà fait.
             if (itemDef.type !== 'consumable') {
-                 if (player.inventory[itemName] > 0) { // S'assurer qu'on en a encore un
+                 if (player.inventory[itemName] > 0) { 
                     player.inventory[itemName]--;
                     if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
                  } else {
-                     // Cas où le parchemin aurait dû être là mais ne l'est plus. Devrait être rare.
                      return { success: false, message: "Erreur: Parchemin non trouvé pour apprendre la recette."};
                  }
             }
         }
-        result.success = true; // L'apprentissage est toujours un succès si on a le parchemin.
+        result.success = true; 
     } else if (itemDef?.effects?.custom) {
         if (itemDef.effects.custom === 'porteBonheur') {
             if (Math.random() < 0.5) {
@@ -516,7 +457,7 @@ export function consumeItem(itemName) {
                 if (!result.floatingTexts) result.floatingTexts = [];
                 result.floatingTexts.push('-1❤️ (Maladie aggravée)');
             } else {
-                if (Math.random() < 0.5) { // 50% chance to become Malade
+                if (Math.random() < 0.5) { 
                     player.status = 'Malade';
                     if (!result.floatingTexts) result.floatingTexts = [];
                     result.floatingTexts.push('Statut: Malade');
@@ -529,7 +470,6 @@ export function consumeItem(itemName) {
 
     return result;
 }
-
 
 // --- Fonctions spécifiques aux ressources au sol ---
 

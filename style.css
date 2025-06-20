@@ -92,8 +92,6 @@ body {
     z-index: 2;
 }
 
-/* #quick-slots-panel SUPPRIMÉ */
-
 .ui-panel h3 { font-weight: 600; margin-bottom: 10px; border-bottom: 1px solid #ffffff20; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;}
 .ui-panel section { background-color: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
 .stat { margin-bottom: 12px; } .stat-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; } .stat-icon { font-size: 1.1em; text-align: center; width: 20px; } .stat span:not(.stat-icon) { font-size: 0.9em; flex-grow: 1; }
@@ -116,7 +114,7 @@ body {
 .category-content.visible { display: flex; }
 .inventory-item { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.1); position: relative; transition: background-color 0.2s; }
 .inventory-item.clickable { cursor: pointer; }
-.inventory-item:not(.clickable) { cursor: pointer; }
+.inventory-item:not(.clickable) { cursor: pointer; } /* Make all items seem grabbable even if consume is primary */
 .inventory-item:hover { background-color: rgba(69, 123, 157, 0.3); }
 .inventory-item[draggable="true"] { cursor: grab; }
 .inventory-item[draggable="true"]:active { cursor: grabbing; }
@@ -125,7 +123,7 @@ body {
 .inventory-item .inventory-count { font-weight: 600; color: var(--text-secondary); min-width: 25px; text-align: right; margin-right: 10px; }
 .inventory-empty { color: var(--text-secondary); opacity: 0.7; }
 .hidden { display: none !important; }
-.droppable.drag-over { background-color: rgba(69, 123, 157, 0.4); outline: 2px dashed var(--action-color); }
+.droppable.drag-over { background-color: rgba(69, 123, 157, 0.4) !important; outline: 2px dashed var(--action-color); }
 .inventory-item.dragging { opacity: 0.4; background: var(--action-color); }
 
 .tile-detail { font-size: 0.85em; color: var(--text-secondary); background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; margin-top: 10px; text-align: center;}
@@ -133,13 +131,14 @@ body {
 .capacity-display { font-size: 0.8em; font-weight: 400; color: var(--text-secondary); }
 
 #actions { display: flex; flex-direction: column; gap: 10px; }
-#actions button, #build-submenu-content button { width: 100%; padding: 12px; background-color: var(--action-color); color: var(--text-light); font-weight: 600; font-family: 'Poppins', sans-serif; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; border-bottom: 3px solid #2f5a7a; }
-#actions button:hover:not(:disabled), #build-submenu-content button:hover:not(:disabled) { background-color: #5e9ac4; transform: translateY(-2px); border-bottom-color: #457b9d; }
-#actions button:disabled, #build-submenu-content button:disabled { background-color: #2f4553; color: #9ab4c2; cursor: not-allowed; border-bottom-color: #1a2a32; transform: none; }
-#actions button:disabled:hover, #build-submenu-content button:disabled:hover { transform: none; }
+#actions button { width: 100%; padding: 12px; background-color: var(--action-color); color: var(--text-light); font-weight: 600; font-family: 'Poppins', sans-serif; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; border-bottom: 3px solid #2f5a7a; }
+#actions button:hover:not(:disabled) { background-color: #5e9ac4; transform: translateY(-2px); border-bottom-color: #457b9d; }
+#actions button:disabled { background-color: #2f4553; color: #9ab4c2; cursor: not-allowed; border-bottom-color: #1a2a32; transform: none; }
+#actions button:disabled:hover { transform: none; }
 
-#main-build-btn { margin-bottom: 5px; }
-#build-submenu-content {
+/* Styles for the old build submenu, will be removed if main button opens modal */
+/* #main-build-btn { margin-bottom: 5px; } */
+/* #build-submenu-content {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -156,7 +155,7 @@ body {
 }
 #build-submenu-content button:hover:not(:disabled) {
     background-color: rgba(94, 154, 196, 0.8);
-}
+} */
 
 
 #minimap-section h3 button#enlarge-map-btn { margin-left: auto; }
@@ -180,7 +179,7 @@ body {
     -webkit-backdrop-filter: blur(10px);
     flex-shrink: 0;
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr; /* Chat (plus grand) | Equipement (plus petit) | Objets au sol (moyen) */
+    grid-template-columns: 2fr 1fr 1fr;
     gap: 15px;
     border-radius: var(--border-radius);
     padding: 15px;
@@ -188,8 +187,8 @@ body {
     position: relative;
     z-index: 20;
     transition: min-height 0.3s ease-in-out;
-    min-height: 200px; /* Réduit légèrement la hauteur minimale */
-    max-height: 300px; /* Réduit légèrement la hauteur maximale */
+    min-height: 200px; 
+    max-height: 300px;
     overflow: hidden;
 }
 
@@ -211,16 +210,8 @@ body {
     color: var(--text-secondary);
 }
 
-#bottom-bar-chat-panel {
-    /* grid-column: 1 / 2; */
-}
-#bottom-bar-chat-panel.chat-enlarged {
-    /* Géré par #bottom-bar.chat-enlarged */
-}
-#bottom-bar.chat-enlarged {
-    min-height: 300px; /* Ou la hauteur désirée pour le chat agrandi */
-}
-
+#bottom-bar-chat-panel.chat-enlarged { /* Handled by #bottom-bar.chat-enlarged */ }
+#bottom-bar.chat-enlarged { min-height: 300px; }
 
 #chat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.1); } #chat-header h3 { margin: 0; border: none; padding: 0; font-size: 1em; } #toggle-chat-size-btn { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary); cursor: pointer; border-radius: 4px; padding: 2px 8px; font-size: 1.1em; transition: all 0.2s; } #toggle-chat-size-btn:hover { background: var(--action-color); color: var(--text-light); }
 #chat-messages {
@@ -233,37 +224,14 @@ body {
     min-height: 60px;
     transition: height 0.3s ease-in-out;
 }
-#bottom-bar-chat-panel.chat-enlarged #chat-messages {
-    /* La hauteur est gérée par flex-grow dans le panel agrandi */
-}
 
 .chat-message { margin-bottom: 8px; line-height: 1.4; }
 .chat-message.player { color: #a8dadc; }
 .chat-message.npc { color: #f4a261; }
-.chat-message.npc-dialogue { 
-    color: #82EEFD;
-    background-color: rgba(0, 0, 0, 0.1);
-    padding: 5px 8px;
-    border-radius: 4px;
-    border-left: 3px solid #82EEFD;
-}
+.chat-message.npc-dialogue { color: #82EEFD; background-color: rgba(0, 0, 0, 0.1); padding: 5px 8px; border-radius: 4px; border-left: 3px solid #82EEFD;}
 .chat-message.npc-dialogue p { margin-bottom: 5px; }
-.chat-message.npc-dialogue button.npc-quest-btn { 
-    background-color: var(--action-color);
-    color: var(--text-light);
-    border: none;
-    padding: 6px 12px;
-    margin-top: 5px;
-    margin-right: 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9em;
-    font-family: 'Poppins', sans-serif;
-}
-.chat-message.npc-dialogue button.npc-quest-btn:hover {
-    background-color: #5e9ac4;
-}
-
+.chat-message.npc-dialogue button.npc-quest-btn { background-color: var(--action-color); color: var(--text-light); border: none; padding: 6px 12px; margin-top: 5px; margin-right: 10px; border-radius: 4px; cursor: pointer; font-size: 0.9em; font-family: 'Poppins', sans-serif;}
+.chat-message.npc-dialogue button.npc-quest-btn:hover { background-color: #5e9ac4; }
 .chat-message.system { color: #e63946; font-style: italic; }
 .chat-message.gain { color: #2ecc71; }
 .chat-message.cost { color: #e74c3c; }
@@ -273,52 +241,22 @@ body {
 .chat-message.system_error { background-color: #c0392b; color: white; padding: 2px 5px; border-radius: 3px; }
 #chat-input-area { position: relative; flex-shrink: 0; display: flex; gap: 10px; align-items: center; } #chat-input-field { flex-grow: 1; background: none; border: 1px solid #ffffff40; border-radius: 8px; padding: 10px; color: var(--text-light); font-family: 'Poppins', sans-serif; } #chat-input-field:focus { outline: none; border-color: var(--action-color); }
 
-/* Styles pour le panneau d'équipement dans la barre inférieure */
-#bottom-bar-equipment-panel {
-    /* grid-column: 2 / 3; */ /* La grille s'occupe de ça, ajusté en haut */
-    /* min-width: 280px; */ /* Largeur minimale pour le panneau d'équipement */
-    /* max-width: 350px; */ /* Limite la largeur max pour ne pas trop écraser le chat */
-    flex-shrink: 0; /* Empêcher de trop rétrécir */
-}
-.equipment-preview-area {
-    display: flex;
-    gap: 10px; /* Réduit l'espace */
-    align-items: flex-start;
-    overflow-y: auto;
-    flex-grow: 1;
-}
-.player-character-placeholder-small {
-    width: 60px; /* Réduit */
-    height: 100px; /* Réduit */
-    background: rgba(0,0,0,0.2);
-    border: 1px dashed rgba(255,255,255,0.15);
-    border-radius: 6px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    margin-top: 10px; /* Pour aligner un peu avec les labels */
-}
+#bottom-bar-equipment-panel { flex-shrink: 0; }
+.equipment-preview-area { display: flex; gap: 10px; align-items: flex-start; overflow-y: auto; flex-grow: 1; }
+.player-character-placeholder-small { width: 60px; height: 100px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.15); border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 10px; }
 .player-head-small { width: 25px; height: 25px; background: #ffd700; border-radius: 50%; border: 2px solid #b8860b; }
 .player-body-small { width: 35px; height: 50px; background: #ffd700; border: 2px solid #b8860b; border-radius: 15px 15px 4px 4px; margin-top: -4px; }
-
-#bottom-bar-equipment-slots {
-    display: grid;
-    grid-template-columns: 1fr 1fr; /* Toujours deux colonnes */
-    gap: 6px; /* Réduit l'espace */
-    flex-grow: 1;
-}
+#bottom-bar-equipment-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex-grow: 1; }
 .equipment-slot-container-small { text-align: center; }
 .equipment-slot-container-small label { display: block; font-size: 0.7em; margin-bottom: 2px; color: var(--text-secondary); opacity: 0.8; }
-.equipment-slot-small { width: 100%; height: 40px; /* Réduit la hauteur */ background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.2); border-radius: 4px; display: flex; justify-content: center; align-items: center; font-size: 1.3em; color: rgba(255,255,255,0.3); }
+.equipment-slot-small { width: 100%; height: 40px; background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.2); border-radius: 4px; display: flex; justify-content: center; align-items: center; font-size: 1.3em; color: rgba(255,255,255,0.3); }
 .equipment-slot-small .inventory-icon { font-size: 1em; }
 .equipment-slot-small.droppable.drag-over { background-color: rgba(69, 123, 157, 0.5); border-color: var(--action-color); }
 
-
-/* Styles pour le panneau des objets au sol */
-#bottom-bar-ground-items {
-    /* grid-column: 3 / 4; */ /* La grille s'occupe de ça */
+/* Ajustement pour que .ground-items-list prenne de la place */
+#bottom-bar-ground-items .inventory-list {
+    flex-grow: 1; /* Permet à la liste de s'étendre */
+    overflow-y: auto; /* Ajoute un défilement si nécessaire */
 }
 .ground-items-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 5px; flex-grow: 1; }
 #quick-chat-button { background-color: var(--action-color); color: var(--text-light); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5em; line-height: 40px; text-align: center; cursor: pointer; transition: background-color 0.2s; flex-shrink: 0; }
@@ -345,68 +283,39 @@ body {
 
 @media (max-width: 1200px) {
     #main-area { grid-template-columns: 250px 1fr 320px; }
-    #bottom-bar {
-        grid-template-columns: 1.5fr 1fr 1fr; /* Ajuster les proportions pour les écrans moyens */
-    }
+    #bottom-bar { grid-template-columns: 1.5fr 1fr 1fr; }
 }
 @media (max-width: 900px) {
     body { padding: 5px; overflow: auto; }
-    #game-container {
-        gap: 10px;
-        aspect-ratio: unset;
-        width: 100%;
-        height: auto;
-        min-height: 100vh;
-        max-height: unset;
-    }
-    #main-area {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto;
-        height: auto;
-    }
-    #main-view-wrapper {
-        grid-row: 1;
-        height: 60vw;
-        max-height: 400px;
-    }
-    #main-view-container {
-        width: auto;
-        height: 100%;
-    }
-    #right-panel { grid-row: 2; }
-    #left-panel { grid-row: 3; }
-    .ui-panel { overflow-y: visible; padding: 15px; }
-    .ui-panel section { padding: 12px; }
+    #game-container { gap: 10px; aspect-ratio: unset; width: 100%; height: auto; min-height: 100vh; max-height: unset; }
+    #main-area { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; }
+    #main-view-wrapper { grid-row: 1; height: 60vw; max-height: 400px; }
+    #main-view-container { width: auto; height: 100%; }
+    #right-panel { grid-row: 2; } #left-panel { grid-row: 3; }
+    .ui-panel { overflow-y: visible; padding: 15px; } .ui-panel section { padding: 12px; }
     .nav-button-overlay { width: 45px; height: 45px; font-size: 1.2em; }
-    #bottom-bar {
-        grid-template-columns: 1fr; /* Une seule colonne sur mobile */
-        grid-template-rows: auto auto auto; /* Chat, puis Équipement, puis Sol */
-        min-height: 180px;
-        max-height: none; /* Permettre à la barre de s'étendre */
-    }
-    /* Quick slots sont supprimés, donc plus besoin de les repositionner pour mobile */
+    #bottom-bar { grid-template-columns: 1fr; grid-template-rows: auto auto auto; min-height: 180px; max-height: none; }
 }
 
 .action-failed-shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
 @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
 
-/* === MODALES D'INVENTAIRE, QUANTITÉ, COMBAT === */
-#inventory-modal, #quantity-modal, #combat-modal, #equipment-modal { position: fixed; inset: 0; display: flex; justify-content: center; align-items: center; padding: 20px; opacity: 1; transition: opacity 0.3s ease; }
-#inventory-modal.hidden, #quantity-modal.hidden, #combat-modal.hidden, #equipment-modal.hidden { opacity: 0; pointer-events: none; }
-#inventory-modal, #equipment-modal { z-index: 3000; background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); }
+/* === MODALES === */
+#inventory-modal, #quantity-modal, #combat-modal, #equipment-modal, #build-modal { position: fixed; inset: 0; display: flex; justify-content: center; align-items: center; padding: 20px; opacity: 1; transition: opacity 0.3s ease; }
+#inventory-modal.hidden, #quantity-modal.hidden, #combat-modal.hidden, #equipment-modal.hidden, #build-modal.hidden { opacity: 0; pointer-events: none; }
+#inventory-modal, #equipment-modal, #build-modal { z-index: 3000; background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); }
 #quantity-modal { z-index: 4000; background-color: rgba(0, 0, 0, 0.5); }
 #combat-modal { z-index: 5000; background-color: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); }
 
-#inventory-modal-content, #equipment-modal-content { background-color: var(--bg-panel); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: var(--border-radius); padding: 30px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; }
+#inventory-modal-content, #equipment-modal-content, #build-modal-content { background-color: var(--bg-panel); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: var(--border-radius); padding: 30px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; }
 #inventory-modal-content { max-width: 900px; min-height: 400px; }
-#close-inventory-modal-btn, #close-equipment-modal-btn { position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: var(--text-secondary); font-size: 2em; cursor: pointer; line-height: 1; transition: color 0.2s, transform 0.2s; }
-#close-inventory-modal-btn:hover, #close-equipment-modal-btn:hover { color: var(--accent-color); transform: scale(1.1); }
-#inventory-modal h2, #equipment-modal h2 { text-align: center; margin-bottom: 25px; color: var(--text-light); }
+#close-inventory-modal-btn, #close-equipment-modal-btn, #close-build-modal-btn { position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: var(--text-secondary); font-size: 2em; cursor: pointer; line-height: 1; transition: color 0.2s, transform 0.2s; }
+#close-inventory-modal-btn:hover, #close-equipment-modal-btn:hover, #close-build-modal-btn:hover { color: var(--accent-color); transform: scale(1.1); }
+#inventory-modal h2, #equipment-modal h2, #build-modal h2 { text-align: center; margin-bottom: 25px; color: var(--text-light); }
 #inventory-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
 .inventory-container h3 { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
 #inventory-modal .inventory-list { background-color: rgba(0,0,0,0.25); border-radius: 8px; padding: 15px; min-height: 300px; display: flex; flex-direction: column; gap: 10px; transition: background-color 0.2s ease; }
 
-/* STYLES MODALE DE QUANTITÉ */
 #quantity-modal-content { background: var(--bg-main); border: 1px solid var(--action-color); border-radius: var(--border-radius); padding: 25px; width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 20px; }
 #quantity-modal-title { text-align: center; font-size: 1.3em; }
 #quantity-controls { display: flex; align-items: center; gap: 15px; }
@@ -424,8 +333,6 @@ body {
 #quantity-confirm-btn { background-color: var(--deposit-color); color: var(--text-light); }
 #quantity-confirm-btn:hover { background-color: #38b09d; }
 
-
-/* STYLES MODALE DE COMBAT */
 #combat-modal-content { background: #1a2a32; border: 2px solid var(--accent-color); border-radius: var(--border-radius); padding: 25px; width: 100%; max-width: 700px; box-shadow: 0 0 40px rgba(230, 57, 70, 0.5); display: flex; flex-direction: column; gap: 20px; }
 #combat-modal h2 { text-align: center; color: var(--accent-color); letter-spacing: 4px; border-bottom: 1px solid rgba(230, 57, 70, 0.4); padding-bottom: 15px; }
 #combat-participants { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px; }
@@ -446,7 +353,6 @@ body {
 #combat-actions button#combat-flee-btn:hover { background-color: #5e9ac4; }
 #combat-actions button:disabled { background-color: #4b5563; cursor: not-allowed; opacity: 0.5; }
 
-/* MODALE D'ÉQUIPEMENT DÉTAILLÉE (VUE SAC) */
 #equipment-modal-content { max-width: 1000px; min-height: 500px; }
 #equipment-grid { display: grid; grid-template-columns: 250px 1fr 1fr; gap: 25px; align-items: flex-start; }
 #equipment-player-view { background: rgba(0,0,0,0.2); border-radius: 8px; padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
@@ -456,34 +362,19 @@ body {
 #equipment-player-stats { width: 100%; text-align: center; }
 #equipment-player-stats h3 { margin-bottom: 10px; font-size: 1.1em; }
 #equipment-player-stats p { font-size: 0.95em; margin-bottom: 5px; }
-#equipment-slots { display: grid; grid-template-columns: repeat(2, 1fr); /* 2 colonnes pour les slots */ gap: 15px; align-items: start; padding: 10px; }
+#equipment-slots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; align-items: start; padding: 10px; }
 .equipment-slot-container { width: 100%; text-align: center; }
 .equipment-slot-container label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-secondary); }
 .equipment-slot { width: 100px; height: 100px; background: rgba(0,0,0,0.4); border: 2px dashed rgba(255,255,255,0.3); border-radius: 8px; margin: 0 auto; display: flex; justify-content: center; align-items: center; transition: all 0.2s; padding: 10px; }
-/* Style pour l'item dans le slot d'équipement */
 .equipment-slot .inventory-item { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 5px; }
 .equipment-slot .inventory-item .inventory-icon { font-size: 2.5em; }
 .equipment-slot .inventory-item .inventory-name { font-size: 0.8em; text-align: center; word-break: break-word; margin-top: 5px; line-height: 1.1; }
-.equipment-slot .inventory-item .inventory-count { display: none; } /* Pas besoin de count ici */
+.equipment-slot .inventory-item .inventory-count { display: none; }
 .equipment-slot .inventory-item .item-durability { font-size: 0.7em; color: var(--text-secondary); margin-top: 3px; }
-
 #equipment-modal .inventory-container { height: 400px; display: flex; flex-direction: column; }
 #equipment-modal #equipment-player-inventory { background-color: rgba(0,0,0,0.25); border-radius: 8px; padding: 15px; min-height: 0; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; transition: background-color 0.2s ease; }
 
-/* MENU CONTEXTUEL POUR LES OBJETS */
-#item-context-menu {
-    position: fixed;
-    z-index: 9999;
-    background-color: var(--bg-main);
-    border: 1px solid var(--action-color);
-    border-radius: 8px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 180px;
-}
+#item-context-menu { position: fixed; z-index: 9999; background-color: var(--bg-main); border: 1px solid var(--action-color); border-radius: 8px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 180px;}
 #context-menu-title { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.2); text-align: center; font-size: 1.1em; font-weight: 600; }
 #context-menu-actions { display: flex; flex-direction: column; gap: 5px; }
 #context-menu-actions button { background-color: var(--action-color); color: var(--text-light); border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: 600; transition: background-color 0.2s; }
@@ -491,6 +382,105 @@ body {
 #context-menu-actions button[data-action="cancel"] { background-color: #4b5563; }
 #context-menu-actions button[data-action="cancel"]:hover { background-color: #6b7280; }
 
-#build-submenu-content.hidden {
-    display: none;
+/* NOUVELLE MODALE DE CONSTRUCTION */
+#build-modal-content {
+    max-width: 1200px;
+    min-height: 600px;
+    max-height: 90vh; /* Pour s'adapter aux écrans plus petits */
+    display: flex;
+    flex-direction: column;
 }
+#build-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 15px;
+    overflow-y: auto;
+    flex-grow: 1; /* Permet à la grille de prendre l'espace disponible */
+}
+.build-item-card {
+    background-color: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: box-shadow 0.2s ease;
+}
+.build-item-card:hover {
+    box-shadow: 0 0 15px rgba(69, 123, 157, 0.5);
+}
+.build-item-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 10px;
+}
+.build-item-icon {
+    font-size: 2em;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255,255,255,0.05);
+    border-radius: 6px;
+}
+.build-item-name {
+    font-size: 1.2em;
+    font-weight: 600;
+    color: var(--text-light);
+}
+.build-item-description {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    line-height: 1.4;
+    min-height: 50px; /* Espace pour la description */
+    flex-grow: 1;
+}
+.build-item-costs h4, .build-item-tools h4 {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+.build-item-costs ul, .build-item-tools ul {
+    list-style: none;
+    padding-left: 15px;
+    font-size: 0.85em;
+}
+.build-item-costs li::before, .build-item-tools li::before {
+    content: "•";
+    color: var(--action-color);
+    font-weight: bold;
+    display: inline-block;
+    width: 1em;
+    margin-left: -1em;
+}
+.build-item-action button {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--action-color);
+    color: var(--text-light);
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: auto; /* Pousse le bouton en bas */
+}
+.build-item-action button:hover:not(:disabled) {
+    background-color: #5e9ac4;
+}
+.build-item-action button:disabled {
+    background-color: #2f4553;
+    color: #9ab4c2;
+    cursor: not-allowed;
+}
+
+#build-modal-grid::-webkit-scrollbar { width: 8px; }
+#build-modal-grid::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 4px; }
+#build-modal-grid::-webkit-scrollbar-thumb { background: var(--action-color); border-radius: 4px; }
+#build-modal-grid::-webkit-scrollbar-thumb:hover { background: #5e9ac4; }

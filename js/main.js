@@ -3,7 +3,7 @@ import * as UI from './ui.js';
 import { initDOM } from './ui/dom.js';
 import DOM from './ui/dom.js';
 import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES, SEARCH_ZONE_CONFIG } from './config.js';
-import * as State from './state.js'; // Importation namespace
+import * as State from './state.js';
 import { decayStats, getTotalResources } from './player.js';
 import { updateNpcs, npcChatter } from './npc.js';
 import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js';
@@ -15,21 +15,14 @@ let draggedItemInfo = null;
 
 function updatePossibleActions() {
     if (!DOM.actionsEl) return;
-    const oldScrollTop = DOM.actionsEl.scrollTop; // Sauvegarder la position du scroll
+    const oldScrollTop = DOM.actionsEl.scrollTop;
     DOM.actionsEl.innerHTML = '';
-
-    let buildSubmenu = DOM.actionsEl.querySelector('#build-submenu-container');
-    if (buildSubmenu) {
-        buildSubmenu.innerHTML = '';
-    }
-
 
     if (!State.state || !State.state.player) return;
     const { player, map, combatState, enemies, knownRecipes } = State.state;
 
-    if (!map || !map[player.y] || !map[player.y][player.x]) {
-        return;
-    }
+    if (!map || !map[player.y] || !map[player.y][player.x]) return;
+    
     const tile = map[player.y][player.x];
     const tileType = tile.type;
     const enemyOnTile = findEnemyOnTile(player.x, player.y, enemies);
@@ -40,10 +33,7 @@ function updatePossibleActions() {
         button.disabled = disabled;
         button.title = title;
         button.onclick = (e) => {
-            if (parent.id === 'build-submenu-content' || parent.classList.contains('npc-quest-btn-container')) { // Empêcher la propagation si c'est un bouton de sous-menu ou de quête PNJ
-                e.stopPropagation();
-            }
-            Interactions.handlePlayerAction(actionId, data, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
+            handleGlobalPlayerAction(actionId, data);
         };
         parent.appendChild(button);
         return button;
@@ -66,7 +56,7 @@ function updatePossibleActions() {
             statusDiv.textContent = player.animationState ? "Déplacement..." : "Action en cours...";
         }
         DOM.actionsEl.appendChild(statusDiv);
-        DOM.actionsEl.scrollTop = oldScrollTop; // Restaurer la position du scroll
+        DOM.actionsEl.scrollTop = oldScrollTop;
         return;
     }
 
@@ -129,7 +119,6 @@ function updatePossibleActions() {
         createButton("🚱 Boire Eau Salée", 'consume_eau_salee', {itemName: 'Eau salée'});
     }
 
-
     const equippedWeaponForActions = player.equipment.weapon;
     const canHunt = equippedWeaponForActions && (equippedWeaponForActions.type === 'weapon' || (equippedWeaponForActions.type === 'tool' && equippedWeaponForActions.stats && equippedWeaponForActions.stats.damage > 0));
     if (tileType.name === 'Forêt' || tileType.name === 'Plaine') {
@@ -145,90 +134,23 @@ function updatePossibleActions() {
         createButton("🌱 Planter Arbre", 'plant_tree', {}, !canPlant, !canPlant ? "Nécessite 5 graines, 1 eau pure" : "Transformer cette plaine en forêt");
     }
 
-    // Gestion du bouton "Parler aux PNJ"
     if (!combatState) {
         const npcsOnTile = State.state.npcs.filter(npc => npc.x === player.x && npc.y === player.y);
         npcsOnTile.forEach(npc => {
             const talkButton = createButton(`💬 Parler à ${npc.name}`, 'talk_to_npc', { npcId: npc.id });
-            talkButton.onclick = () => { // On gère le clic directement ici pour appeler handlePlayerAction
-                Interactions.handlePlayerAction('talk_to_npc', { npcId: npc.id }, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
-            };
+            // L'onclick est géré par createButton qui appelle handleGlobalPlayerAction
         });
     }
-
 
     if (tile.type.buildable && tile.buildings.length < CONFIG.MAX_BUILDINGS_PER_TILE) {
-        const buildMenuContainer = document.createElement('div');
-        buildMenuContainer.id = 'build-menu-container';
-
         const mainBuildButton = document.createElement('button');
         mainBuildButton.id = 'main-build-btn';
-        mainBuildButton.textContent = "🏗️ Construire ▼";
-        DOM.actionsEl.appendChild(mainBuildButton);
-
-        const buildSubmenuContent = document.createElement('div');
-        buildSubmenuContent.id = 'build-submenu-content';
-        buildSubmenuContent.classList.add('hidden');
-        DOM.actionsEl.appendChild(buildSubmenuContent);
-
+        mainBuildButton.textContent = "🏗️ Construire...";
         mainBuildButton.onclick = () => {
-            buildSubmenuContent.classList.toggle('hidden');
-            mainBuildButton.textContent = buildSubmenuContent.classList.contains('hidden') ? "🏗️ Construire ▼" : "🏗️ Construire ▲";
+            UI.showBuildModal(State.state);
         };
-
-
-        const constructibleBuildings = Object.keys(TILE_TYPES).filter(key => {
-            const bt = TILE_TYPES[key];
-            if (!bt.isBuilding || !bt.cost) return false;
-            if (tile.type.name !== TILE_TYPES.PLAINS.name) {
-                return key === 'MINE' || key === 'CAMPFIRE';
-            }
-            const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === bt.name && item.isBuildingRecipe);
-            if (buildingRecipeParchemin && !knownRecipes[bt.name]) {
-                 return false;
-            }
-            return true;
-        });
-
-        if (constructibleBuildings.length > 0) {
-            constructibleBuildings.sort().forEach(bKey => {
-                const buildingType = TILE_TYPES[bKey];
-                let costString = "";
-                const costs = { ...buildingType.cost };
-                const toolReqArray = costs.toolRequired;
-                delete costs.toolRequired;
-
-                for (const item in costs) {
-                    costString += `${costs[item]} ${item}, `;
-                }
-                if (toolReqArray) costString += `Outil: ${toolReqArray.join('/')}, `;
-                costString = costString.length > 0 ? costString.slice(0, -2) : "Aucun coût";
-
-                const hasEnoughResources = State.hasResources(costs).success;
-                let hasRequiredTool = true;
-                if (toolReqArray) {
-                    hasRequiredTool = toolReqArray.some(toolName =>
-                        player.equipment.weapon && player.equipment.weapon.name === toolName
-                    );
-                }
-                const canBuild = hasEnoughResources && hasRequiredTool;
-                const buildingIcon = buildingType.icon || ITEM_TYPES[buildingType.name]?.icon || '🏛️';
-
-                createButton(
-                    `${buildingIcon} ${buildingType.name} (${costString})`,
-                    'build_structure',
-                    { structureKey: bKey },
-                    !canBuild,
-                    !canBuild ? "Ressources ou outil manquant" : `Construire un ${buildingType.name}`,
-                    buildSubmenuContent
-                );
-            });
-        } else {
-             mainBuildButton.disabled = true;
-             mainBuildButton.textContent = "🏗️ Construire";
-        }
+        DOM.actionsEl.appendChild(mainBuildButton);
     }
-
 
     if (tile.buildings && tile.buildings.length > 0) {
         const buildingsHeader = document.createElement('h4');
@@ -267,23 +189,12 @@ function updatePossibleActions() {
                      disabledAction = true;
                      titleAction += ` (Nécessite 1 ${actionInfo.costItem})`;
                  }
-
-                createButton(
-                    actionInfo.name,
-                    'use_building_action',
-                    { buildingKey: buildingInstance.key, specificActionId: actionInfo.id },
-                    disabledAction,
-                    titleAction
-                );
+                createButton( actionInfo.name, 'use_building_action', { buildingKey: buildingInstance.key, specificActionId: actionInfo.id }, disabledAction, titleAction );
             });
 
             if (buildingDef.inventory) {
-                const openChestButton = createButton(
-                    `🧰 Ouvrir Stockage (${buildingDef.name})`,
-                    'open_building_inventory',
-                    { buildingKey: buildingInstance.key }
-                );
-                openChestButton.onclick = () => UI.showInventoryModal(State.state);
+                const openChestButton = createButton( `🧰 Ouvrir Stockage (${buildingDef.name})`, 'open_building_inventory', { buildingKey: buildingInstance.key });
+                openChestButton.onclick = () => UI.showInventoryModal(State.state); // Action directe, pas via handlePlayerAction
             }
         });
     }
@@ -292,7 +203,6 @@ function updatePossibleActions() {
     }
     DOM.actionsEl.scrollTop = oldScrollTop;
 }
-
 
 function handleEvents() {
     if (!State.state || !State.state.activeEvent) return;
@@ -306,17 +216,17 @@ function handleEvents() {
         }
         return;
     }
-    if (Math.random() > 0.85) {
+    if (Math.random() > 0.85) { // Fréquence des événements
         const eventType = Math.random() < 0.5 ? 'Tempête' : 'Abondance';
         if (eventType === 'Tempête') {
             activeEvent.type = 'Tempête';
-            activeEvent.duration = 1;
+            activeEvent.duration = 1; // Durée en jours de jeu
             UI.addChatMessage("Une tempête approche ! Il sera plus difficile de survivre.", "system_event");
         } else {
             const abundantResourceList = ['Bois', 'Poisson cru', 'Pierre', 'Feuilles'];
             const abundantResource = abundantResourceList[Math.floor(Math.random() * abundantResourceList.length)];
             activeEvent.type = 'Abondance';
-            activeEvent.duration = 2;
+            activeEvent.duration = 2; // Durée en jours de jeu
             activeEvent.data = { resource: abundantResource };
             UI.addChatMessage(`Les ${abundantResource.toLowerCase()}s sont étrangement abondants !`, "system_event");
         }
@@ -351,19 +261,19 @@ function gameLoop(currentTime) {
 
     if (player.animationState) {
         const anim = player.animationState;
-        const safeDeltaTime = Math.min(deltaTime, 50);
+        const safeDeltaTime = Math.min(deltaTime, 50); // Limiter le deltaTime pour éviter les sauts
         anim.progress += safeDeltaTime / ACTION_DURATIONS.MOVE_TRANSITION;
 
         if (anim.progress >= 1) {
             if (anim.type === 'out') {
                 State.applyPlayerMove(anim.direction);
-                UI.renderScene(State.state);
+                UI.renderScene(State.state); // Redessiner après le déplacement logique
                 anim.type = 'in';
                 anim.progress = 0;
-            } else {
+            } else { // type 'in'
                 player.animationState = null;
-                player.isBusy = false;
-                fullUIUpdate();
+                player.isBusy = false; // Le joueur n'est plus occupé APRÈS l'animation d'entrée
+                fullUIUpdate(); // Mettre à jour l'UI après que l'animation soit finie
             }
         }
     }
@@ -378,8 +288,6 @@ function handleNavigation(direction) {
     if (player.isBusy || player.animationState || combatState) {
         return;
     }
-
-    let canMove = true;
 
     const currentEnemyOnTile = findEnemyOnTile(player.x, player.y, enemies);
     if (currentEnemyOnTile) {
@@ -398,19 +306,21 @@ function handleNavigation(direction) {
 
     if (newX < 0 || newX >= CONFIG.MAP_WIDTH || newY < 0 || newY >= CONFIG.MAP_HEIGHT || !map[newY][newX].type.accessible) {
         UI.addChatMessage("Vous ne pouvez pas aller dans cette direction.", "system");
+        if(DOM[`nav${direction.charAt(0).toUpperCase() + direction.slice(1)}`]) {
+            UI.triggerShake(DOM[`nav${direction.charAt(0).toUpperCase() + direction.slice(1)}`]);
+        }
         return;
     }
 
     if (!Interactions.applyRandomStatCost(player, 1, "déplacement")) {
-        // Géré dans applyRandomStatCost
+        // Géré dans applyRandomStatCost si le joueur n'a plus de stats
     }
 
-
-    player.isBusy = true;
+    player.isBusy = true; // Le joueur devient occupé dès le début de l'animation de sortie
     player.animationState = { type: 'out', direction: direction, progress: 0 };
 
-    updatePossibleActions();
-    UI.updateAllButtonsState(State.state);
+    updatePossibleActions(); // Mettre à jour les actions possibles (qui devraient être vides/désactivées)
+    UI.updateAllButtonsState(State.state); // Désactiver les boutons pendant l'animation
 }
 
 function handleSpecificConsume(statType) {
@@ -441,9 +351,7 @@ function handleSpecificConsume(statType) {
             else if (inventory['Barre Énergétique'] > 0) itemToConsume = 'Barre Énergétique';
             else if (inventory['Banane'] > 0) itemToConsume = 'Banane';
             break;
-        default:
-            UI.addChatMessage("Type de consommation inconnu via bouton rapide.", "system");
-            return;
+        default: UI.addChatMessage("Type de consommation inconnu via bouton rapide.", "system"); return;
     }
 
     if (!itemToConsume) {
@@ -456,9 +364,7 @@ function handleSpecificConsume(statType) {
         if (targetButton) UI.triggerShake(targetButton);
         return;
     }
-
     const result = State.consumeItem(itemToConsume);
-
     UI.addChatMessage(result.message, result.success ? (itemToConsume === 'Porte bonheur' ? 'system_event' : 'system') : 'system');
     if (result.success) {
         UI.triggerActionFlash('gain');
@@ -469,9 +375,7 @@ function handleSpecificConsume(statType) {
             });
         }
         fullUIUpdate();
-    } else {
-        if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
-    }
+    } else { if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl); }
 }
 
 function handleConsumeClick(itemName) {
@@ -480,34 +384,27 @@ function handleConsumeClick(itemName) {
     if (player.isBusy || player.animationState) { UI.addChatMessage("Vous êtes occupé.", "system"); return; }
 
     const itemDef = ITEM_TYPES[itemName];
-
     if (itemName === 'Eau salée') {
-         Interactions.handlePlayerAction('consume_eau_salee', {itemName: 'Eau salée'}, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
+         handleGlobalPlayerAction('consume_eau_salee', {itemName: 'Eau salée'});
          return;
     }
-
     if (itemDef && itemDef.slot && ['weapon', 'shield', 'body', 'head', 'feet', 'bag'].includes(itemDef.slot)) {
         const equipResult = State.equipItem(itemName);
         UI.addChatMessage(equipResult.message, equipResult.success ? 'system' : 'system_error');
         if (equipResult.success) fullUIUpdate();
         return;
     }
-
-
     if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.teachesRecipe && itemDef.type !== 'usable') ) {
         if (itemDef && !itemDef.teachesRecipe) {
             UI.addChatMessage(`"${itemName}" n'est pas consommable directement depuis l'inventaire de cette manière.`, "system");
         }
         return;
     }
-
     if (itemName === 'Carte') {
-        Interactions.handlePlayerAction('open_large_map', {}, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
+        handleGlobalPlayerAction('open_large_map', {});
         return;
     }
-
     const result = State.consumeItem(itemName);
-
     UI.addChatMessage(result.message, result.success ? (itemName.startsWith('Parchemin') || itemName === 'Porte bonheur' ? 'system_event' : 'system') : 'system');
     if(result.success) {
         UI.triggerActionFlash('gain');
@@ -518,40 +415,46 @@ function handleConsumeClick(itemName) {
             });
         }
         fullUIUpdate();
-    } else {
-        if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
-    }
+    } else { if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl); }
 }
 
-function fullUIUpdate() {
+// Rendre fullUIUpdate et d'autres fonctions nécessaires globalement accessibles pour les callbacks des modales
+window.fullUIUpdate = function() {
     if (!State.state || !State.state.player) return;
     UI.updateAllUI(State.state);
-    updatePossibleActions();
-    UI.updateAllButtonsState(State.state);
+    updatePossibleActions(); // S'assurer que les actions sont aussi mises à jour
+    UI.updateAllButtonsState(State.state); // Et l'état des boutons
 
-    if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) {
-        UI.updateEquipmentModal(State.state);
-    }
-    if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) {
-        UI.showInventoryModal(State.state);
-    }
+    if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.updateEquipmentModal(State.state);
+    if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.showInventoryModal(State.state); // Peut nécessiter une logique de rafraîchissement
     if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) {
         if (State.state && State.state.config) {
             UI.drawLargeMap(State.state, State.state.config);
             UI.populateLargeMapLegend();
         }
     }
+    if (DOM.buildModal && !DOM.buildModal.classList.contains('hidden')) {
+        UI.populateBuildModal(State.state); // Rafraîchir la modale de construction
+    }
     if (DOM.bottomBarEl) {
         UI.updateGroundItemsPanel(State.state.map[State.state.player.y][State.state.player.x]);
     }
-}
+};
+window.updatePossibleActions = updatePossibleActions;
+window.UI = UI; // Pour UI.updateAllButtonsState
+
+window.handleGlobalPlayerAction = (actionId, data) => {
+    Interactions.handlePlayerAction(actionId, data, { 
+        updateAllUI: window.fullUIUpdate, 
+        updatePossibleActions: window.updatePossibleActions, 
+        updateAllButtonsState: () => window.UI.updateAllButtonsState(State.state) 
+    });
+};
+
 
 function dailyUpdate() {
     if (!State.state || State.state.isGameOver) return;
-    if (State.state.day >= 100) {
-        endGame(true);
-        return;
-    }
+    if (State.state.day >= 100) { endGame(true); return; }
     State.state.day++;
     handleEvents();
     if (State.state.day % CONFIG.ENEMY_SPAWN_CHECK_DAYS === 0) {
@@ -563,21 +466,15 @@ function dailyUpdate() {
             }
         }
     }
-    fullUIUpdate();
+    window.fullUIUpdate();
 }
 
 function handleDragStart(e) {
     const itemEl = e.target instanceof Element ? e.target.closest('.inventory-item[draggable="true"]') : null;
-
-    if (!itemEl) {
-        return;
-    }
-
-    const ownerEl = itemEl.closest('[data-owner]');
-    if (!ownerEl) {
-        return;
-    }
-
+    if (!itemEl) return;
+    const ownerEl = itemEl.closest('[data-owner], .equipment-slot[data-owner], .equipment-slot-small[data-owner]');
+    if (!ownerEl) { console.warn("Drag Start: Owner element not found for", itemEl); return; }
+    
     draggedItemInfo = {
         element: itemEl,
         itemName: itemEl.dataset.itemName,
@@ -587,25 +484,17 @@ function handleDragStart(e) {
     };
     setTimeout(() => itemEl.classList.add('dragging'), 0);
 }
-
-
 function handleDragOver(e) {
     e.preventDefault();
     const dropZone = e.target.closest('.droppable');
-    if (dropZone) {
-        dropZone.classList.add('drag-over');
-    }
+    if (dropZone) dropZone.classList.add('drag-over');
 }
 function handleDragLeave(e) {
     const dropZone = e.target.closest('.droppable');
-    if (dropZone) {
-        dropZone.classList.remove('drag-over');
-    }
+    if (dropZone) dropZone.classList.remove('drag-over');
 }
 function handleDragEnd() {
-    if (draggedItemInfo && draggedItemInfo.element) {
-        draggedItemInfo.element.classList.remove('dragging');
-    }
+    if (draggedItemInfo && draggedItemInfo.element) draggedItemInfo.element.classList.remove('dragging');
     draggedItemInfo = null;
     document.querySelectorAll('.droppable.drag-over').forEach(el => el.classList.remove('drag-over'));
 }
@@ -613,109 +502,95 @@ function handleDragEnd() {
 function handleDrop(e) {
     e.preventDefault();
     const dropZone = e.target.closest('.droppable');
-    if (!draggedItemInfo || !dropZone) {
-        return;
-    }
+    if (!draggedItemInfo || !dropZone) return;
 
     const destOwner = dropZone.dataset.owner;
+    const destSlotType = dropZone.dataset.slotType;
 
-    // Cas 1: Équipement (modale ou barre du bas)
-    if (dropZone.closest('#equipment-modal') || dropZone.closest('#bottom-bar-equipment-slots')) {
-        const destSlotType = dropZone.dataset.slotType;
+    let transferProcessed = false;
+
+    if (destOwner === 'equipment') {
         const itemDef = ITEM_TYPES[draggedItemInfo.itemName];
-
-        if (draggedItemInfo.sourceOwner === 'player-inventory' && destOwner === 'equipment') {
+        if (draggedItemInfo.sourceOwner === 'player-inventory') {
             if (itemDef && itemDef.slot === destSlotType) {
                 State.equipItem(draggedItemInfo.itemName);
+                transferProcessed = true;
+            } else { UI.addChatMessage("Cet objet ne va pas dans cet emplacement.", "system"); }
+        }
+    } else if (destOwner === 'player-inventory') {
+        if (draggedItemInfo.sourceOwner === 'equipment' && draggedItemInfo.sourceSlotType) {
+            State.unequipItem(draggedItemInfo.sourceSlotType);
+            transferProcessed = true;
+        } else if (draggedItemInfo.sourceOwner === 'ground') {
+            const itemName = draggedItemInfo.itemName;
+            const maxAmount = draggedItemInfo.itemCount;
+            if (maxAmount > 1) {
+                UI.showQuantityModal(`Ramasser ${itemName}`, maxAmount, (amount) => {
+                    if (amount > 0) {
+                        const result = State.pickUpItemFromGround(itemName, amount);
+                        UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+                    }
+                    window.fullUIUpdate();
+                });
             } else {
-                UI.addChatMessage("Cet objet ne va pas dans cet emplacement.", "system");
+                const result = State.pickUpItemFromGround(itemName, 1);
+                UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
             }
-        } else if (draggedItemInfo.sourceOwner === 'equipment' && destOwner === 'player-inventory') {
-            if (draggedItemInfo.sourceSlotType) {
-                State.unequipItem(draggedItemInfo.sourceSlotType);
-            }
+            transferProcessed = true; // Même si la modale s'ouvre, on considère le "drop" comme traité
         }
-    }
-    // Cas 2: Inventaire partagé (modale)
-    else if (dropZone.closest('#inventory-modal')) {
+    } else if (dropZone.closest('#inventory-modal')) { // Inventaire partagé
         let transferType = '';
-        if (draggedItemInfo.sourceOwner === 'player-inventory' && destOwner === 'shared') {
-            transferType = 'deposit';
-        } else if (draggedItemInfo.sourceOwner === 'shared' && destOwner === 'player-inventory') {
-            transferType = 'withdraw';
-        }
-
+        if (draggedItemInfo.sourceOwner === 'player-inventory' && destOwner === 'shared') transferType = 'deposit';
+        else if (draggedItemInfo.sourceOwner === 'shared' && destOwner === 'player-inventory') transferType = 'withdraw';
+        
         if (transferType) {
             if (draggedItemInfo.itemCount > 1) {
                 UI.showQuantityModal(draggedItemInfo.itemName, draggedItemInfo.itemCount, amount => {
                     if (amount > 0) State.applyBulkInventoryTransfer(draggedItemInfo.itemName, amount, transferType);
-                    fullUIUpdate();
+                    window.fullUIUpdate();
                 });
-            } else {
-                State.applyBulkInventoryTransfer(draggedItemInfo.itemName, 1, transferType);
-            }
+            } else { State.applyBulkInventoryTransfer(draggedItemInfo.itemName, 1, transferType); }
+            transferProcessed = true;
         }
-    }
-    // Cas 3: Drag de l'inventaire joueur VERS le sol
-    else if (draggedItemInfo.sourceOwner === 'player-inventory' && destOwner === 'ground') {
-        if (draggedItemInfo.itemCount > 1) {
-            UI.showQuantityModal(`Déposer ${draggedItemInfo.itemName}`, draggedItemInfo.itemCount, amount => {
+    } else if (destOwner === 'ground' && draggedItemInfo.sourceOwner === 'player-inventory') { // Déposer au sol
+        const itemName = draggedItemInfo.itemName;
+        const maxAmount = draggedItemInfo.itemCount;
+        if (maxAmount > 1) {
+            UI.showQuantityModal(`Déposer ${itemName}`, maxAmount, (amount) => {
                 if (amount > 0) {
-                    const dropResult = State.dropItemOnGround(draggedItemInfo.itemName, amount);
-                    UI.addChatMessage(dropResult.message, dropResult.success ? 'system' : 'system_error');
+                    const result = State.dropItemOnGround(itemName, amount);
+                    UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
                 }
-                fullUIUpdate();
+                window.fullUIUpdate();
             });
         } else {
-            const dropResult = State.dropItemOnGround(draggedItemInfo.itemName, 1);
-            UI.addChatMessage(dropResult.message, dropResult.success ? 'system' : 'system_error');
+            const result = State.dropItemOnGround(itemName, 1);
+            UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
         }
+        transferProcessed = true;
     }
-    // Cas 4: Drag du sol VERS l'inventaire joueur (directement sur la zone d'inventaire principale)
-    else if (draggedItemInfo.sourceOwner === 'ground' && destOwner === 'player-inventory' && dropZone.id === 'inventory-categories') {
-         if (draggedItemInfo.itemCount > 1) {
-            UI.showQuantityModal(`Ramasser ${draggedItemInfo.itemName}`, draggedItemInfo.itemCount, amount => {
-                if (amount > 0) {
-                    const pickupResult = State.pickUpItemFromGround(draggedItemInfo.itemName, amount);
-                    UI.addChatMessage(pickupResult.message, pickupResult.success ? 'system' : 'system_error');
-                }
-                fullUIUpdate();
-            });
-        } else {
-            const pickupResult = State.pickUpItemFromGround(draggedItemInfo.itemName, 1);
-            UI.addChatMessage(pickupResult.message, pickupResult.success ? 'system' : 'system_error');
-        }
-    }
-
-
-    fullUIUpdate();
+    
+    if (transferProcessed) window.fullUIUpdate();
     if (dropZone) dropZone.classList.remove('drag-over');
 }
 
-
-function setupDragAndDropForModal(modalElement) {
-    if (!modalElement) {
-        return;
-    }
-    modalElement.addEventListener('dragstart', handleDragStart);
-    modalElement.addEventListener('dragover', handleDragOver);
-    modalElement.addEventListener('dragleave', handleDragLeave);
-    modalElement.addEventListener('dragend', handleDragEnd);
-    modalElement.addEventListener('drop', handleDrop);
+function setupDragAndDropForContainer(containerElement) {
+    if (!containerElement) return;
+    containerElement.addEventListener('dragstart', handleDragStart);
+    containerElement.addEventListener('dragover', handleDragOver);
+    containerElement.addEventListener('dragleave', handleDragLeave);
+    containerElement.addEventListener('dragend', handleDragEnd);
+    containerElement.addEventListener('drop', handleDrop);
 }
 
 function handleEquipmentSlotClick(slotType) {
     if (!State.state || !State.state.player) return;
     const { player } = State.state;
-    if (player.isBusy || player.animationState) {
-        UI.addChatMessage("Vous êtes occupé.", "system");
-        return;
-    }
-
+    if (player.isBusy || player.animationState) { UI.addChatMessage("Vous êtes occupé.", "system"); return; }
     if (player.equipment[slotType]) {
         const unequipResult = State.unequipItem(slotType);
         UI.addChatMessage(unequipResult.message, unequipResult.success ? 'system' : 'system_error');
-        if (unequipResult.success) fullUIUpdate();
+        if (unequipResult.success) window.fullUIUpdate();
     }
 }
 
@@ -731,46 +606,39 @@ function setupEventListeners() {
     if (DOM.consumeThirstBtn) DOM.consumeThirstBtn.addEventListener('click', () => handleSpecificConsume('thirst'));
     if (DOM.consumeHungerBtn) DOM.consumeHungerBtn.addEventListener('click', () => handleSpecificConsume('hunger'));
 
-    // Le bouton #open-equipment-btn a été supprimé
-    // if (DOM.openEquipmentBtn) DOM.openEquipmentBtn.addEventListener('click', () => UI.showEquipmentModal(State.state));
     if (DOM.closeEquipmentModalBtn) DOM.closeEquipmentModalBtn.addEventListener('click', UI.hideEquipmentModal);
+    if (DOM.closeBuildModalBtn) DOM.closeBuildModalBtn.addEventListener('click', UI.hideBuildModal);
 
-    if (DOM.enlargeMapBtn) {
-        DOM.enlargeMapBtn.addEventListener('click', () => {
-            Interactions.handlePlayerAction('open_large_map', {}, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
-        });
-    }
+    if (DOM.enlargeMapBtn) DOM.enlargeMapBtn.addEventListener('click', () => handleGlobalPlayerAction('open_large_map', {}));
     if (DOM.closeLargeMapBtn) DOM.closeLargeMapBtn.addEventListener('click', UI.hideLargeMap);
 
     if (DOM.toggleChatSizeBtn && DOM.bottomBarChatPanelEl) {
         DOM.toggleChatSizeBtn.addEventListener('click', () => {
             DOM.bottomBarChatPanelEl.classList.toggle('chat-enlarged');
-            if (DOM.bottomBarEl) DOM.bottomBarEl.classList.toggle('chat-enlarged'); // Pour que toute la barre s'agrandisse
-            if (DOM.toggleChatSizeBtn) {
-                DOM.toggleChatSizeBtn.textContent = DOM.bottomBarChatPanelEl.classList.contains('chat-enlarged') ? '⌄' : '⌃';
-            }
+            if (DOM.bottomBarEl) DOM.bottomBarEl.classList.toggle('chat-enlarged'); 
+            if (DOM.toggleChatSizeBtn) DOM.toggleChatSizeBtn.textContent = DOM.bottomBarChatPanelEl.classList.contains('chat-enlarged') ? '⌄' : '⌃';
             if (DOM.chatMessagesEl) DOM.chatMessagesEl.scrollTop = DOM.chatMessagesEl.scrollHeight;
         });
     }
 
+    if (DOM.closeInventoryModalBtn) DOM.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
 
-    if (DOM.closeInventoryModalBtn) {
-        DOM.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
+    if (DOM.inventoryCategoriesEl) {
+        DOM.inventoryCategoriesEl.addEventListener('click', e => {
+            const itemEl = e.target.closest('.inventory-item');
+            if (itemEl && itemEl.dataset.itemName) {
+                handleConsumeClick(itemEl.dataset.itemName);
+            } else {
+                const header = e.target.closest('.category-header');
+                if (header) {
+                    header.classList.toggle('open');
+                    if (header.nextElementSibling) header.nextElementSibling.classList.toggle('visible');
+                }
+            }
+        });
+        setupDragAndDropForContainer(DOM.inventoryCategoriesEl);
     }
 
-    if (DOM.inventoryCategoriesEl) DOM.inventoryCategoriesEl.addEventListener('click', e => {
-        const itemEl = e.target.closest('.inventory-item');
-        if (itemEl && itemEl.dataset.itemName) {
-            handleConsumeClick(itemEl.dataset.itemName);
-        }
-        else {
-            const header = e.target.closest('.category-header');
-            if (header) {
-                header.classList.toggle('open');
-                if (header.nextElementSibling) header.nextElementSibling.classList.toggle('visible');
-            }
-        }
-    });
     if (DOM.bottomBarGroundItemsEl) {
         DOM.bottomBarGroundItemsEl.addEventListener('click', e => {
             const itemEl = e.target.closest('.inventory-item');
@@ -781,60 +649,69 @@ function setupEventListeners() {
                     if (amount > 0) {
                         const result = State.pickUpItemFromGround(itemName, amount);
                         UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
-                        fullUIUpdate();
+                        window.fullUIUpdate();
                     }
                 });
             }
         });
-         setupDragAndDropForModal(DOM.bottomBarGroundItemsEl);
+         setupDragAndDropForContainer(DOM.bottomBarGroundItemsEl);
     }
 
-    if (DOM.equipmentModal) setupDragAndDropForModal(DOM.equipmentModal);
-    if (DOM.inventoryModal) setupDragAndDropForModal(DOM.inventoryModal);
+    if (DOM.equipmentModal) setupDragAndDropForContainer(DOM.equipmentModal);
+    if (DOM.inventoryModal) setupDragAndDropForContainer(DOM.inventoryModal);
+    // Pas de drag/drop pour buildModal a priori, mais l'event listener ne fera pas de mal
+    if (DOM.buildModal) setupDragAndDropForContainer(DOM.buildModal); 
+
 
     if (DOM.bottomBarEquipmentSlotsEl) {
-        setupDragAndDropForModal(DOM.bottomBarEquipmentSlotsEl);
+        setupDragAndDropForContainer(DOM.bottomBarEquipmentSlotsEl);
         DOM.bottomBarEquipmentSlotsEl.addEventListener('click', e => {
-            const slotEl = e.target.closest('.equipment-slot-small');
+            const slotEl = e.target.closest('.equipment-slot-small.droppable');
             if (slotEl && slotEl.dataset.slotType) {
-                const itemContent = slotEl.querySelector('.inventory-item'); // On vérifie s'il y a un item affiché
-                if (itemContent) { // On ne déséquipe que s'il y a un item
-                    handleEquipmentSlotClick(slotEl.dataset.slotType);
-                }
+                const itemContent = slotEl.querySelector('.inventory-item'); 
+                if (itemContent) handleEquipmentSlotClick(slotEl.dataset.slotType);
             }
         });
     }
-    if (DOM.equipmentSlotsEl) { // Pour la modale d'équipement complète
+    if (DOM.equipmentSlotsEl) { 
         DOM.equipmentSlotsEl.addEventListener('click', e => {
-            const slotEl = e.target.closest('.equipment-slot');
+            const slotEl = e.target.closest('.equipment-slot.droppable');
             if (slotEl && slotEl.dataset.slotType) {
                 const itemContent = slotEl.querySelector('.inventory-item');
-                if (itemContent) {
-                    handleEquipmentSlotClick(slotEl.dataset.slotType);
-                }
+                if (itemContent) handleEquipmentSlotClick(slotEl.dataset.slotType);
             }
         });
     }
 
-
     window.addEventListener('keydown', e => {
-        if (document.activeElement === DOM.chatInputEl) return;
+        if (document.activeElement === DOM.chatInputEl || DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) return; // Ne pas interférer si input chat ou modale quantité est active
         if (e.key === 'Escape') {
-            if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
+            if (DOM.buildModal && !DOM.buildModal.classList.contains('hidden')) UI.hideBuildModal();
+            else if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
             else if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
             else if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) UI.hideLargeMap();
             else if (DOM.combatModal && !DOM.combatModal.classList.contains('hidden')) UI.hideCombatModal();
-            else if (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
-        } else if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'z') handleNavigation('north');
+            // La modale de quantité est déjà gérée par son propre listener Escape si elle est active
+        } else if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w' || e.key.toLowerCase() === 'z') handleNavigation('north'); // Ajout W
         else if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') handleNavigation('south');
-        else if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'q') handleNavigation('west');
+        else if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'q') handleNavigation('west'); // Ajout A
         else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') handleNavigation('east');
-        else if (e.key.toLowerCase() === 'e') UI.showEquipmentModal(State.state); // Peut-être changer ce raccourci si la modale est moins utilisée
-        else if (e.key.toLowerCase() === 'm') {
-             Interactions.handlePlayerAction('open_large_map', {}, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
+        else if (e.key.toLowerCase() === 'e') UI.showEquipmentModal(State.state); 
+        else if (e.key.toLowerCase() === 'm') handleGlobalPlayerAction('open_large_map', {});
+        else if (e.key.toLowerCase() === 'c') UI.showBuildModal(State.state); // Raccourci Construction
+        else if (e.key.toLowerCase() === 'i') { // Raccourci pour ouvrir/fermer l'inventaire partagé (si applicable)
+            if (DOM.inventoryModal && DOM.inventoryModal.classList.contains('hidden')) {
+                // Vérifier si une action d'ouverture de stockage est disponible
+                const tile = State.state.map[State.state.player.y][State.state.player.x];
+                const buildingWithInv = tile.buildings.find(b => TILE_TYPES[b.key]?.inventory || TILE_TYPES[b.key]?.maxInventory);
+                const tileHasInv = tile.type.inventory || tile.type.maxInventory;
+                if(buildingWithInv || tileHasInv) UI.showInventoryModal(State.state);
+            } else if (DOM.inventoryModal) {
+                UI.hideInventoryModal();
+            }
         }
     });
-    window.gameState = State.state;
+    window.gameState = State.state; // Pour debug ou accès facile depuis la console
     UI.setupQuantityModalListeners();
 }
 
@@ -848,27 +725,17 @@ function endGame(isVictory) {
 
     const endModal = document.createElement('div');
     endModal.id = 'end-game-modal';
-    endModal.style.cssText = `
-        position: fixed; inset: 0; background-color: rgba(0,0,0,0.8);
-        z-index: 10000; display: flex; flex-direction: column;
-        justify-content: center; align-items: center; color: white;
-        font-size: 2em; text-align: center; padding: 20px;
-    `;
+    endModal.style.cssText = `position: fixed; inset: 0; background-color: rgba(0,0,0,0.8); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; font-size: 2em; text-align: center; padding: 20px; backdrop-filter: blur(5px);`;
     const messageEl = document.createElement('p');
     messageEl.textContent = finalMessage;
     const reloadButton = document.createElement('button');
     reloadButton.textContent = "Recommencer";
-    reloadButton.style.cssText = `
-        padding: 15px 30px; font-size: 0.8em; margin-top: 30px;
-        background-color: var(--action-color); color: var(--text-light);
-        border: none; border-radius: 8px; cursor: pointer;
-    `;
+    reloadButton.style.cssText = `padding: 15px 30px; font-size: 0.8em; margin-top: 30px; background-color: var(--action-color); color: var(--text-light); border: none; border-radius: 8px; cursor: pointer;`;
     reloadButton.onclick = () => window.location.reload();
 
     endModal.appendChild(messageEl);
     endModal.appendChild(reloadButton);
     document.body.appendChild(endModal);
-
 
     document.querySelectorAll('button').forEach(b => { if (b !== reloadButton) b.disabled = true; });
     if (DOM.chatInputEl) DOM.chatInputEl.disabled = true;
@@ -887,32 +754,28 @@ async function init() {
         console.log("DOM initialisé.");
         await UI.loadAssets(SPRITESHEET_PATHS);
         console.log("Assets chargés.");
-        fullResizeAndRedraw();
+        fullResizeAndRedraw(); // Premier dessin après chargement des assets
         window.addEventListener('resize', fullResizeAndRedraw);
 
         State.initializeGameState(CONFIG);
         console.log("État du jeu initialisé.");
-
         UI.addChatMessage("Bienvenue aventurier, trouve vite d'autres aventuriers pour s'organiser ensemble!", "system_event", "Ancien");
 
-
         if (State.state && !State.state.config) {
-            State.state.config = CONFIG;
+            State.state.config = CONFIG; // Fallback, devrait être fait dans initializeGameState
             console.warn("State.state.config a été redéfini dans init de main.js, vérifier initializeGameState.");
         }
 
-
         setupEventListeners();
         console.log("Écouteurs d'événements configurés.");
-        window.fullUIUpdate = fullUIUpdate;
-        UI.updateBottomBarEquipmentPanel(State.state.player);
-        fullUIUpdate();
+        UI.updateBottomBarEquipmentPanel(State.state.player); // Mise à jour initiale
+        window.fullUIUpdate(); // Mise à jour complète de l'UI initiale
         requestAnimationFrame(gameLoop);
 
         if (State.state) {
             State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
             State.state.gameIntervals.push(setInterval(() => {
-                if (State.state.npcs && State.state.npcs.length > 0 && !State.state.combatState && (!State.state.player.isBusy || !State.state.player.animationState) ) {
+                if (State.state.npcs && State.state.npcs.length > 0 && !State.state.combatState && (!State.state.player.isBusy && !State.state.player.animationState) ) {
                     npcChatter(State.state.npcs);
                 }
             }, CONFIG.CHAT_MESSAGE_INTERVAL_MS));

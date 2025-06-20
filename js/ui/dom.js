@@ -17,7 +17,7 @@ export function initDOM() {
     DOM.chatInputEl = document.getElementById('chat-input-field');
     DOM.toggleChatSizeBtn = document.getElementById('toggle-chat-size-btn'); 
     DOM.dayCounterEl = document.getElementById('day-counter');
-    DOM.openEquipmentBtn = document.getElementById('open-equipment-btn');
+    // DOM.openEquipmentBtn = document.getElementById('open-equipment-btn'); // Déjà supprimé dans la base
 
     // BOUTONS DE NAVIGATION
     DOM.navNorth = document.getElementById('nav-north');
@@ -25,13 +25,13 @@ export function initDOM() {
     DOM.navEast = document.getElementById('nav-east');
     DOM.navWest = document.getElementById('nav-west');
 
-    // --- SLOTS D'ÉQUIPEMENT RAPIDE ---
-    DOM.quickSlotWeapon = document.getElementById('quick-slot-weapon');
-    DOM.quickSlotShield = document.getElementById('quick-slot-shield'); // Ajout shield
-    DOM.quickSlotArmor = document.getElementById('quick-slot-armor');
-    DOM.quickSlotBag = document.getElementById('quick-slot-bag');
-    DOM.quickSlotFeet = document.getElementById('quick-slot-feet'); 
-    DOM.quickSlotsPanel = document.getElementById('quick-slots-panel'); 
+    // --- SLOTS D'ÉQUIPEMENT RAPIDE --- (Supprimés, mais je laisse les refs commentées si jamais)
+    // DOM.quickSlotWeapon = document.getElementById('quick-slot-weapon');
+    // DOM.quickSlotShield = document.getElementById('quick-slot-shield'); 
+    // DOM.quickSlotArmor = document.getElementById('quick-slot-armor');
+    // DOM.quickSlotBag = document.getElementById('quick-slot-bag');
+    // DOM.quickSlotFeet = document.getElementById('quick-slot-feet'); 
+    // DOM.quickSlotsPanel = document.getElementById('quick-slots-panel'); 
 
     // --- INVENTAIRE PAR CATÉGORIES ---
     DOM.inventoryCategoriesEl = document.getElementById('inventory-categories');
@@ -68,6 +68,8 @@ export function initDOM() {
     DOM.modalPlayerInventoryEl = document.getElementById('modal-player-inventory');
     DOM.modalSharedInventoryEl = document.getElementById('modal-shared-inventory');
     DOM.modalPlayerCapacityEl = document.getElementById('modal-player-capacity');
+    DOM.modalSharedCapacityEl = document.getElementById('modal-shared-capacity');
+
 
     // --- MODALE DE QUANTITÉ ---
     DOM.quantityModal = document.getElementById('quantity-modal');
@@ -94,7 +96,7 @@ export function initDOM() {
     DOM.closeEquipmentModalBtn = document.getElementById('close-equipment-modal-btn');
     DOM.equipmentPlayerInventoryEl = document.getElementById('equipment-player-inventory');
     DOM.equipmentPlayerCapacityEl = document.getElementById('equipment-player-capacity');
-    DOM.equipmentSlotsEl = document.getElementById('equipment-slots'); // Conteneur des slots (head, body, feet, weapon, shield)
+    DOM.equipmentSlotsEl = document.getElementById('equipment-slots');
     DOM.playerStatAttackEl = document.getElementById('player-stat-attack');
     DOM.playerStatDefenseEl = document.getElementById('player-stat-defense');
 
@@ -108,9 +110,14 @@ export function initDOM() {
     DOM.chatMessagesEl = document.getElementById('chat-messages'); 
 
     // Éléments de la nouvelle barre inférieure (réorganisation)
-    DOM.bottomBarEl = document.getElementById('bottom-bar'); // Le conteneur global de la barre
+    DOM.bottomBarEl = document.getElementById('bottom-bar');
     DOM.bottomBarChatPanelEl = document.getElementById('bottom-bar-chat-panel');
     DOM.bottomBarEquipmentPanelEl = document.getElementById('bottom-bar-equipment-panel');
     DOM.bottomBarGroundItemsEl = document.getElementById('bottom-bar-ground-items');
-    DOM.bottomBarEquipmentSlotsEl = document.getElementById('bottom-bar-equipment-slots'); // Slots dans la barre du bas
+    DOM.bottomBarEquipmentSlotsEl = document.getElementById('bottom-bar-equipment-slots');
+
+    // --- MODALE DE CONSTRUCTION ---
+    DOM.buildModal = document.getElementById('build-modal');
+    DOM.closeBuildModalBtn = document.getElementById('close-build-modal-btn');
+    DOM.buildModalGridEl = document.getElementById('build-modal-grid');
 }
