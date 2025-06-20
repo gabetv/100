@@ -35,11 +35,10 @@
             <div id="main-view-wrapper">
                 <div id="quick-slots-panel">
                     <div id="quick-slot-weapon" class="quick-equip-slot-display" data-slot-type="weapon" title="Arme"><span class="slot-placeholder-text">Arme</span></div>
+                    <div id="quick-slot-shield" class="quick-equip-slot-display" data-slot-type="shield" title="Bouclier"><span class="slot-placeholder-text">Bouclier</span></div> <!-- Ajout Shield -->
                     <div id="quick-slot-armor" class="quick-equip-slot-display" data-slot-type="body" title="Habit"><span class="slot-placeholder-text">Habit</span></div>
+                    <div id="quick-slot-feet" class="quick-equip-slot-display" data-slot-type="feet" title="Chaussures"><span class="slot-placeholder-text">Pieds</span></div>
                     <div id="quick-slot-bag" class="quick-equip-slot-display" data-slot-type="bag" title="Sac"><span class="slot-placeholder-text">Sac</span></div>
-                    <!-- NOUVEAU SLOT VISUEL POUR LES PIEDS -->
-                    <div id="quick-slot-feet" class="quick-equip-slot-display" data-slot-type="feet" title="Pieds"><span class="slot-placeholder-text">Pieds</span></div>
-                    <!-- FIN NOUVEAU SLOT VISUEL -->
                 </div>
                 <div id="main-view-container">
                     <div id="survival-vignette"></div><div id="action-flash"></div>
@@ -142,10 +141,13 @@
                     <div class="player-character-placeholder"><div class="player-head"></div><div class="player-body"></div></div>
                     <div id="equipment-player-stats"><h3>Statistiques de Combat</h3><p>Attaque: <span id="player-stat-attack">1</span></p><p>Défense: <span id="player-stat-defense">0</span></p></div>
                 </div>
-                <div id="equipment-slots">
+                <div id="equipment-slots"> <!-- Ce div contient maintenant tous les slots d'équipement -->
+                    <div class="equipment-slot-container"><label>Tête</label><div class="equipment-slot droppable" data-slot-type="head" data-owner="equipment"></div></div>
                     <div class="equipment-slot-container"><label>Arme</label><div class="equipment-slot droppable" data-slot-type="weapon" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Bouclier</label><div class="equipment-slot droppable" data-slot-type="shield" data-owner="equipment"></div></div>
                     <div class="equipment-slot-container"><label>Habit/Armure</label><div class="equipment-slot droppable" data-slot-type="body" data-owner="equipment"></div></div>
-                    <div class="equipment-slot-container"><label>Pieds</label><div class="equipment-slot droppable" data-slot-type="feet" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Chaussures</label><div class="equipment-slot droppable" data-slot-type="feet" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Sac</label><div class="equipment-slot droppable" data-slot-type="bag" data-owner="equipment"></div></div>
                 </div>
                 <div class="inventory-container">
                     <h3>Votre Inventaire (<span id="equipment-player-capacity">0 / 0</span>)</h3>

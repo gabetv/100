@@ -170,44 +170,38 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.1); 
     position: relative; 
     z-index: 20; 
-    transition: height 0.3s ease-in-out; 
-    min-height: 180px; 
+    transition: min-height 0.3s ease-in-out; 
+    min-height: 180px; /* Hauteur minimale par défaut */
 }
-/* MODIFICATION: Enlever .chat-enlarged pour la hauteur, gérer par JS la limite de lignes */
-/* #bottom-bar.chat-enlarged { 
-    height: 350px; 
-    min-height: 350px; 
-} */
+#bottom-bar.chat-enlarged { 
+    min-height: 350px; /* Hauteur quand le chat est agrandi */
+}
 
 #chat-container { width: 100%; display: flex; flex-direction: column; }
 #chat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.1); } #chat-header h3 { margin: 0; border: none; padding: 0; font-size: 1em; } #toggle-chat-size-btn { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary); cursor: pointer; border-radius: 4px; padding: 2px 8px; font-size: 1.1em; transition: all 0.2s; } #toggle-chat-size-btn:hover { background: var(--action-color); color: var(--text-light); }
 
-/* MODIFICATION: Hauteur fixe pour 3 lignes approx. et overflow caché */
 #chat-messages { 
-    flex-grow: 1; /* Permet toujours de prendre l'espace disponible */
-    overflow-y: auto; /* Permet le scroll SI le chat est agrandi via le bouton */
+    flex-grow: 1; 
+    overflow-y: auto; 
     margin-bottom: 10px; 
     background: rgba(0,0,0,0.2); 
     padding: 10px; 
     border-radius: 8px; 
     min-height: 0; /* Important pour flex-grow */
-    /* Calcul approximatif pour 3 lignes. Ajustez si nécessaire. */
-    /* line-height (1.4) * font-size (implicite ~14-16px) * 3 lignes + padding */
-    /* Cette hauteur sera la hauteur de base quand le chat n'est pas "enlarged" */
+    /* Hauteur initiale pour ~3 lignes */
     height: calc(1.4em * 3 + 20px); 
+    transition: height 0.3s ease-in-out;
 } 
 #bottom-bar.chat-enlarged #chat-messages {
-    height: auto; /* Permet au chat de prendre plus de place quand il est agrandi */
-    /* Vous pourriez vouloir une max-height ici si bottom-bar.chat-enlarged a une hauteur fixe */
-    /* Par exemple: max-height: 250px; */
+    height: 250px; /* Hauteur quand le chat est agrandi, s'ajustera avec min-height de #bottom-bar */
 }
 
-.chat-message { margin-bottom: 8px; line-height: 1.4; } .chat-message.player { color: #a8dadc; } .chat-message.npc { color: #f4a261; } .chat-message.system { color: #e63946; font-style: italic; }
+.chat-message { margin-bottom: 8px; line-height: 1.4; } .chat-message.player { color: #a8dadc; } .chat-message.npc { color: #f4a261; } .chat-message.system { color: #e63946; font-style: italic; } .chat-message.gain { color: #2ecc71; } .chat-message.cost { color: #e74c3c; } .chat-message.system_event { color: #f39c12; font-weight: bold; } .chat-message.system_warning { color: #e74c3c; font-weight: bold; } .chat-message.system_error { background-color: #c0392b; color: white; padding: 2px 5px; border-radius: 3px; }
 #chat-input-area { position: relative; flex-shrink: 0; display: flex; gap: 10px; align-items: center; } #chat-input-field { flex-grow: 1; background: none; border: 1px solid #ffffff40; border-radius: 8px; padding: 10px; color: var(--text-light); font-family: 'Poppins', sans-serif; } #chat-input-field:focus { outline: none; border-color: var(--action-color); }
 #quick-chat-button { background-color: var(--action-color); color: var(--text-light); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5em; line-height: 40px; text-align: center; cursor: pointer; transition: background-color 0.2s; flex-shrink: 0; }
 #quick-chat-button:hover { background-color: #5e9ac4; } #quick-chat-menu { display: none; position: absolute; bottom: 110%; left: 0; background-color: #1a2a32; border-radius: 8px; box-shadow: 0 -4px 15px rgba(0,0,0,0.3); padding: 10px; z-index: 10; width: 300px; } #quick-chat-menu.visible { display: block; } .quick-chat-item { padding: 10px; cursor: pointer; border-radius: 4px; transition: background-color 0.2s; } .quick-chat-item:hover { background-color: var(--action-color); }
 
-.floating-text { position: absolute; z-index: 1000; padding: 8px 15px; border-radius: 20px; font-size: 1.2em; font-weight: 700; pointer-events: none; animation: fadeUpAndOut 2s ease-out forwards; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); transform: translateX(-50%); } .floating-text.gain { background-color: rgba(46, 204, 113, 0.8); color: white; border: 1px solid #ffffff80; } .floating-text.cost { background-color: rgba(231, 76, 60, 0.8); color: white; border: 1px solid #ffffff80; } @keyframes fadeUpAndOut { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -80px); } }
+.floating-text { position: absolute; z-index: 1000; padding: 8px 15px; border-radius: 20px; font-size: 1.2em; font-weight: 700; pointer-events: none; animation: fadeUpAndOut 2s ease-out forwards; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); transform: translateX(-50%); } .floating-text.gain { background-color: rgba(46, 204, 113, 0.8); color: white; border: 1px solid #ffffff80; } .floating-text.cost { background-color: rgba(231, 76, 60, 0.8); color: white; border: 1px solid #ffffff80; } .floating-text.info { background-color: rgba(52, 152, 219, 0.8); color: white; border: 1px solid #ffffff80; } @keyframes fadeUpAndOut { 0% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, -80px); } }
 
 #survival-vignette { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 100; pointer-events: none; border-radius: var(--border-radius); box-shadow: inset 0 0 0 0 rgba(135, 23, 23, 0); transition: box-shadow 1s ease-out; } #survival-vignette.active { box-shadow: inset 0 0 150px 20px rgba(135, 23, 23, 0.75); }
 #action-flash { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 99; pointer-events: none; opacity: 0; } #action-flash.flash-gain { animation: flash-green 0.4s ease-out; } #action-flash.flash-cost { animation: flash-red 0.4s ease-out; } @keyframes flash-green { from { opacity: 1; background-color: rgba(46, 204, 113, 0.2); } to { opacity: 0; background-color: rgba(46, 204, 113, 0); } } @keyframes flash-red { from { opacity: 1; background-color: rgba(231, 76, 60, 0.2); } to { opacity: 0; background-color: rgba(231, 76, 60, 0); } }
@@ -287,6 +281,22 @@ body {
 
 /* STYLES MODALE DE QUANTITÉ */
 #quantity-modal-content { background: var(--bg-main); border: 1px solid var(--action-color); border-radius: var(--border-radius); padding: 25px; width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 20px; }
+#quantity-modal-title { text-align: center; font-size: 1.3em; }
+#quantity-controls { display: flex; align-items: center; gap: 15px; }
+#quantity-slider { flex-grow: 1; -webkit-appearance: none; appearance: none; height: 10px; background: rgba(255,255,255,0.2); border-radius: 5px; outline: none; }
+#quantity-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background: var(--action-color); border-radius: 50%; cursor: pointer; }
+#quantity-slider::-moz-range-thumb { width: 20px; height: 20px; background: var(--action-color); border-radius: 50%; cursor: pointer; border: none; }
+#quantity-input { width: 70px; padding: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; color: var(--text-light); text-align: center; font-size: 1.1em; }
+#quantity-shortcuts { display: flex; justify-content: space-around; gap: 10px; }
+#quantity-shortcuts button { flex-grow: 1; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary); border-radius: 6px; cursor: pointer; transition: background-color 0.2s; }
+#quantity-shortcuts button:hover { background-color: rgba(255,255,255,0.2); }
+#quantity-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+#quantity-actions button { padding: 12px; font-size: 1.1em; font-weight: 600; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+#quantity-cancel-btn { background-color: #4b5563; color: var(--text-light); }
+#quantity-cancel-btn:hover { background-color: #6b7280; }
+#quantity-confirm-btn { background-color: var(--deposit-color); color: var(--text-light); }
+#quantity-confirm-btn:hover { background-color: #38b09d; }
+
 
 /* STYLES MODALE DE COMBAT */
 #combat-modal-content { background: #1a2a32; border: 2px solid var(--accent-color); border-radius: var(--border-radius); padding: 25px; width: 100%; max-width: 700px; box-shadow: 0 0 40px rgba(230, 57, 70, 0.5); display: flex; flex-direction: column; gap: 20px; }
@@ -319,14 +329,17 @@ body {
 #equipment-player-stats { width: 100%; text-align: center; }
 #equipment-player-stats h3 { margin-bottom: 10px; font-size: 1.1em; }
 #equipment-player-stats p { font-size: 0.95em; margin-bottom: 5px; }
-#equipment-slots { display: flex; flex-direction: column; gap: 20px; align-items: center; }
+#equipment-slots { display: grid; grid-template-columns: repeat(2, 1fr); /* 2 colonnes pour les slots */ gap: 15px; align-items: start; padding: 10px; }
 .equipment-slot-container { width: 100%; text-align: center; }
 .equipment-slot-container label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-secondary); }
 .equipment-slot { width: 100px; height: 100px; background: rgba(0,0,0,0.4); border: 2px dashed rgba(255,255,255,0.3); border-radius: 8px; margin: 0 auto; display: flex; justify-content: center; align-items: center; transition: all 0.2s; padding: 10px; }
-.equipment-slot .inventory-item { width: 100%; height: 100%; flex-direction: column; justify-content: center; background: rgba(0,0,0,0.3); }
+/* Style pour l'item dans le slot d'équipement */
+.equipment-slot .inventory-item { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 5px; }
 .equipment-slot .inventory-item .inventory-icon { font-size: 2.5em; }
-.equipment-slot .inventory-item .inventory-name { flex-grow: 0; font-size: 0.8em; }
-.equipment-slot .inventory-item .inventory-count { display: none; }
+.equipment-slot .inventory-item .inventory-name { font-size: 0.8em; text-align: center; word-break: break-word; margin-top: 5px; line-height: 1.1; }
+.equipment-slot .inventory-item .inventory-count { display: none; } /* Pas besoin de count ici */
+.equipment-slot .inventory-item .item-durability { font-size: 0.7em; color: var(--text-secondary); margin-top: 3px; }
+
 #equipment-modal .inventory-container { height: 400px; display: flex; flex-direction: column; }
 #equipment-modal #equipment-player-inventory { background-color: rgba(0,0,0,0.25); border-radius: 8px; padding: 15px; min-height: 0; flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; transition: background-color 0.2s ease; }
 

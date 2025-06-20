@@ -4,12 +4,11 @@ import DOM from './dom.js';
 
 const loadedAssets = {};
 
-const TILE_ICONS = {
-    'Lagon': '🌊', 'Sable Doré': '🏖️', 'Forêt': '🌲', 'Friche': '🍂',
+const TILE_ICONS = { // Renommé 'Sable Doré' en 'Plage'
+    'Lagon': '🌊', 'Plage': '🏖️', 'Forêt': '🌲', 'Friche': '🍂',
     'Plaine': '🌳', 'Gisement de Pierre': '⛰️', 'Feu de Camp': '🔥',
     'Abri Individuel': '⛺', 'Abri Collectif': '🏠', 'Mine': '⛏️',
     'Trésor Caché': TILE_TYPES.TREASURE_CHEST.icon || '💎', 
-    // 'Trésor Ouvert': TILE_TYPES.TREASURE_OPENED ? TILE_TYPES.TREASURE_OPENED.icon : '⊔', 
     'default': '❓'
 };
 
@@ -19,7 +18,6 @@ export function loadAssets(paths) {
         img.src = src; 
         img.onload = () => { 
             loadedAssets[key] = img; 
-            // console.log(`Asset loaded: ${key} from ${src}`); 
             resolve(); 
         }; 
         img.onerror = (err) => {
@@ -36,7 +34,6 @@ export function drawMainBackground(gameState) {
 
     if (!gameState || !gameState.player || !gameState.map || 
         !gameState.map[gameState.player.y] || !gameState.map[gameState.player.y][gameState.player.x]) {
-        // console.warn("drawMainBackground: gameState, player, map, or player tile is invalid.");
         mainViewCtx.fillStyle = 'grey'; 
         mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
         mainViewCtx.fillStyle = 'white';
@@ -68,26 +65,19 @@ export function drawMainBackground(gameState) {
             }
             mainViewCtx.drawImage(imageToDraw, sx, sy, sWidth, sHeight, 0, 0, mainViewCanvas.width, mainViewCanvas.height);
         } else {
-            // console.warn(`Image de fond '${backgroundKey}' non complètement chargée ou dimensions invalides.`);
-            // Fallback visuel si l'image n'est pas prête (pourrait arriver au tout premier rendu)
             mainViewCtx.fillStyle = '#333'; 
             mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
-            // mainViewCtx.fillStyle = 'white';
-            // mainViewCtx.fillText(`Image '${backgroundKey}' en chargement...`, 20, 40);
         }
     } else {
-        // console.warn(`Image de fond '${backgroundKey}' non trouvée dans loadedAssets.`);
         mainViewCtx.fillStyle = '#222'; 
         mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
-        // mainViewCtx.fillStyle = 'white';
-        // mainViewCtx.fillText(`Image de fond '${backgroundKey}' non trouvée`, 20, 40);
     }
 }
 
 function drawCharacter(ctx, character, x, y, isPlayer = false) {
     const headRadius = 18;
-    const bodyWidth = 30; // Largeur à la base du trapèze
-    const bodyShoulderWidth = 20; // Largeur aux épaules du trapèze
+    const bodyWidth = 30; 
+    const bodyShoulderWidth = 20; 
     const bodyHeight = 45; 
     const neckHeight = 3;  
 
@@ -96,37 +86,32 @@ function drawCharacter(ctx, character, x, y, isPlayer = false) {
     ctx.lineWidth = 4;
     ctx.fillStyle = character.color;
 
-    // Calcul des positions Y pour la tête et le corps
-    const headCenterY = y - bodyHeight / 2 - neckHeight - headRadius; // Centre de la tête
-    const bodyTopY = headCenterY + headRadius + neckHeight; // Haut du corps (base du cou)
+    const headCenterY = y - bodyHeight / 2 - neckHeight - headRadius; 
+    const bodyTopY = headCenterY + headRadius + neckHeight; 
     const bodyBottomY = bodyTopY + bodyHeight;
 
-    // Corps (trapèze)
     ctx.beginPath();
-    ctx.moveTo(x - bodyWidth / 2, bodyBottomY);         // Bas gauche
-    ctx.lineTo(x + bodyWidth / 2, bodyBottomY);         // Bas droite
-    ctx.lineTo(x + bodyShoulderWidth / 2, bodyTopY);    // Haut droite (épaules)
-    ctx.lineTo(x - bodyShoulderWidth / 2, bodyTopY);    // Haut gauche (épaules)
+    ctx.moveTo(x - bodyWidth / 2, bodyBottomY);        
+    ctx.lineTo(x + bodyWidth / 2, bodyBottomY);        
+    ctx.lineTo(x + bodyShoulderWidth / 2, bodyTopY);   
+    ctx.lineTo(x - bodyShoulderWidth / 2, bodyTopY);   
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    // Tête
     ctx.beginPath();
     ctx.arc(x, headCenterY, headRadius, 0, Math.PI * 2); 
     ctx.fill();
     ctx.stroke();
 
-
     if (isPlayer) { 
         ctx.fillStyle = '#8b4513'; 
         ctx.strokeStyle = '#5a2d0c';
         ctx.lineWidth = 3;
-        // Main à côté du corps (plus réaliste)
-        const handX = x - bodyWidth / 2 - 12; // Un peu à gauche du corps
-        const handY = bodyTopY + bodyHeight * 0.3; // Environ au tiers supérieur du corps
+        const handX = x - bodyWidth / 2 - 12; 
+        const handY = bodyTopY + bodyHeight * 0.3; 
         ctx.beginPath();
-        ctx.arc(handX, handY, 6, 0, Math.PI * 2); // Un cercle plus petit pour la main
+        ctx.arc(handX, handY, 6, 0, Math.PI * 2); 
         ctx.fill();
         ctx.stroke();
     }
@@ -145,37 +130,30 @@ export function drawSceneCharacters(gameState) {
     const canvasHeight = charactersCanvas.height;
     
     const playerBaseX = canvasWidth / 2;
-    const playerBaseY = canvasHeight * 0.70; // Position Y de base des personnages
+    const playerBaseY = canvasHeight * 0.70; 
 
     const charactersOnTile = [];
-    // Le joueur est toujours au centre (relatif) et dessiné par-dessus les PNJ sur la même "ligne"
     charactersOnTile.push({ char: player, x: playerBaseX, y: playerBaseY, isPlayer: true, sortOrder: 1 });
 
     const visibleNpcs = npcs.filter(npc => npc.x === player.x && npc.y === player.y);
     visibleNpcs.forEach((npc, index) => {
-        // Alterner gauche/droite pour les PNJ
         const sideOffset = (index % 2 === 0) ? -1 : 1;
-        // Augmenter le décalage pour chaque paire de PNJ
         const distanceOffset = 100 + (Math.floor(index / 2) * 40); 
         const offsetX = sideOffset * distanceOffset;
         charactersOnTile.push({ char: npc, x: playerBaseX + offsetX, y: playerBaseY, isPlayer: false, sortOrder: 0 });
     });
 
-    // Trier pour que les PNJ (sortOrder 0) soient dessinés avant le joueur (sortOrder 1)
     charactersOnTile.sort((a, b) => a.sortOrder - b.sortOrder);
 
     if (player.animationState) {
         const { type, direction, progress } = player.animationState;
-        // Utiliser une fonction d'easing pour une transition plus douce
         const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
         const easedProgress = easeInOutCubic(progress);
         
         charactersOnTile.forEach(p => {
             let modX = 0, modY = 0;
-            let distanceFactor = p.isPlayer ? 1 : 0.9; // Les PNJ peuvent bouger un peu moins pour un effet de parallaxe
-            
-            // Distance pour que le personnage sorte juste de l'écran ou entre depuis juste l'extérieur
-            let baseDistance = (canvasWidth / 2) + (p.char.bodyWidth || 30) + 20; // +20 pour être sûr qu'il est hors champ
+            let distanceFactor = p.isPlayer ? 1 : 0.9; 
+            let baseDistance = (canvasWidth / 2) + (p.char.bodyWidth || 30) + 20; 
 
             if (type === 'out') {
                 let distance = baseDistance * easedProgress * distanceFactor;
@@ -184,7 +162,7 @@ export function drawSceneCharacters(gameState) {
                 else if(direction === 'south') modY = distance; 
                 else if(direction === 'north') modY = -distance;
                 charactersCtx.globalAlpha = 1 - easedProgress; 
-            } else { // type === 'in'
+            } else { 
                 let distance = baseDistance * (1 - easedProgress) * distanceFactor; 
                 if(direction === 'east') modX = -distance;  
                 else if(direction === 'west') modX = distance;   
@@ -205,10 +183,10 @@ export function drawSceneCharacters(gameState) {
     if (visibleEnemies.length > 0) {
         const enemy = visibleEnemies[0]; 
         const enemyX = canvasWidth / 2; 
-        const enemyY = canvasHeight * 0.30; // Positionné plus haut
+        const enemyY = canvasHeight * 0.30; 
         charactersCtx.save();
         charactersCtx.fillStyle = enemy.color || '#ff0000';
-        charactersCtx.font = "70px sans-serif"; // Taille de l'icône ennemi, un peu plus petit
+        charactersCtx.font = "70px sans-serif"; 
         charactersCtx.textAlign = 'center';
         charactersCtx.textBaseline = 'middle';
         charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyY);
@@ -275,8 +253,8 @@ export function drawLargeMap(gameState, config) {
     const parentWrapper = largeMapCanvas.parentElement;
     if (!parentWrapper) return;
 
-    const legendWidth = DOM.largeMapLegendEl ? DOM.largeMapLegendEl.offsetWidth + 20 : 0; // +20 for gap
-    const availableWidth = parentWrapper.clientWidth - legendWidth - 40 ; // 20px padding left/right for the map container
+    const legendWidth = DOM.largeMapLegendEl ? DOM.largeMapLegendEl.offsetWidth + 20 : 0; 
+    const availableWidth = parentWrapper.clientWidth - legendWidth - 40 ; 
     const availableHeight = parentWrapper.clientHeight - 40; 
     
     let canvasSize = Math.min(availableWidth, availableHeight);
@@ -285,7 +263,6 @@ export function drawLargeMap(gameState, config) {
     largeMapCanvas.width = canvasSize;
     largeMapCanvas.height = canvasSize;
     const cellSize = (canvasSize - headerSize) / Math.max(MAP_WIDTH, MAP_HEIGHT);
-
 
     largeMapCtx.clearRect(0, 0, largeMapCanvas.width, largeMapCanvas.height);
     largeMapCtx.fillStyle = '#1d3557'; 
@@ -305,9 +282,9 @@ export function drawLargeMap(gameState, config) {
             largeMapCtx.font = `bold ${cellSize * 0.6}px Poppins`;
             largeMapCtx.textAlign = 'center';
             largeMapCtx.textBaseline = 'middle';
-            let iconOffsetY = 0; // Ajustement vertical spécifique à l'icône si nécessaire
+            let iconOffsetY = 0; 
             if (icon === '💎' || icon === '🌊' || icon === '🏖️' || icon === '🍂' || icon === '🔥' || icon === '⛏️' || icon === '⛺' || icon === '🏠') {
-                iconOffsetY = cellSize * 0.05; // Petit ajustement pour certains emojis
+                iconOffsetY = cellSize * 0.05; 
             }
             largeMapCtx.fillText(icon, drawX + cellSize / 2, drawY + cellSize / 2 + iconOffsetY);
         }
@@ -316,7 +293,7 @@ export function drawLargeMap(gameState, config) {
     largeMapCtx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
     largeMapCtx.lineWidth = 1;
     largeMapCtx.fillStyle = '#f1faee'; 
-    largeMapCtx.font = `600 ${Math.min(14, headerSize * 0.5)}px Poppins`; // Limiter la taille de la police des en-têtes
+    largeMapCtx.font = `600 ${Math.min(14, headerSize * 0.5)}px Poppins`; 
     largeMapCtx.textAlign = 'center';
     largeMapCtx.textBaseline = 'middle';
 
@@ -337,7 +314,6 @@ export function drawLargeMap(gameState, config) {
         }
     }
     largeMapCtx.strokeRect(headerSize, headerSize, MAP_WIDTH * cellSize, MAP_HEIGHT * cellSize);
-
 
     npcs.forEach(npc => {
         const drawX = headerSize + npc.x * cellSize + cellSize / 2;

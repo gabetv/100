@@ -2,11 +2,11 @@
 import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ORE_TYPES, COMBAT_CONFIG, ITEM_TYPES, SEARCH_ZONE_CONFIG, ENEMY_TYPES, ALL_SEARCHABLE_ITEMS, TREASURE_COMBAT_KIT } from './config.js';
 import * as UI from './ui.js';
 import * as State from './state.js';
-import { getTotalResources } from './player.js'; 
+import { getTotalResources } from './player.js';
 import { findEnemyOnTile } from './enemy.js';
 import DOM from './ui/dom.js';
 
-// ... applyActionCosts, applyRandomStatCost ... (inchangés)
+// Fonction pour appliquer les coûts de base d'une action (faim, soif, sommeil)
 function applyActionCosts(player, costs) {
     let floatingTextParts = [];
     if (costs.thirst) {
@@ -26,40 +26,40 @@ function applyActionCosts(player, costs) {
     }
 }
 
-function applyRandomStatCost(player, amount = 1, actionNameForLog = "") {
-    const statsToCost = ['thirst', 'hunger', 'sleep'];
-    const chosenStat = statsToCost[Math.floor(Math.random() * statsToCost.length)];
-    let costText = '';
+// Fonction pour appliquer un coût aléatoire à une stat (exportée)
+export function applyRandomStatCost(player, amount = 1, actionNameForLog = "") {
+    const rand = Math.random();
+    let chosenStat;
     let statIcon = '';
 
-    switch (chosenStat) {
-        case 'thirst':
-            player.thirst = Math.max(0, player.thirst - amount);
-            statIcon = '💧';
-            break;
-        case 'hunger':
-            player.hunger = Math.max(0, player.hunger - amount);
-            statIcon = '🍗';
-            break;
-        case 'sleep':
-            player.sleep = Math.max(0, player.sleep - amount);
-            statIcon = '🌙';
-            break;
+    if (rand < 0.10) { // 10% Soif
+        chosenStat = 'thirst';
+        statIcon = '💧';
+    } else if (rand < 0.50) { // 40% Faim (0.10 + 0.40 = 0.50)
+        chosenStat = 'hunger';
+        statIcon = '🍗';
+    } else { // 50% Sommeil
+        chosenStat = 'sleep';
+        statIcon = '🌙';
     }
-    costText = `-${amount}${statIcon}`;
-    
+
+    player[chosenStat] = Math.max(0, player[chosenStat] - amount);
+    const costText = `-${amount}${statIcon}`;
+
     if (costText) {
         UI.showFloatingText(costText, 'cost');
     }
-        
+
     if (player.thirst <= 0 && player.hunger <= 0 && player.sleep <= 0) {
          UI.addChatMessage("Vous êtes complètement épuisé !", "warning");
-         return false; 
+         return false; // Indique que le joueur est épuisé
     }
-    if (player[chosenStat] <= (player[`max${chosenStat.charAt(0).toUpperCase() + chosenStat.slice(1)}`] * 0.1) && player[chosenStat] > 0 ) { 
+    // Vérifie si la stat est basse après la déduction
+    const maxStatValue = player[`max${chosenStat.charAt(0).toUpperCase() + chosenStat.slice(1)}`];
+    if (player[chosenStat] <= (maxStatValue * 0.1) && player[chosenStat] > 0 ) {
         UI.addChatMessage(`Attention, votre ${chosenStat} est très basse !`, "warning");
     }
-    return true; 
+    return true; // L'action peut continuer (même si le joueur est bas en stat)
 }
 
 
@@ -71,22 +71,22 @@ function performTimedAction(player, duration, onStart, onComplete, updateUICallb
 
     console.log(`[performTimedAction] Démarrage action. Durée: ${duration}ms`);
     player.isBusy = true;
-    if(typeof onStart === 'function') onStart(); // Vérifier si c'est une fonction
-    
+    if(typeof onStart === 'function') onStart();
+
     if (updateUICallbacks && updateUICallbacks.updatePossibleActions) {
         updateUICallbacks.updatePossibleActions();
     }
     if (updateUICallbacks && updateUICallbacks.updateAllButtonsState) {
-        UI.updateAllButtonsState(State.state); 
+        UI.updateAllButtonsState(State.state);
     }
 
     setTimeout(() => {
         console.log("[performTimedAction] Timeout terminé. Exécution de onComplete.");
-        if(typeof onComplete === 'function') onComplete(actionData); // Vérifier et passer actionData
+        if(typeof onComplete === 'function') onComplete(actionData);
         player.isBusy = false;
         console.log("[performTimedAction] Joueur n'est plus occupé.");
         if (updateUICallbacks && updateUICallbacks.updateAllUI) {
-            updateUICallbacks.updateAllUI(); 
+            updateUICallbacks.updateAllUI();
         }
         if (updateUICallbacks && updateUICallbacks.updatePossibleActions) {
             updateUICallbacks.updatePossibleActions();
@@ -104,37 +104,36 @@ function performToolAction(player, toolSlot, actionType, onComplete, updateUICal
     if (!tool || tool.action !== actionType) {
         console.error("[performToolAction] ERREUR: Outil non trouvé ou action incorrecte.", "Outil:", JSON.stringify(tool), "Action de l'outil:", tool ? tool.action : "N/A", "Action attendue:", actionType);
         UI.addChatMessage(`Vous n'avez pas le bon outil équipé (${tool ? tool.name : 'aucun'}) ou il ne convient pas pour cette action.`, 'system');
-        if (DOM.equipmentSlotsEl) { 
+        if (DOM.equipmentSlotsEl) {
             UI.triggerShake(DOM.equipmentSlotsEl);
-        } else if (DOM.quickSlotsPanel) { 
-            UI.triggerShake(DOM.quickSlotsPanel); 
+        } else if (DOM.quickSlotsPanel) {
+            UI.triggerShake(DOM.quickSlotsPanel);
         }
         return;
     }
 
     console.log("[performToolAction] Outil correct, lancement de performTimedAction pour", actionType);
-    performTimedAction(player, ACTION_DURATIONS.HARVEST, 
-        () => { // onStart de performTimedAction
+    performTimedAction(player, ACTION_DURATIONS.HARVEST,
+        () => {
             console.log("[performToolAction -> performTimedAction] onStart: Utilisation de", tool.name);
             UI.addChatMessage(`Utilisation de ${tool.name}...`, 'system');
         },
-        () => { // onComplete de performTimedAction
+        () => {
             console.log("[performToolAction -> performTimedAction] onComplete: Exécution du callback de l'action outil.");
-            onComplete(tool.power); // Appel du onComplete passé à performToolAction (ex: celui qui ajoute le bois)
+            onComplete(tool.power);
 
-            if (tool.hasOwnProperty('currentDurability')) { 
+            if (tool.hasOwnProperty('currentDurability')) {
                 tool.currentDurability--;
                 console.log(`[performToolAction] Durabilité de ${tool.name} réduite à ${tool.currentDurability}`);
                 if (tool.currentDurability <= 0) {
                     UI.addChatMessage(`${tool.name} s'est cassé !`, 'system_warning');
-                    State.state.player.equipment[toolSlot] = null; 
+                    State.state.player.equipment[toolSlot] = null;
                 }
             }
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) {
                 UI.updateEquipmentModal(State.state);
             }
-            UI.updateQuickSlots(player); 
-            // Important: Il faut aussi rafraîchir les actions possibles car l'outil peut s'être cassé
+            UI.updateQuickSlots(player);
             if (updateUICallbacks && updateUICallbacks.updatePossibleActions) {
                 updateUICallbacks.updatePossibleActions();
             }
@@ -143,13 +142,12 @@ function performToolAction(player, toolSlot, actionType, onComplete, updateUICal
     );
 }
 
-// ... (handleCombatAction, playerAttack, playerFlee, enemyAttack - inchangés)
 export function handleCombatAction(action) {
     const { combatState, player } = State.state;
     if (!combatState || !combatState.isPlayerTurn) return;
 
     combatState.isPlayerTurn = false;
-    UI.updateCombatUI(combatState); 
+    UI.updateCombatUI(combatState);
 
     setTimeout(() => {
         if (action === 'attack') {
@@ -161,30 +159,30 @@ export function handleCombatAction(action) {
         if (State.state.combatState && State.state.combatState.enemy.currentHealth > 0 && player.health > 0) {
             setTimeout(() => {
                 enemyAttack();
-                if (State.state.combatState) { 
+                if (State.state.combatState) {
                     State.state.combatState.isPlayerTurn = true;
-                    UI.updateCombatUI(State.state.combatState); 
+                    UI.updateCombatUI(State.state.combatState);
                 }
-            }, 1000); 
+            }, 1000);
         }
-    }, 500); 
+    }, 500);
 }
 
 function playerAttack() {
     const { combatState, player } = State.state;
-    if (!combatState) return; 
-    
+    if (!combatState) return;
+
     const weapon = player.equipment.weapon;
     const damage = weapon && weapon.stats?.damage ? weapon.stats.damage : COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE;
-    
+
     combatState.enemy.currentHealth = Math.max(0, combatState.enemy.currentHealth - damage);
     combatState.log.unshift(`Vous infligez ${damage} dégâts avec ${weapon ? weapon.name : 'vos poings'}.`);
-    
+
     if (weapon && weapon.hasOwnProperty('currentDurability')) {
         weapon.currentDurability--;
         if (weapon.currentDurability <= 0) {
             combatState.log.unshift(`${weapon.name} s'est cassé !`);
-            player.equipment.weapon = null; 
+            player.equipment.weapon = null;
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) {
                 UI.updateEquipmentModal(State.state);
             }
@@ -197,17 +195,17 @@ function playerAttack() {
         Object.keys(combatState.enemy.loot).forEach(item => {
             const amount = combatState.enemy.loot[item];
             if (amount > 0) {
-                State.addResourceToPlayer(item, amount); 
+                State.addResourceToPlayer(item, amount);
                 UI.showFloatingText(`+${amount} ${item}`, 'gain');
             }
         });
-        State.endCombat(true); 
+        State.endCombat(true);
         UI.hideCombatModal();
-        if (State.state.player) { 
+        if (State.state.player) {
             if (window.fullUIUpdate) window.fullUIUpdate(); else UI.updateAllUI(State.state);
         }
     } else {
-        UI.updateCombatUI(combatState); 
+        UI.updateCombatUI(combatState);
     }
 }
 
@@ -218,7 +216,7 @@ function playerFlee() {
     if (Math.random() < COMBAT_CONFIG.FLEE_CHANCE) {
         combatState.log.unshift("Vous avez réussi à fuir !");
         UI.addChatMessage("Vous avez pris la fuite.", "system");
-        State.endCombat(false); 
+        State.endCombat(false);
         UI.hideCombatModal();
         if (window.fullUIUpdate) window.fullUIUpdate(); else UI.updateAllUI(State.state);
 
@@ -230,9 +228,12 @@ function playerFlee() {
 
 function enemyAttack() {
     const { combatState, player } = State.state;
-    if (!combatState) return; 
-    
-    const defense = (player.equipment.body?.stats?.defense || 0) + (player.equipment.head?.stats?.defense || 0) + (player.equipment.feet?.stats?.defense || 0);
+    if (!combatState) return;
+
+    const defense = (player.equipment.body?.stats?.defense || 0) +
+                    (player.equipment.head?.stats?.defense || 0) +
+                    (player.equipment.feet?.stats?.defense || 0) +
+                    (player.equipment.shield?.stats?.defense || 0);
     const damageTaken = Math.max(0, combatState.enemy.damage - defense);
 
     player.health = Math.max(0, player.health - damageTaken);
@@ -241,12 +242,12 @@ function enemyAttack() {
     if (player.health <= 0) {
         combatState.log.unshift("Vous avez été vaincu...");
     }
-    
-    UI.updateCombatUI(combatState); 
+
+    UI.updateCombatUI(combatState);
     if (window.fullUIUpdate) {
-        window.fullUIUpdate(); 
+        window.fullUIUpdate();
     } else {
-        UI.updateAllUI(State.state); 
+        UI.updateAllUI(State.state);
     }
 }
 
@@ -261,10 +262,10 @@ function getBuildingIndexOnTile(tile, buildingKey) {
 
 
 export function handlePlayerAction(actionId, data, updateUICallbacks) {
-    const { player, map, activeEvent, combatState, enemies } = State.state;
-    console.log(`[handlePlayerAction] Action: ${actionId}, Data:`, JSON.stringify(data)); // Log au début
+    const { player, map, activeEvent, combatState, enemies, knownRecipes } = State.state;
+    console.log(`[handlePlayerAction] Action: ${actionId}, Data:`, JSON.stringify(data));
 
-    if (combatState && actionId !== 'combat_action') { // Permettre les actions de combat
+    if (combatState && actionId !== 'combat_action') {
         UI.addChatMessage("Impossible d'agir, vous êtes en combat !", "system");
         return;
     }
@@ -273,18 +274,24 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
     let shouldApplyBaseCost = true;
     switch(actionId) {
         case 'sleep':
-        case 'initiate_combat': 
-        case 'take_hidden_item': 
+        case 'initiate_combat':
+        case 'take_hidden_item':
         case 'open_treasure':
         case 'build_structure':
         case 'use_building_action':
+        case 'consume_eau_salee': // Ne pas appliquer le coût aléatoire pour boire eau salée
             shouldApplyBaseCost = false;
             break;
     }
 
     if (shouldApplyBaseCost) {
-        if (!applyRandomStatCost(player, 1, actionId)) { 
-            // return; 
+        // Note: applyRandomStatCost est déjà exportée, donc on l'appelle directement depuis interactions.js
+        // si on est dans interactions.js. Si handlePlayerAction est appelé depuis main.js,
+        // main.js doit utiliser Interactions.applyRandomStatCost.
+        // Pour simplifier, on assume que si cette fonction est dans interactions.js, elle appelle directement
+        // la version locale (non préfixée par Interactions.).
+        if (!applyRandomStatCost(player, 1, actionId)) {
+            // L'action peut continuer même si le joueur est épuisé.
         }
     }
 
@@ -307,14 +314,44 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             break;
         }
+        case 'consume_eau_salee': { // Action spécifique pour l'eau salée
+            if (player.inventory['Eau salée'] > 0) {
+                const result = State.consumeItem('Eau salée');
+                UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+                if (result.success && result.floatingTexts) {
+                    result.floatingTexts.forEach(text => UI.showFloatingText(text, text.startsWith('-') ? 'cost' : 'info'));
+                }
+            } else {
+                UI.addChatMessage("Vous n'avez plus d'Eau salée.", "system");
+            }
+            break;
+        }
 
-        case 'harvest': { // Récolte de ressource du terrain
+        case 'harvest': {
             const resource = tile.type.resource;
             if (!resource) {
                 console.warn("[handlePlayerAction - harvest] Pas de ressource sur cette tuile de terrain.");
                 return;
             }
-            
+             if (resource.type === 'Eau salée') {
+                 performTimedAction(player, ACTION_DURATIONS.HARVEST,
+                    () => UI.addChatMessage(`Récolte d'Eau salée...`, "system"),
+                    () => {
+                        const availableSpace = player.maxInventory - getTotalResources(player.inventory);
+                        if (availableSpace > 0) {
+                            State.addResourceToPlayer('Eau salée', 1);
+                            UI.showFloatingText(`+1 Eau salée`, 'gain');
+                            UI.triggerActionFlash('gain');
+                        } else {
+                            UI.addChatMessage("Inventaire plein, impossible de récolter l'eau salée.", "system");
+                            if (DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
+                        }
+                    },
+                    updateUICallbacks
+                );
+                return;
+            }
+
             const specificResourceCosts = {
                 thirst: resource.thirstCost || 0,
                 hunger: resource.hungerCost || 0,
@@ -322,46 +359,44 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             };
             if (player.thirst < specificResourceCosts.thirst || player.hunger < specificResourceCosts.hunger || player.sleep < specificResourceCosts.sleep) {
                 UI.addChatMessage("Vous êtes trop épuisé pour cette récolte spécifique.", "system");
-                return; 
+                return;
             }
-            applyActionCosts(player, specificResourceCosts); 
+            applyActionCosts(player, specificResourceCosts);
 
-            performTimedAction(player, ACTION_DURATIONS.HARVEST, 
-                () => UI.addChatMessage(`Récolte de ${resource.type}...`, "system"), 
-                () => { 
+            performTimedAction(player, ACTION_DURATIONS.HARVEST,
+                () => UI.addChatMessage(`Récolte de ${resource.type}...`, "system"),
+                () => {
                     let finalYield = (activeEvent && activeEvent.type === 'Abondance' && activeEvent.data && activeEvent.data.resource === resource.type) ? resource.yield * 2 : resource.yield;
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                     const amountToHarvest = Math.min(finalYield, availableSpace, tile.harvestsLeft === Infinity ? Infinity : tile.harvestsLeft);
 
-
                     if (amountToHarvest > 0) {
                         State.addResourceToPlayer(resource.type, amountToHarvest);
                         if(tile.harvestsLeft !== Infinity) tile.harvestsLeft -= amountToHarvest;
-                        
+
                         UI.showFloatingText(`+${amountToHarvest} ${resource.type}`, 'gain');
                         UI.triggerActionFlash('gain');
                         if (amountToHarvest < finalYield && availableSpace === 0) UI.addChatMessage("Inventaire plein, récolte partielle.", "system");
                         else if (amountToHarvest < finalYield) UI.addChatMessage("Récolte partielle due à la limite de la zone ou de l'inventaire.", "system");
 
                         if (tile.harvestsLeft <= 0 && tile.type.harvests !== Infinity) {
-                            State.updateTileType(player.x, player.y, 'WASTELAND'); // Passer la clé du type de terrain
+                            State.updateTileType(player.x, player.y, 'WASTELAND');
                             UI.addChatMessage("Les ressources de cette zone sont épuisées.", "system");
                         }
-                    } else { 
-                        UI.addChatMessage(availableSpace <=0 ? "Votre inventaire est plein !" : (tile.harvestsLeft <=0 && tile.type.harvests !== Infinity ? "Plus rien à récolter ici." : "Impossible de récolter."), "system"); 
+                    } else {
+                        UI.addChatMessage(availableSpace <=0 ? "Votre inventaire est plein !" : (tile.harvestsLeft <=0 && tile.type.harvests !== Infinity ? "Plus rien à récolter ici." : "Impossible de récolter."), "system");
                         if (availableSpace <=0 && DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
                     }
-                }, 
+                },
                 updateUICallbacks
             );
             break;
         }
-        
+
         case 'harvest_wood': {
             console.log("[handlePlayerAction] Tentative de harvest_wood");
             performToolAction(player, 'weapon', 'harvest_wood', (power) => {
                 console.log("[handlePlayerAction - harvest_wood callback] Récolte de bois, puissance:", power);
-                // La tuile Forêt a aussi 'harvestsLeft', il faut la gérer comme pour 'harvest'
                 const forestTile = map[player.y][player.x];
                 if (forestTile.type.name !== TILE_TYPES.FOREST.name || forestTile.harvestsLeft <= 0) {
                     UI.addChatMessage("Plus de bois à couper ici ou ce n'est pas une forêt.", "system");
@@ -383,17 +418,16 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         UI.addChatMessage("Cette forêt est épuisée.", "system");
                     }
                 } else {
-                     UI.addChatMessage(availableSpace <=0 ? "Votre inventaire est plein !" : "Impossible de récolter du bois.", "system"); 
+                     UI.addChatMessage(availableSpace <=0 ? "Votre inventaire est plein !" : "Impossible de récolter du bois.", "system");
                      if (availableSpace <=0 && DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
                 }
-
             }, updateUICallbacks);
             break;
         }
 
-        case 'fish': { // Similaire, vérifier la tuile pour les ressources de pêche si applicable
+        case 'fish': {
             performToolAction(player, 'weapon', 'fish', (power) => {
-                const fishCaught = Math.ceil(Math.random() * power); 
+                const fishCaught = Math.ceil(Math.random() * power);
                 if (fishCaught > 0) {
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                     const amountToAdd = Math.min(fishCaught, availableSpace);
@@ -419,13 +453,13 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                  UI.addChatMessage("Vous ne pouvez pas chasser sans arme.", "system");
                  return;
              }
-             performTimedAction(player, ACTION_DURATIONS.CRAFT,  // CRAFT est peut-être long pour chasser
+             performTimedAction(player, ACTION_DURATIONS.CRAFT,
                 () => UI.addChatMessage(`Vous chassez avec ${weapon.name}...`, "system"),
-                () => { 
-                    if (Math.random() < 0.6) { 
+                () => {
+                    if (Math.random() < 0.6) {
                         const baseAmount = (weapon.stats?.damage || weapon.power || 1);
-                        const amount = baseAmount * (Math.floor(Math.random() * 2) + 1); 
-                        
+                        const amount = baseAmount * (Math.floor(Math.random() * 2) + 1);
+
                         const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                         const amountToAdd = Math.min(amount, availableSpace);
 
@@ -457,11 +491,8 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             );
             break;
         }
-        
-        // BUILD A ÉTÉ REMPLACÉ PAR build_structure
-        // case 'build': { ... }
 
-        case 'build_structure': { // Logique déplacée ici depuis main.js
+        case 'build_structure': {
             const structureKey = data.structureKey;
             const structureType = TILE_TYPES[structureKey];
             if (!structureType) {
@@ -469,9 +500,9 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 return;
             }
 
-            const costs = { ...structureType.cost }; 
+            const costs = { ...structureType.cost };
             const toolRequiredArray = costs.toolRequired;
-            delete costs.toolRequired; 
+            delete costs.toolRequired;
 
             if (!State.hasResources(costs).success) {
                 UI.addChatMessage("Ressources insuffisantes pour construire.", "system");
@@ -479,7 +510,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 return;
             }
             if (toolRequiredArray) {
-                const hasRequiredTool = toolRequiredArray.some(toolName => 
+                const hasRequiredTool = toolRequiredArray.some(toolName =>
                     player.equipment.weapon && player.equipment.weapon.name === toolName
                 );
                 if (!hasRequiredTool) {
@@ -487,7 +518,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     return;
                 }
             }
-            
+
              if (tile.buildings.length >= CONFIG.MAX_BUILDINGS_PER_TILE) {
                 UI.addChatMessage("Nombre maximum de bâtiments atteint sur cette tuile.", "system");
                 return;
@@ -504,7 +535,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             performTimedAction(player, ACTION_DURATIONS.BUILD,
                 () => UI.addChatMessage(`Construction de ${structureType.name}...`, "system"),
                 () => {
-                    State.applyResourceDeduction(costs); 
+                    State.applyResourceDeduction(costs);
                     for (const item in costs) {
                         UI.showFloatingText(`-${costs[item]} ${item}`, 'cost');
                     }
@@ -516,14 +547,13 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             );
             break;
         }
-        
-        case 'dig_mine': { // Devient une action de construction pour la MINE
+
+        case 'dig_mine': {
              handlePlayerAction('build_structure', { structureKey: 'MINE' }, updateUICallbacks);
             break;
         }
 
-
-        case 'regenerate_forest': { // Modifier pour prendre en compte le terrain
+        case 'regenerate_forest': {
             const costs = TILE_TYPES.WASTELAND.regeneration.cost;
             if (tile.type.name !== TILE_TYPES.WASTELAND.name) {
                 UI.addChatMessage("Cette action ne peut être effectuée que sur une Friche.", "system");
@@ -536,36 +566,55 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             performTimedAction(player, ACTION_DURATIONS.CRAFT,
                 () => UI.addChatMessage("Vous travaillez la terre...", "system"),
-                () => { 
+                () => {
                     State.applyResourceDeduction(costs);
                     UI.showFloatingText(`-${Object.values(costs)[0]} ${Object.keys(costs)[0]}`, "cost");
-                    State.updateTileType(player.x, player.y, 'FOREST'); // Passer la clé du type de terrain
+                    State.updateTileType(player.x, player.y, 'FOREST');
                     UI.addChatMessage("La terre redevient fertile et une jeune forêt pousse.", "system");
                 },
                 updateUICallbacks
             );
             break;
         }
+        case 'plant_tree': { // Ajout de l'action planter
+            if (tile.type.name !== TILE_TYPES.PLAINS.name) {
+                UI.addChatMessage("Vous ne pouvez planter un arbre que sur une Plaine.", "system");
+                return;
+            }
+            const costs = { 'Graine d\'arbre': 5, 'Eau pure': 1 };
+            if (!State.hasResources(costs).success) {
+                UI.addChatMessage("Ressources insuffisantes pour planter (5 Graines d'arbre, 1 Eau pure).", "system");
+                if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
+                return;
+            }
+            performTimedAction(player, ACTION_DURATIONS.PLANT_TREE,
+                () => UI.addChatMessage("Vous plantez une graine...", "system"),
+                () => {
+                    State.applyResourceDeduction(costs);
+                    UI.showFloatingText("-5 🌱 -1 💧", "cost");
+                    State.updateTileType(player.x, player.y, 'FOREST'); // Change la plaine en forêt
+                    UI.addChatMessage("Une jeune pousse apparaît. Avec le temps, elle deviendra une forêt.", "gain");
+                },
+                updateUICallbacks
+            );
+            break;
+        }
 
-        case 'sleep': { 
+        case 'sleep': {
             let sleepEffect = null;
             let buildingKeyForDamage = null;
-            let buildingToDamage = null;
 
             const shelterInd = findBuildingOnTile(tile, 'SHELTER_INDIVIDUAL');
             const shelterCol = findBuildingOnTile(tile, 'SHELTER_COLLECTIVE');
             const forteresse = findBuildingOnTile(tile, 'FORTERESSE');
 
             if (forteresse) {
-                buildingToDamage = forteresse;
                 sleepEffect = TILE_TYPES.FORTERESSE.sleepEffect;
                 buildingKeyForDamage = 'FORTERESSE';
             } else if (shelterCol) {
-                buildingToDamage = shelterCol;
                 sleepEffect = TILE_TYPES.SHELTER_COLLECTIVE.sleepEffect;
                 buildingKeyForDamage = 'SHELTER_COLLECTIVE';
             } else if (shelterInd) {
-                buildingToDamage = shelterInd;
                 sleepEffect = TILE_TYPES.SHELTER_INDIVIDUAL.sleepEffect;
                 buildingKeyForDamage = 'SHELTER_INDIVIDUAL';
             }
@@ -575,14 +624,14 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                  return;
             }
 
-            performTimedAction(player, ACTION_DURATIONS.SLEEP, 
-                () => UI.addChatMessage("Vous vous endormez pour environ 8 heures...", "system"), 
-                (actionDataPassed) => { 
-                    player.sleep = Math.min(player.maxSleep, player.sleep + (sleepEffect.sleep || 0)); 
+            performTimedAction(player, ACTION_DURATIONS.SLEEP,
+                () => UI.addChatMessage("Vous vous endormez pour environ 8 heures...", "system"),
+                (actionDataPassed) => {
+                    player.sleep = Math.min(player.maxSleep, player.sleep + (sleepEffect.sleep || 0));
                     player.health = Math.min(player.maxHealth, player.health + (sleepEffect.health || 0));
                     UI.addChatMessage("Vous vous réveillez, un peu reposé.", "system");
 
-                    if(actionDataPassed.buildingKeyForDamage) { // Utiliser la donnée passée
+                    if(actionDataPassed.buildingKeyForDamage) {
                         const bldIndex = getBuildingIndexOnTile(tile, actionDataPassed.buildingKeyForDamage);
                         if(bldIndex !== -1) {
                             const damageResult = State.damageBuilding(player.x, player.y, bldIndex, 1);
@@ -594,12 +643,12 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     }
                 },
                 updateUICallbacks,
-                { buildingKeyForDamage } 
+                { buildingKeyForDamage }
             );
             break;
         }
 
-        case 'cook': { 
+        case 'cook': {
             const campfire = findBuildingOnTile(tile, 'CAMPFIRE');
             if (!campfire) {
                 UI.addChatMessage("Vous avez besoin d'un feu de camp pour cuisiner.", "system");
@@ -607,26 +656,26 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
 
             const cookable = { 'Poisson cru': 'Poisson cuit', 'Viande crue': 'Viande cuite', 'Oeuf cru': 'Oeuf cuit' };
-            const rawMaterial = data.raw; // 'Poisson cru', 'Viande crue', ou 'Oeuf cru'
+            const rawMaterial = data.raw;
             const cookedItem = cookable[rawMaterial];
 
             if (!rawMaterial || !cookedItem) {
                 UI.addChatMessage("Ingrédient de cuisine invalide.", "system");
                 return;
             }
-            
+
             if (!State.hasResources({ [rawMaterial]: 1, 'Bois': 1 }).success) {
                  UI.addChatMessage(`Ressources insuffisantes pour cuisiner ${rawMaterial} (nécessite aussi 1 Bois).`, "system");
                 if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
                 return;
             }
 
-            performTimedAction(player, ACTION_DURATIONS.CRAFT, 
-                () => UI.addChatMessage(`Cuisson de ${rawMaterial}...`, "system"), 
-                () => { // Renommer actionDataPassed si besoin pour éviter conflit de scope
+            performTimedAction(player, ACTION_DURATIONS.CRAFT,
+                () => UI.addChatMessage(`Cuisson de ${rawMaterial}...`, "system"),
+                () => {
                     State.applyResourceDeduction({ [rawMaterial]: 1, 'Bois': 1 });
                     State.addResourceToPlayer(cookedItem, 1);
-                    UI.showFloatingText(`+1 ${cookedItem}`, "gain"); 
+                    UI.showFloatingText(`+1 ${cookedItem}`, "gain");
                     UI.triggerActionFlash('gain');
 
                     const bldIndex = getBuildingIndexOnTile(tile, 'CAMPFIRE');
@@ -644,7 +693,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
 
         case 'search_zone': {
-            const tileName = tile.type.name; // Utiliser le type de terrain de base pour la recherche
+            const tileName = tile.type.name;
             let tileKeyForSearch = null;
             for (const key in TILE_TYPES) {
                 if (TILE_TYPES[key].name === tileName) {
@@ -660,25 +709,25 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             performTimedAction(player, ACTION_DURATIONS.SEARCH,
                 () => UI.addChatMessage("Vous fouillez attentivement les environs...", "system"),
-                () => { 
+                () => {
                     const rand = Math.random();
 
                     if (rand < searchConfig.combatChance) {
                         UI.addChatMessage("Quelque chose surgit des ombres !", "system_event");
                         const enemyTemplate = ENEMY_TYPES[searchConfig.enemyType];
                         if (enemyTemplate) {
-                            const encounterEnemy = { 
+                            const encounterEnemy = {
                                 id: `enemy_search_${Date.now()}_${Math.random()}`,
-                                ...JSON.parse(JSON.stringify(enemyTemplate)), 
-                                x: player.x, 
+                                ...JSON.parse(JSON.stringify(enemyTemplate)),
+                                x: player.x,
                                 y: player.y,
                                 currentHealth: enemyTemplate.health,
                             };
-                            State.addEnemy(encounterEnemy); 
+                            State.addEnemy(encounterEnemy);
                             State.startCombat(player, encounterEnemy);
                             UI.showCombatModal(State.state.combatState);
                         } else {
-                            UI.addChatMessage("...mais ce n'était rien d'alarmant.", "system_event"); 
+                            UI.addChatMessage("...mais ce n'était rien d'alarmant.", "system_event");
                         }
                     } else if (rand < searchConfig.combatChance + searchConfig.noLootChance) {
                         UI.addChatMessage("Cette recherche n'a pas été fructueuse.", "system");
@@ -691,31 +740,44 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         }
 
                         let foundItem = null;
-                        const tierRand = Math.random(); 
+                        const tierRand = Math.random();
                         let cumulativeChance = 0;
 
-                        // Loot spécifique par tiers
-                        for (const tier of ['common', 'uncommon', 'rare', 'veryRare']) {
+                        const lootTiersOrder = ['common', 'uncommon', 'rare', 'veryRare', 'offTable'];
+                        for (const tier of lootTiersOrder) {
+                            if (!searchConfig.lootTiers[tier] || !searchConfig.specificLoot[tier] || searchConfig.specificLoot[tier].length === 0) continue;
+
                             cumulativeChance += searchConfig.lootTiers[tier];
-                            if (tierRand < cumulativeChance && searchConfig.specificLoot[tier].length > 0) {
-                                foundItem = searchConfig.specificLoot[tier][Math.floor(Math.random() * searchConfig.specificLoot[tier].length)];
+                            if (tierRand < cumulativeChance) {
+                                const potentialItemsInTier = searchConfig.specificLoot[tier].filter(itemName => {
+                                    if (itemName.startsWith('Parchemin Atelier')) {
+                                        const itemDef = ITEM_TYPES[itemName];
+                                        return !(itemDef && itemDef.teachesRecipe && knownRecipes[itemDef.teachesRecipe]);
+                                    }
+                                    return true;
+                                });
+
+                                if (potentialItemsInTier.length > 0) {
+                                    foundItem = potentialItemsInTier[Math.floor(Math.random() * potentialItemsInTier.length)];
+                                    if (tier === 'offTable' && foundItem) {
+                                        UI.addChatMessage("Vous avez trouvé quelque chose d'inattendu !", "system_event");
+                                    }
+                                }
                                 break;
                             }
                         }
-                        // Loot "offTable" (parchemins et autres items rares non listés directement)
-                        if (!foundItem && searchConfig.lootTiers.offTable > 0 && tierRand < cumulativeChance + searchConfig.lootTiers.offTable && searchConfig.specificLoot.offTable && searchConfig.specificLoot.offTable.length > 0) {
-                             foundItem = searchConfig.specificLoot.offTable[Math.floor(Math.random() * searchConfig.specificLoot.offTable.length)];
-                             UI.addChatMessage("Vous avez trouvé quelque chose d'inattendu !", "system_event");
-                        }
-                        // Fallback sur ALL_SEARCHABLE_ITEMS si rien de spécifique n'est trouvé et qu'il reste de la probabilité
-                        if (!foundItem && tierRand >= cumulativeChance + (searchConfig.lootTiers.offTable || 0) && ALL_SEARCHABLE_ITEMS.length > 0) {
-                             foundItem = ALL_SEARCHABLE_ITEMS[Math.floor(Math.random() * ALL_SEARCHABLE_ITEMS.length)];
-                             UI.addChatMessage("Vous avez trouvé quelque chose d'ordinaire mais utile.", "system");
+
+                        if (!foundItem && tierRand >= cumulativeChance) {
+                             const nonParcheminFallbacks = ALL_SEARCHABLE_ITEMS.filter(item => !item.startsWith('Parchemin Atelier') || (item.startsWith('Parchemin Atelier') && !(ITEM_TYPES[item]?.teachesRecipe && knownRecipes[ITEM_TYPES[item].teachesRecipe])));
+                             if (nonParcheminFallbacks.length > 0) {
+                                foundItem = nonParcheminFallbacks[Math.floor(Math.random() * nonParcheminFallbacks.length)];
+                                UI.addChatMessage("Vous avez trouvé quelque chose d'ordinaire mais utile.", "system");
+                             }
                         }
 
 
                         if (foundItem) {
-                            const amountFound = 1; 
+                            const amountFound = 1;
                             State.addResourceToPlayer(foundItem, amountFound);
                             UI.showFloatingText(`+${amountFound} ${foundItem}`, 'gain');
                             UI.addChatMessage(`Vous avez trouvé: ${amountFound} ${foundItem} !`, 'gain');
@@ -734,18 +796,18 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             if (tile.hiddenItem) {
                 const itemName = tile.hiddenItem;
                 const availableSpace = player.maxInventory - getTotalResources(player.inventory);
-                if (availableSpace < 1 ) { 
+                if (availableSpace < 1 ) {
                     UI.addChatMessage("Votre inventaire est plein !", "system");
                     if(DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
                     return;
                 }
-                
+
                 UI.addChatMessage(`Vous avez trouvé : ${itemName} !`, 'gain');
                 State.addResourceToPlayer(itemName, 1);
                 UI.showFloatingText(`+1 ${itemName}`, 'gain');
-                tile.hiddenItem = null; 
+                tile.hiddenItem = null;
                 if (updateUICallbacks && updateUICallbacks.updateAllUI) updateUICallbacks.updateAllUI();
-                 if (updateUICallbacks && updateUICallbacks.updatePossibleActions) updateUICallbacks.updatePossibleActions(); 
+                 if (updateUICallbacks && updateUICallbacks.updatePossibleActions) updateUICallbacks.updatePossibleActions();
             } else {
                 UI.addChatMessage("Il n'y a rien à prendre ici.", "system");
             }
@@ -755,15 +817,15 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         case 'open_treasure': {
             if (tile.type === TILE_TYPES.TREASURE_CHEST && !tile.isOpened) {
                 if (player.inventory[TILE_TYPES.TREASURE_CHEST.requiresKey] > 0) {
-                    performTimedAction(player, ACTION_DURATIONS.OPEN_TREASURE, 
+                    performTimedAction(player, ACTION_DURATIONS.OPEN_TREASURE,
                         () => UI.addChatMessage("Vous essayez d'ouvrir le trésor...", "system"),
                         () => {
                             State.applyResourceDeduction({ [TILE_TYPES.TREASURE_CHEST.requiresKey]: 1 });
                             UI.showFloatingText(`-1 ${TILE_TYPES.TREASURE_CHEST.requiresKey}`, 'cost');
                             UI.addChatMessage("Le trésor s'ouvre ! Vous trouvez un kit de combat complet !", "gain");
-                            
+
                             let inventoryFullMessageShown = false;
-                            
+
                             for (const itemName in TREASURE_COMBAT_KIT) {
                                 const amountToPotentiallyAdd = TREASURE_COMBAT_KIT[itemName];
                                 let amountActuallyAdded = 0;
@@ -780,7 +842,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                                             inventoryFullMessageShown = true;
                                         }
                                         UI.addChatMessage(`Vous laissez ${amountToPotentiallyAdd - amountActuallyAdded} ${itemName} dans le coffre.`, "system_event");
-                                        break; 
+                                        break;
                                     }
                                 }
                                 if (amountActuallyAdded > 0) {
@@ -788,7 +850,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                                 }
                             }
                             UI.triggerActionFlash('gain');
-                            tile.isOpened = true; 
+                            tile.isOpened = true;
                         },
                         updateUICallbacks
                     );
@@ -805,26 +867,25 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             break;
         }
 
-        case 'build_campfire_action': { 
+        case 'build_campfire_action': {
             handlePlayerAction('build_structure', { structureKey: 'CAMPFIRE' }, updateUICallbacks);
             break;
         }
 
         case 'use_building_action': {
-            const buildingKey = data.buildingKey; 
-            const buildingOnTileInstance = findBuildingOnTile(tile, buildingKey); // C'est l'instance du bâtiment
-            const buildingDef = TILE_TYPES[buildingKey]; // C'est la définition du type de bâtiment
+            const buildingKey = data.buildingKey;
+            const buildingOnTileInstance = findBuildingOnTile(tile, buildingKey);
+            const buildingDef = TILE_TYPES[buildingKey];
 
             if (!buildingOnTileInstance || !buildingDef) {
                 UI.addChatMessage("Ce bâtiment ne peut pas être utilisé ainsi ou est introuvable.", "system");
                 return;
             }
-            
-            // Trouver l'action spécifique
+
             let specificActionDef = null;
-            if (buildingDef.actions) { 
+            if (buildingDef.actions) {
                 specificActionDef = buildingDef.actions.find(act => act.id === data.specificActionId);
-            } else if (buildingDef.action && buildingDef.action.id === data.specificActionId) { 
+            } else if (buildingDef.action && buildingDef.action.id === data.specificActionId) {
                 specificActionDef = buildingDef.action;
             }
 
@@ -833,7 +894,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                  UI.addChatMessage("Action inconnue pour ce bâtiment.", "system");
                  return;
             }
-            
+
             if (specificActionDef.costItem && (!player.inventory[specificActionDef.costItem] || player.inventory[specificActionDef.costItem] < 1)) {
                 UI.addChatMessage(`Vous avez besoin de 1 ${specificActionDef.costItem} pour : ${specificActionDef.name}.`, "system");
                 return;
@@ -842,7 +903,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
 
             performTimedAction(player, ACTION_DURATIONS.USE_BUILDING_ACTION,
                 () => UI.addChatMessage(`${specificActionDef.name}...`, "system"),
-                (actionDataPassed) => { // actionDataPassed contient { buildingKey }
+                (actionDataPassed) => {
                     const bldIndex = getBuildingIndexOnTile(tile, actionDataPassed.buildingKey);
                     if(bldIndex === -1) {
                          UI.addChatMessage("Le bâtiment a disparu !", "system_error");
@@ -868,11 +929,11 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
 
                     if (specificActionDef.id === 'search_ore') {
                         let found = false;
-                        const rand = Math.random();
-                        let cumulativeChance = 0;
-                        for (const ore of buildingDef.action.results) { // Assumer buildingDef.action ici car search_ore est unique
-                            cumulativeChance += ore.chance;
-                            if (rand < cumulativeChance) {
+                        const randOre = Math.random();
+                        let cumulativeOreChance = 0;
+                        for (const ore of buildingDef.action.results) {
+                            cumulativeOreChance += ore.chance;
+                            if (randOre < cumulativeOreChance) {
                                 State.addResourceToPlayer(ore.item, 1);
                                 UI.showFloatingText(`+1 ${ore.item}`, 'gain');
                                 UI.addChatMessage(`Vous avez trouvé: 1 ${ore.item} !`, 'gain');
@@ -896,7 +957,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         UI.addChatMessage(`Vous ouvrez l'interface de ${buildingDef.name}. (UI à implémenter)`, "system_event");
                     }
 
-                    if (!specificActionDef.durabilityGain) { // N'endommager que si l'action ne donne pas de durabilité
+                    if (!specificActionDef.durabilityGain) {
                         const damageResult = State.damageBuilding(player.x, player.y, bldIndex, 1);
                         UI.addChatMessage(`${buildingDef.name} perd 1 durabilité.`, "system_event");
                         if (damageResult.destroyed) {
@@ -905,7 +966,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     }
                 },
                 updateUICallbacks,
-                { buildingKey } 
+                { buildingKey }
             );
             break;
         }

@@ -15,8 +15,8 @@ export function initDOM() {
     DOM.tileDescriptionEl = document.getElementById('tile-description');
     DOM.actionsEl = document.getElementById('actions');
     DOM.chatInputEl = document.getElementById('chat-input-field');
-    DOM.toggleChatSizeBtn = document.getElementById('toggle-chat-size-btn'); // Pour le chat
-    DOM.bottomBarEl = document.getElementById('bottom-bar');                 // Pour le chat
+    DOM.toggleChatSizeBtn = document.getElementById('toggle-chat-size-btn'); 
+    DOM.bottomBarEl = document.getElementById('bottom-bar');                 
     DOM.dayCounterEl = document.getElementById('day-counter');
     DOM.openEquipmentBtn = document.getElementById('open-equipment-btn');
 
@@ -28,9 +28,10 @@ export function initDOM() {
 
     // --- SLOTS D'ÉQUIPEMENT RAPIDE ---
     DOM.quickSlotWeapon = document.getElementById('quick-slot-weapon');
+    DOM.quickSlotShield = document.getElementById('quick-slot-shield'); // Ajout shield
     DOM.quickSlotArmor = document.getElementById('quick-slot-armor');
     DOM.quickSlotBag = document.getElementById('quick-slot-bag');
-    DOM.quickSlotFeet = document.getElementById('quick-slot-feet'); // <<< NOUVELLE LIGNE
+    DOM.quickSlotFeet = document.getElementById('quick-slot-feet'); 
     DOM.quickSlotsPanel = document.getElementById('quick-slots-panel'); 
 
     // --- INVENTAIRE PAR CATÉGORIES ---
@@ -64,7 +65,7 @@ export function initDOM() {
 
     // --- MODALE D'INVENTAIRE PARTAGÉ ---
     DOM.inventoryModal = document.getElementById('inventory-modal');
-    DOM.closeInventoryModalBtn = document.getElementById('close-inventory-modal-btn'); // Pour la modale d'inventaire
+    DOM.closeInventoryModalBtn = document.getElementById('close-inventory-modal-btn'); 
     DOM.modalPlayerInventoryEl = document.getElementById('modal-player-inventory');
     DOM.modalSharedInventoryEl = document.getElementById('modal-shared-inventory');
     DOM.modalPlayerCapacityEl = document.getElementById('modal-player-capacity');
@@ -94,7 +95,7 @@ export function initDOM() {
     DOM.closeEquipmentModalBtn = document.getElementById('close-equipment-modal-btn');
     DOM.equipmentPlayerInventoryEl = document.getElementById('equipment-player-inventory');
     DOM.equipmentPlayerCapacityEl = document.getElementById('equipment-player-capacity');
-    DOM.equipmentSlotsEl = document.getElementById('equipment-slots');
+    DOM.equipmentSlotsEl = document.getElementById('equipment-slots'); // Conteneur des slots (head, body, feet, weapon, shield)
     DOM.playerStatAttackEl = document.getElementById('player-stat-attack');
     DOM.playerStatDefenseEl = document.getElementById('player-stat-defense');
 
@@ -105,5 +106,5 @@ export function initDOM() {
 
     // Chat
     DOM.quickChatButton = document.getElementById('quick-chat-button');
-    DOM.chatMessagesEl = document.getElementById('chat-messages'); // Ajout pour référence si besoin direct
+    DOM.chatMessagesEl = document.getElementById('chat-messages'); 
 }

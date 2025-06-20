@@ -17,13 +17,13 @@ export function initPlayer(config) {
             'Hache': 1,
             'Canne à pêche': 1,
             'Kit de Secours': 1,
-            'Barre Énergétique': 2,
-            'Eau pure': 1,
+            'Barre Énergétique': 22, // Modifié: 2 + 20
+            'Eau pure': 21,          // Modifié: 1 + 20
             'Clé du Trésor': 1,
-            'Allumettes': 5, // Example starting item for campfire
+            'Allumettes': 5,
         },
         equipment: {
-            head: null, body: null, feet: null, weapon: null, bag: null,
+            head: null, body: null, feet: null, weapon: null, shield: null, bag: null, // Ajout shield
         },
         color: '#ffd700', isBusy: false, animationState: null,
     };
@@ -116,43 +116,52 @@ export function deductResources(player, costs) {
 
 export function consumeItem(itemName, player) {
     const itemDef = ITEM_TYPES[itemName];
-    if (!itemDef || itemDef.type !== 'consumable') {
-        return { success: false, message: `Vous ne pouvez pas consommer "${itemName}".` };
+    if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.teachesRecipe) ) { // Modifié pour inclure teachesRecipe
+        return { success: false, message: `Vous ne pouvez pas utiliser "${itemName}" ainsi.` };
     }
     if (!player.inventory[itemName] || player.inventory[itemName] <= 0) {
         return { success: false, message: "Vous n'en avez plus." };
     }
 
     let floatingTexts = [];
-    for (const effect in itemDef.effects) {
-        const value = itemDef.effects[effect];
-        
-        if (effect === 'status') {
-            const statusEffect = value; 
-            const conditionMet = !statusEffect.ifStatus || 
-                                 (Array.isArray(statusEffect.ifStatus) ? statusEffect.ifStatus.includes(player.status) : player.status === statusEffect.ifStatus);
 
-            if (conditionMet && (!statusEffect.chance || Math.random() < statusEffect.chance)) {
-                player.status = statusEffect.name;
-                floatingTexts.push(`Statut: ${player.status}`);
-            }
-        } else if (player.hasOwnProperty(effect)) { // Check for health, thirst, hunger, sleep
-            const maxStatName = `max${effect.charAt(0).toUpperCase() + effect.slice(1)}`;
-            if(player.hasOwnProperty(maxStatName)) { // Ensure maxStat property exists
-                player[effect] = Math.min(player[maxStatName], player[effect] + value);
-                const sign = value >= 0 ? '+' : ''; // Handle negative values correctly
-                let icon = '';
-                if(effect === 'health') icon = '❤️';
-                else if(effect === 'thirst') icon = '💧';
-                else if(effect === 'hunger') icon = '🍗';
-                else if(effect === 'sleep') icon = '🌙';
-                floatingTexts.push(`${sign}${value}${icon}`);
+    if (itemDef.teachesRecipe) { // Gérer l'apprentissage de recette
+        // La logique d'apprentissage est gérée dans State.consumeItem
+        // Ici, on décrémente juste l'objet.
+    } else { // Gérer les effets de consommation standards
+        for (const effect in itemDef.effects) {
+            const value = itemDef.effects[effect];
+            
+            if (effect === 'status') {
+                const statusEffect = value; 
+                const conditionMet = !statusEffect.ifStatus || 
+                                     (Array.isArray(statusEffect.ifStatus) ? statusEffect.ifStatus.includes(player.status) : player.status === statusEffect.ifStatus);
+
+                if (conditionMet && (!statusEffect.chance || Math.random() < statusEffect.chance)) {
+                    player.status = statusEffect.name;
+                    floatingTexts.push(`Statut: ${player.status}`);
+                }
+            } else if (effect === 'custom') {
+                // Logique custom gérée dans State.consumeItem après cet appel
+            } else if (player.hasOwnProperty(effect)) { // Check for health, thirst, hunger, sleep
+                const maxStatName = `max${effect.charAt(0).toUpperCase() + effect.slice(1)}`;
+                if(player.hasOwnProperty(maxStatName)) { 
+                    player[effect] = Math.min(player[maxStatName], player[effect] + value);
+                    const sign = value >= 0 ? '+' : ''; 
+                    let icon = '';
+                    if(effect === 'health') icon = '❤️';
+                    else if(effect === 'thirst') icon = '💧';
+                    else if(effect === 'hunger') icon = '🍗';
+                    else if(effect === 'sleep') icon = '🌙';
+                    floatingTexts.push(`${sign}${value}${icon}`);
+                }
             }
         }
     }
 
     player.inventory[itemName]--;
     if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
-
-    return { success: true, message: `Vous utilisez: ${itemName}.`, floatingTexts };
+    
+    const messageAction = itemDef.teachesRecipe ? "apprenez la recette de" : "utilisez";
+    return { success: true, message: `Vous ${messageAction}: ${itemName}.`, floatingTexts };
 }

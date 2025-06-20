@@ -1,16 +1,8 @@
 // js/ui/modals.js
 import { ITEM_TYPES, COMBAT_CONFIG } from '../config.js';
 import { getTotalResources } from '../player.js';
-// Note: addChatMessage est exporté par panels.js, qui est ensuite ré-exporté par ui.js.
-// Si modals.js a besoin de addChatMessage directement, il faudrait l'importer
-// depuis '../ui.js' (si ui.js l'exporte) ou directement depuis './panels.js' (si ui.js ne le ré-exporte pas)
-// Pour l'instant, je suppose qu'il n'est pas directement utilisé ici ou qu'il est géré via des appels à UI depuis d'autres modules.
-// Si vous l'utilisez ici, assurez-vous de l'import correct, par exemple:
-// import { addChatMessage } from '../ui.js'; // ou import { addChatMessage } from './panels.js';
 import DOM from './dom.js';
 import * as Draw from './draw.js';
-
-// NOUVEL IMPORT pour handleCombatAction
 import { handleCombatAction } from '../interactions.js';
 
 let quantityConfirmCallback = null;
@@ -46,14 +38,30 @@ export function showInventoryModal(gameState) {
     const { player, map } = gameState;
     const tile = map[player.y] && map[player.y][player.x] ? map[player.y][player.x] : null;
     
-    if (!tile || !tile.inventory) {
-        // UI.addChatMessage("Ce lieu n'a pas de stockage.", "system"); // Nécessiterait UI importé ou addChatMessage direct
-        console.warn("Tentative d'ouverture de l'inventaire sur une tuile sans stockage ou tuile invalide.");
+    if (!tile) {
+        console.warn("showInventoryModal: Tuile invalide.");
         return;
     }
+
+    // Chercher un bâtiment avec inventaire sur la tuile actuelle
+    const buildingWithInventoryKey = tile.buildings.find(b => TILE_TYPES[b.key]?.inventory)?.key;
+    const tileInventory = buildingWithInventoryKey ? TILE_TYPES[buildingWithInventoryKey].inventory : tile.type.inventory;
+    
+    if (!tileInventory) { // Si ni bâtiment avec inventaire, ni type de tuile avec inventaire (ex: Trésor)
+        // UI.addChatMessage("Ce lieu n'a pas de stockage.", "system");
+        console.warn("Tentative d'ouverture de l'inventaire sur une tuile sans stockage.");
+        return;
+    }
+    
+    // Utiliser tile.inventory (qui est l'instance actuelle) et non tileInventory (qui est la définition)
+    if (!tile.inventory) { // S'assurer que tile.inventory est initialisé si nécessaire
+        tile.inventory = JSON.parse(JSON.stringify(tileInventory));
+    }
+
+
     const { modalPlayerInventoryEl, modalSharedInventoryEl, modalPlayerCapacityEl, inventoryModal } = DOM;
     populateInventoryList(player.inventory, modalPlayerInventoryEl, 'player-inventory');
-    populateInventoryList(tile.inventory, modalSharedInventoryEl, 'shared');
+    populateInventoryList(tile.inventory, modalSharedInventoryEl, 'shared'); // Utiliser tile.inventory
     
     if(modalPlayerCapacityEl) {
         const totalPlayerResources = getTotalResources(player.inventory);
@@ -89,24 +97,28 @@ export function updateEquipmentModal(gameState) {
         equipmentPlayerCapacityEl.textContent = `${totalPlayerResources} / ${player.maxInventory}`;
     }
     
+    // Modifié pour gérer tous les slots définis dans l'HTML (head, weapon, shield, body, feet, bag)
     if (equipmentSlotsEl) {
         equipmentSlotsEl.querySelectorAll('.equipment-slot').forEach(slotEl => {
             const slotType = slotEl.dataset.slotType;
+            if (!slotType) return; // Si un slot n'a pas de data-slot-type
+
             const equippedItem = player.equipment[slotType];
-            slotEl.innerHTML = ''; // Vider le slot
+            slotEl.innerHTML = ''; 
             if (equippedItem) {
-                const li = document.createElement('div'); 
-                li.className = 'inventory-item'; 
-                li.setAttribute('draggable', 'true');
-                li.dataset.itemName = equippedItem.name;
-                li.dataset.owner = 'equipment';
-                li.dataset.slotType = slotType; 
+                const itemDiv = document.createElement('div'); // Utiliser un div pour l'item
+                itemDiv.className = 'inventory-item'; // Style comme un item d'inventaire
+                itemDiv.setAttribute('draggable', 'true');
+                itemDiv.dataset.itemName = equippedItem.name;
+                itemDiv.dataset.owner = 'equipment'; // Marqueur pour le drag & drop
+                itemDiv.dataset.slotType = slotType; // Important pour le déséquipement
+                
                 const itemDef = ITEM_TYPES[equippedItem.name] || { icon: equippedItem.icon || '❓' };
-                li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${equippedItem.name}</span>`;
+                itemDiv.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${equippedItem.name}</span>`;
                 if (equippedItem.hasOwnProperty('currentDurability') && equippedItem.hasOwnProperty('durability')) {
-                     li.innerHTML += `<span class="item-durability" style="font-size: 0.7em; color: var(--text-secondary); display: block; text-align: center;">${equippedItem.currentDurability}/${equippedItem.durability}</span>`;
+                     itemDiv.innerHTML += `<span class="item-durability">${equippedItem.currentDurability}/${equippedItem.durability}</span>`;
                 }
-                slotEl.appendChild(li);
+                slotEl.appendChild(itemDiv);
             }
         });
     }
@@ -116,10 +128,14 @@ export function updateEquipmentModal(gameState) {
         playerStatAttackEl.textContent = attack;
     }
     if (playerStatDefenseEl) {
-        const defense = (player.equipment.body?.stats?.defense || 0) + (player.equipment.head?.stats?.defense || 0) + (player.equipment.feet?.stats?.defense || 0) ; // Exemple si d'autres pièces donnent défense
+        const defense = (player.equipment.body?.stats?.defense || 0) + 
+                        (player.equipment.head?.stats?.defense || 0) + 
+                        (player.equipment.feet?.stats?.defense || 0) +
+                        (player.equipment.shield?.stats?.defense || 0); // Ajout défense bouclier
         playerStatDefenseEl.textContent = defense;
     }
 }
+
 
 // --- MODALE DE COMBAT ---
 export function showCombatModal(combatState) {
@@ -136,9 +152,6 @@ export function updateCombatUI(combatState) {
     if (!combatState || !DOM.combatModal) return; 
     const { combatEnemyName, combatEnemyHealthBar, combatEnemyHealthText, combatPlayerHealthBar, combatPlayerHealthText, combatLogEl, combatActionsEl } = DOM;
     
-    // Assurez-vous que State est importé si vous voulez l'utiliser comme ça:
-    // import * as State from '../state.js'; puis State.state.player
-    // Sinon, on continue avec window.gameState pour l'instant.
     if (!window.gameState || !window.gameState.player) {
         console.error("gameState.player non accessible dans updateCombatUI");
         return;
@@ -160,7 +173,6 @@ export function updateCombatUI(combatState) {
         if (isPlayerTurn) {
             const attackBtn = document.getElementById('combat-attack-btn');
             const fleeBtn = document.getElementById('combat-flee-btn');
-            // MODIFICATION ICI: utiliser la fonction importée directement
             if (attackBtn) attackBtn.onclick = () => handleCombatAction('attack'); 
             if (fleeBtn) fleeBtn.onclick = () => handleCombatAction('flee');
         }

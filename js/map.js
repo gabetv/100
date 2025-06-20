@@ -1,5 +1,5 @@
 // js/map.js
-import { TILE_TYPES, ITEM_TYPES, CONFIG } from './config.js'; // Ajout CONFIG
+import { TILE_TYPES, ITEM_TYPES, CONFIG } from './config.js'; 
 
 export function generateMap(config) {
     console.log("Starting map generation with controlled stone deposits...");
@@ -30,13 +30,13 @@ export function generateMap(config) {
             let isCoastal = false;
             for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
                 const nx = x + dx, ny = y + dy;
-                if (ny >=0 && ny < MAP_HEIGHT && nx >=0 && nx < MAP_WIDTH && baseLayout[ny][nx] === 'water') { // Vérifier les limites
+                if (ny >=0 && ny < MAP_HEIGHT && nx >=0 && nx < MAP_WIDTH && baseLayout[ny][nx] === 'water') {
                     isCoastal = true;
                     break;
                 }
             }
             if (isCoastal) {
-                map[y][x] = { type: TILE_TYPES.SAND_GOLDEN };
+                map[y][x] = { type: TILE_TYPES.PLAGE }; // Modifié SAND_GOLDEN en PLAGE
             } else {
                 map[y][x] = { type: (Math.random() < 0.6) ? TILE_TYPES.FOREST : TILE_TYPES.PLAINS };
             }
@@ -60,20 +60,19 @@ export function generateMap(config) {
                         treasureX = tx; treasureY = ty; break;
                     }
                 }
-                if(!(treasureX === 1 && treasureY === 1)) break; // Correction: si trouvé, sortir
+                if(!(treasureX === 1 && treasureY === 1)) break;
             }
             break;
         }
     } while (
-        !map[treasureY] || !map[treasureY][treasureX] || !map[treasureY][treasureX].type.accessible || // Vérifier existence
+        !map[treasureY] || !map[treasureY][treasureX] || !map[treasureY][treasureX].type.accessible || 
         specialLocations.some(loc => loc.x === treasureX && loc.y === treasureY)
     );
-    if(map[treasureY] && map[treasureY][treasureX]) { // Vérifier avant d'assigner
+    if(map[treasureY] && map[treasureY][treasureX]) {
       map[treasureY][treasureX].type = TILE_TYPES.TREASURE_CHEST;
       specialLocations.push({x: treasureX, y: treasureY});
       console.log(`Treasure placed at (${treasureX}, ${treasureY})`);
     }
-
 
     let keyX, keyY;
     let keyAttempts = 0;
@@ -87,12 +86,12 @@ export function generateMap(config) {
             break;
         }
     } while (
-        !map[keyY] || !map[keyY][keyX] || !map[keyY][keyX].type.accessible || // Vérifier existence
+        !map[keyY] || !map[keyY][keyX] || !map[keyY][keyX].type.accessible || 
         specialLocations.some(loc => loc.x === keyX && loc.y === keyY)
     );
 
-    if (keyX !== -1 && map[keyY] && map[keyY][keyX]) { // Vérifier avant d'assigner
-        map[keyY][keyX].hiddenItemName = ITEM_TYPES['Clé du Trésor'].name; 
+    if (keyX !== -1 && map[keyY] && map[keyY][keyX]) { 
+        map[keyY][keyX].hiddenItemName = 'Clé du Trésor'; // Utiliser directement le nom de l'item
         specialLocations.push({x: keyX, y: keyY});
         console.log(`Hidden key placed at (${keyX}, ${keyY})`);
     }
@@ -120,7 +119,7 @@ export function generateMap(config) {
             const dy = Math.abs(loc.y - placedLoc.y); 
             if (dx <= 1 && dy <= 1) { isAdjacentToOtherStone = true; break; } 
         }
-        if (!isAdjacentToOtherStone && map[loc.y] && map[loc.y][loc.x]) { // Vérifier avant d'assigner
+        if (!isAdjacentToOtherStone && map[loc.y] && map[loc.y][loc.x]) { 
             map[loc.y][loc.x].type = TILE_TYPES.STONE_DEPOSIT;
             placedStoneCoords.push(loc); 
             specialLocations.push(loc);  
@@ -128,7 +127,6 @@ export function generateMap(config) {
         }
     }
     console.log(`Map generation: Placed ${stonePlacedCount} stones.`);
-
 
     for (let y = 0; y < MAP_HEIGHT; y++) {
         for (let x = 0; x < MAP_WIDTH; x++) {
@@ -143,17 +141,13 @@ export function generateMap(config) {
                     if (x > 0 && map[y][x - 1].type === type) { allowedBackgrounds = allowedBackgrounds.filter(key => key !== map[y][x - 1].backgroundKey); }
                     if (y > 0 && map[y - 1][x].type === type) { allowedBackgrounds = allowedBackgrounds.filter(key => key !== map[y - 1][x].backgroundKey); }
                 }
-                if (allowedBackgrounds.length === 0 && backgroundOptions.length > 0) { allowedBackgrounds = backgroundOptions; } // Vérifier que backgroundOptions n'est pas vide
+                if (allowedBackgrounds.length === 0 && backgroundOptions.length > 0) { allowedBackgrounds = backgroundOptions; } 
                 if (allowedBackgrounds.length > 0) chosenBackground = allowedBackgrounds[Math.floor(Math.random() * allowedBackgrounds.length)];
-                else chosenBackground = 'bg_plains_1'; // Fallback si tout échoue
+                else chosenBackground = 'bg_plains_1'; 
             }
             
-            // NOUVEAU: Gestion des bâtiments sur une tuile
-            // Une tuile peut être un terrain naturel OU contenir des bâtiments.
-            // Pour l'instant, on initialise avec le type de terrain. Les bâtiments seront ajoutés par le joueur.
-            // Si le type est déjà un bâtiment (ex: trésor), on le garde.
             const tileObject = { 
-                type: type, // Type de terrain de base ou structure pré-placée
+                type: type, 
                 x: x, 
                 y: y, 
                 backgroundKey: chosenBackground, 
@@ -163,23 +157,16 @@ export function generateMap(config) {
                 inventory: type.inventory ? JSON.parse(JSON.stringify(type.inventory)) : undefined,
                 hiddenItem: currentTileData.hiddenItemName || null, 
                 isOpened: type === TILE_TYPES.TREASURE_CHEST ? false : undefined,
-                buildings: [], // Liste pour stocker les bâtiments construits sur cette tuile
+                buildings: [], 
             };
 
-            // Si le type initial est un bâtiment, on l'ajoute à la liste des bâtiments
-            // et on initialise sa durabilité.
             if (type.isBuilding) {
                 tileObject.buildings.push({
-                    key: Object.keys(TILE_TYPES).find(k => TILE_TYPES[k] === type), // Retrouver la clé du type
+                    key: Object.keys(TILE_TYPES).find(k => TILE_TYPES[k] === type), 
                     durability: type.durability,
                     maxDurability: type.durability,
-                    // Si le bâtiment a un inventaire, il est géré par tileObject.inventory (pour l'instant, un seul inv par tuile)
                 });
-                // Si c'est un bâtiment, le terrain "sous" lui est considéré comme Plaine par défaut
-                // ou on pourrait avoir une propriété `underlyingTerrain`
-                // Pour simplifier, on ne change pas le `tileObject.type` ici, il représente le bâtiment principal
             }
-
             map[y][x] = tileObject;
         }
     }

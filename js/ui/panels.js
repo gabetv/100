@@ -1,12 +1,12 @@
 // js/ui/panels.js
-import { ITEM_TYPES, TILE_TYPES } from '../config.js'; // AJOUT DE TILE_TYPES ICI
+import { ITEM_TYPES, TILE_TYPES } from '../config.js'; 
 import { getTotalResources } from '../player.js';
 import DOM from './dom.js';
 
 function drawSquaresBar(container, value, maxValue) {
     if (!container) return;
     container.innerHTML = '';
-    const numSquares = 10; // Nombre de carrés dans la barre
+    const numSquares = 10; 
     const filledCount = Math.ceil((value / maxValue) * numSquares);
 
     for (let i = 0; i < numSquares; i++) {
@@ -39,9 +39,10 @@ export function updateStatsPanel(player) {
 
 export function updateQuickSlots(player) {
     if (!player || !player.equipment) return;
-    const { quickSlotWeapon, quickSlotArmor, quickSlotBag, quickSlotFeet } = DOM; 
+    const { quickSlotWeapon, quickSlotShield, quickSlotArmor, quickSlotBag, quickSlotFeet } = DOM; 
     const slots = {
         weapon: quickSlotWeapon,
+        shield: quickSlotShield, // Ajout shield
         body: quickSlotArmor, 
         bag: quickSlotBag,
         feet: quickSlotFeet,
@@ -84,6 +85,7 @@ export function updateInventory(player) {
         consumable: [], 
         tool: [], 
         weapon: [], 
+        shield: [], // Ajout shield
         armor: [], 
         body: [], 
         head: [], 
@@ -103,9 +105,13 @@ export function updateInventory(player) {
                 if (categories[itemDef.slot]) { 
                     type = itemDef.slot;
                 } else if (itemDef.type === 'armor' && itemDef.slot === 'body') { 
-                    type = 'armor';
+                    type = 'armor'; // Reste armure si c'est pour le corps (ex: Pagne)
+                } else if (itemDef.type === 'shield' && itemDef.slot === 'shield') {
+                    type = 'shield'; // Catégorie spécifique pour les boucliers
                 }
-                if (itemDef.type === 'tool' && categories.tool) { // Garder 'tool' si le type est 'tool'
+                // Si c'est un 'tool' avec un slot 'weapon', on le classe comme 'tool' dans l'inventaire
+                // pour le différencier des vraies armes (épées, lances).
+                if (itemDef.type === 'tool' && categories.tool) { 
                     type = 'tool';
                 }
             }
@@ -125,8 +131,9 @@ export function updateInventory(player) {
         { key: 'consumable', name: 'Consommables' }, 
         { key: 'tool', name: 'Outils' },
         { key: 'weapon', name: 'Armes' }, 
-        { key: 'armor', name: 'Armures' },  
-        { key: 'body', name: 'Habits' },    
+        { key: 'shield', name: 'Boucliers' }, // Ajout shield
+        { key: 'armor', name: 'Armures (Corps)' }, // Précision
+        { key: 'body', name: 'Habits (Corps)' }, // Précision   
         { key: 'head', name: 'Chapeaux' },    
         { key: 'feet', name: 'Chaussures' }, 
         { key: 'bag', name: 'Sacs' },       
@@ -156,7 +163,8 @@ export function updateInventory(player) {
                 const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
                 const li = document.createElement('li');
                 li.className = 'inventory-item';
-                if (itemDef.type === 'consumable' || itemName.startsWith('Parchemin Atelier')) {
+                // Consommable OU parchemin OU Eau salée (car action spécifique)
+                if (itemDef.type === 'consumable' || itemName.startsWith('Parchemin Atelier') || itemName === 'Eau salée') {
                     li.classList.add('clickable');
                 }
                 li.dataset.itemName = itemName;
@@ -181,7 +189,7 @@ export function updateTileInfoPanel(tile) {
     if (!tile || !DOM.tileNameEl || !DOM.tileDescriptionEl || !DOM.tileHarvestsInfoEl) return;
 
     let mainDisplayName = tile.type.name; 
-    let mainDisplayDescription = ""; // Sera défini plus bas
+    let mainDisplayDescription = ""; 
     let mainHarvestsInfo = "";
     let mainDurabilityInfo = "";
 
@@ -197,7 +205,8 @@ export function updateTileInfoPanel(tile) {
     DOM.tileNameEl.textContent = mainDisplayName;
     const descriptions = { 
         'Forêt': "L'air est lourd et humide...", 'Plaine': "Une plaine herbeuse...", 
-        'Sable Doré': "Le sable chaud vous brûle les pieds...", 'Lagon': "L'eau turquoise vous invite...", 
+        'Plage': "Le sable chaud vous brûle les pieds...", // Modifié SAND_GOLDEN en Plage
+        'Lagon': "L'eau turquoise vous invite...", 
         'Friche': "Le sol est nu...", 'Gisement de Pierre': "Des rochers affleurent...", 
         'Feu de Camp': "La chaleur des flammes danse...", 
         'Abri Individuel': "Un abri précaire...", 'Abri Collectif': "Un campement bien établi...", 
@@ -244,8 +253,9 @@ export function addChatMessage(message, type, author) {
     msgDiv.innerHTML = content; 
     chatMessagesEl.appendChild(msgDiv);
     
+    // Gérer le nombre de messages si le chat n'est pas agrandi
     if (DOM.bottomBarEl && !DOM.bottomBarEl.classList.contains('chat-enlarged')) {
-        while (chatMessagesEl.children.length > 3) {
+        while (chatMessagesEl.children.length > 3) { // Conserver 3 lignes max
             chatMessagesEl.removeChild(chatMessagesEl.firstChild);
         }
     }
@@ -263,9 +273,9 @@ export function updateAllButtonsState(gameState) {
     
     if (DOM.consumeHealthBtn) {
         let canHeal = false;
-        if ((player.inventory['Kit de Secours'] > 0) || 
-            (player.inventory['Bandage'] > 0) || 
-            (player.inventory['Médicaments'] > 0 && (player.status === 'Malade' || player.status === 'Empoisonné'))) {
+        if ((player.inventory['Kit de Secours'] > 0 && (player.status === 'Blessé' || player.status === 'Malade')) || 
+            (player.inventory['Bandage'] > 0 && player.status === 'Blessé') || 
+            (player.inventory['Médicaments'] > 0 && player.status === 'Malade')) { // ou Empoisonné
             canHeal = true;
         }
         DOM.consumeHealthBtn.disabled = isPlayerBusy || !canHeal;
