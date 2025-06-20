@@ -92,13 +92,7 @@ body {
     z-index: 2;
 }
 
-#quick-slots-panel { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); z-index: 50; background-color: var(--bg-panel); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--border-radius); padding: 15px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 4px 15px var(--shadow-color); }
-.quick-equip-slot-display { width: 64px; height: 64px; background-color: rgba(0,0,0,0.3); border: 2px dashed rgba(255, 255, 255, 0.2); border-radius: 8px; display: flex; justify-content: center; align-items: center; font-size: 2.5em; transition: all 0.2s ease; color: rgba(255, 255, 255, 0.4); position: relative; cursor: default; }
-.slot-placeholder-text { font-size: 0.25em; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; }
-.quick-equip-slot-display.has-item { border-style: solid; border-color: rgba(255, 255, 255, 0.4); }
-
-#main-controls button { width: 100%; padding: 12px; background-color: var(--action-color); color: var(--text-light); font-weight: 600; font-size: 1.1em; font-family: 'Poppins', sans-serif; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; border-bottom: 3px solid #2f5a7a; }
-#main-controls button:hover:not(:disabled) { background-color: #5e9ac4; transform: translateY(-2px); border-bottom-color: #457b9d; }
+/* #quick-slots-panel SUPPRIMÉ */
 
 .ui-panel h3 { font-weight: 600; margin-bottom: 10px; border-bottom: 1px solid #ffffff20; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;}
 .ui-panel section { background-color: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
@@ -134,7 +128,6 @@ body {
 .droppable.drag-over { background-color: rgba(69, 123, 157, 0.4); outline: 2px dashed var(--action-color); }
 .inventory-item.dragging { opacity: 0.4; background: var(--action-color); }
 
-#tile-info p { font-size: 0.9em; color: var(--text-secondary); }
 .tile-detail { font-size: 0.85em; color: var(--text-secondary); background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; margin-top: 10px; text-align: center;}
 .coords-display { font-size: 0.8em; font-weight: 400; color: var(--text-secondary); background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 6px; }
 .capacity-display { font-size: 0.8em; font-weight: 400; color: var(--text-secondary); }
@@ -182,28 +175,28 @@ body {
 
 /* BARRE INFÉRIEURE */
  #bottom-bar {
-     background-color: var(--bg-panel);
-     backdrop-filter: blur(10px);
-     -webkit-backdrop-filter: blur(10px);
-     flex-shrink: 0;
-     display: grid; /* MODIFIÉ: Utilisation de Grid */
-    grid-template-columns: 300px 1fr 1fr; /* Chat (fixe) | Equipement (flexible) | Objets au sol (flexible) */
+    background-color: var(--bg-panel);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    flex-shrink: 0;
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr; /* Chat (plus grand) | Equipement (plus petit) | Objets au sol (moyen) */
     gap: 15px;
-    border-radius: var(--border-radius); /* Reste le même */
-     padding: 15px;
-     border: 1px solid rgba(255, 255, 255, 0.1);
-     position: relative;
-     z-index: 20;
-     transition: min-height 0.3s ease-in-out;
-    min-height: 220px; /* Augmenté pour le nouveau contenu */
-    max-height: 350px; /* Pour éviter qu'elle ne devienne trop grande */
-    overflow: hidden; /* Empêcher le contenu de déborder de la barre elle-même */
+    border-radius: var(--border-radius);
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    z-index: 20;
+    transition: min-height 0.3s ease-in-out;
+    min-height: 200px; /* Réduit légèrement la hauteur minimale */
+    max-height: 300px; /* Réduit légèrement la hauteur maximale */
+    overflow: hidden;
 }
 
 .bottom-bar-section {
     display: flex;
     flex-direction: column;
-    overflow-y: auto; /* Permettre le scroll interne si le contenu dépasse */
+    overflow-y: auto;
     padding: 10px;
     background-color: rgba(0,0,0,0.15);
     border-radius: 8px;
@@ -218,18 +211,17 @@ body {
     color: var(--text-secondary);
 }
 
-#bottom-bar-chat-panel { /* Section pour le chat */
-    /* grid-column: 1 / 2; */ /* La grille s'occupe de ça */
+#bottom-bar-chat-panel {
+    /* grid-column: 1 / 2; */
 }
-#bottom-bar-chat-panel.chat-enlarged { /* Appliquer au conteneur du chat pour l'agrandissement */
-    min-height: 350px; /* Ou ajuster la hauteur de #bottom-bar */
+#bottom-bar-chat-panel.chat-enlarged {
+    /* Géré par #bottom-bar.chat-enlarged */
 }
-#bottom-bar.chat-enlarged { /* Si on veut que toute la barre grandisse */
-    min-height: 350px;
+#bottom-bar.chat-enlarged {
+    min-height: 300px; /* Ou la hauteur désirée pour le chat agrandi */
 }
 
 
-/* Chat Container (maintenu pour la structure interne du chat) */
 #chat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.1); } #chat-header h3 { margin: 0; border: none; padding: 0; font-size: 1em; } #toggle-chat-size-btn { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary); cursor: pointer; border-radius: 4px; padding: 2px 8px; font-size: 1.1em; transition: all 0.2s; } #toggle-chat-size-btn:hover { background: var(--action-color); color: var(--text-light); }
 #chat-messages {
     flex-grow: 1;
@@ -238,18 +230,17 @@ body {
     background: rgba(0,0,0,0.2);
     padding: 10px;
     border-radius: 8px;
-    min-height: 60px; /* S'assurer qu'il y a un minimum de place */
-    height: calc(1.4em * 3 + 20px);
+    min-height: 60px;
     transition: height 0.3s ease-in-out;
 }
-#bottom-bar-chat-panel.chat-enlarged #chat-messages { /* Si le chat est dans un panel dédié */
-    height: 100%;
+#bottom-bar-chat-panel.chat-enlarged #chat-messages {
+    /* La hauteur est gérée par flex-grow dans le panel agrandi */
 }
 
 .chat-message { margin-bottom: 8px; line-height: 1.4; }
 .chat-message.player { color: #a8dadc; }
 .chat-message.npc { color: #f4a261; }
-.chat-message.npc-dialogue { /* Style spécifique pour les dialogues PNJ */
+.chat-message.npc-dialogue { 
     color: #82EEFD;
     background-color: rgba(0, 0, 0, 0.1);
     padding: 5px 8px;
@@ -257,7 +248,7 @@ body {
     border-left: 3px solid #82EEFD;
 }
 .chat-message.npc-dialogue p { margin-bottom: 5px; }
-.chat-message.npc-dialogue button.npc-quest-btn { /* Style pour les boutons dans le chat de dialogue PNJ */
+.chat-message.npc-dialogue button.npc-quest-btn { 
     background-color: var(--action-color);
     color: var(--text-light);
     border: none;
@@ -284,35 +275,50 @@ body {
 
 /* Styles pour le panneau d'équipement dans la barre inférieure */
 #bottom-bar-equipment-panel {
-    /* grid-column: 2 / 3; */
+    /* grid-column: 2 / 3; */ /* La grille s'occupe de ça, ajusté en haut */
+    /* min-width: 280px; */ /* Largeur minimale pour le panneau d'équipement */
+    /* max-width: 350px; */ /* Limite la largeur max pour ne pas trop écraser le chat */
+    flex-shrink: 0; /* Empêcher de trop rétrécir */
 }
 .equipment-preview-area {
     display: flex;
-    gap: 15px;
-    align-items: flex-start; /* Aligner les éléments en haut */
-    overflow-y: auto; /* Permettre le scroll si les slots dépassent */
+    gap: 10px; /* Réduit l'espace */
+    align-items: flex-start;
+    overflow-y: auto;
     flex-grow: 1;
 }
 .player-character-placeholder-small {
-    width: 80px; height: 130px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.15); border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 60px; /* Réduit */
+    height: 100px; /* Réduit */
+    background: rgba(0,0,0,0.2);
+    border: 1px dashed rgba(255,255,255,0.15);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 10px; /* Pour aligner un peu avec les labels */
 }
-.player-head-small { width: 30px; height: 30px; background: #ffd700; border-radius: 50%; border: 2px solid #b8860b; }
-.player-body-small { width: 45px; height: 65px; background: #ffd700; border: 2px solid #b8860b; border-radius: 20px 20px 5px 5px; margin-top: -5px; }
+.player-head-small { width: 25px; height: 25px; background: #ffd700; border-radius: 50%; border: 2px solid #b8860b; }
+.player-body-small { width: 35px; height: 50px; background: #ffd700; border: 2px solid #b8860b; border-radius: 15px 15px 4px 4px; margin-top: -4px; }
 
 #bottom-bar-equipment-slots {
     display: grid;
-    grid-template-columns: repeat(2, 1fr); /* Deux colonnes de slots */
-    gap: 8px;
+    grid-template-columns: 1fr 1fr; /* Toujours deux colonnes */
+    gap: 6px; /* Réduit l'espace */
     flex-grow: 1;
 }
 .equipment-slot-container-small { text-align: center; }
-.equipment-slot-container-small label { display: block; font-size: 0.75em; margin-bottom: 3px; color: var(--text-secondary); opacity: 0.8; }
-.equipment-slot-small { width: 100%; height: 50px; background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.2); border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 1.5em; color: rgba(255,255,255,0.3); }
-.equipment-slot-small .inventory-icon { font-size: 1.2em; } /* Pour les icônes d'objets équipés */
+.equipment-slot-container-small label { display: block; font-size: 0.7em; margin-bottom: 2px; color: var(--text-secondary); opacity: 0.8; }
+.equipment-slot-small { width: 100%; height: 40px; /* Réduit la hauteur */ background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.2); border-radius: 4px; display: flex; justify-content: center; align-items: center; font-size: 1.3em; color: rgba(255,255,255,0.3); }
+.equipment-slot-small .inventory-icon { font-size: 1em; }
+.equipment-slot-small.droppable.drag-over { background-color: rgba(69, 123, 157, 0.5); border-color: var(--action-color); }
+
 
 /* Styles pour le panneau des objets au sol */
 #bottom-bar-ground-items {
-    /* grid-column: 3 / 4; */
+    /* grid-column: 3 / 4; */ /* La grille s'occupe de ça */
 }
 .ground-items-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 5px; flex-grow: 1; }
 #quick-chat-button { background-color: var(--action-color); color: var(--text-light); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5em; line-height: 40px; text-align: center; cursor: pointer; transition: background-color 0.2s; flex-shrink: 0; }
@@ -339,6 +345,9 @@ body {
 
 @media (max-width: 1200px) {
     #main-area { grid-template-columns: 250px 1fr 320px; }
+    #bottom-bar {
+        grid-template-columns: 1.5fr 1fr 1fr; /* Ajuster les proportions pour les écrans moyens */
+    }
 }
 @media (max-width: 900px) {
     body { padding: 5px; overflow: auto; }
@@ -375,8 +384,7 @@ body {
         min-height: 180px;
         max-height: none; /* Permettre à la barre de s'étendre */
     }
-    #quick-slots-panel { top: 10px; left: 50%; transform: translateX(-50%); flex-direction: row; padding: 10px; gap:10px; }
-    .quick-equip-slot-display { width: 50px; height: 50px; font-size: 2em; }
+    /* Quick slots sont supprimés, donc plus besoin de les repositionner pour mobile */
 }
 
 .action-failed-shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }

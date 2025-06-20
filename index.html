@@ -12,12 +12,8 @@
 <body>
     <div id="game-container">
         <div id="main-area">
-            <!-- ### PANNEAU DE GAUCHE (MODIFIÉ) ### -->
+            <!-- ### PANNEAU DE GAUCHE ### -->
             <div id="left-panel" class="ui-panel">
-                <section id="main-controls">
-                     <h3>Gestion</h3>
-                     <button id="open-equipment-btn">🎒 Équipement</button>
-                </section>
                 <section id="player-stats">
                     <h3>Statut</h3>
                     <div class="stat"><div class="stat-header"><span class="stat-icon">❤️</span><span>Santé (<span id="health-status">Normal</span>)</span><button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button></div><div class="stat-bar-container-squares" id="health-bar-squares"></div></div>
@@ -33,13 +29,7 @@
 
             <!-- ### VUE PRINCIPALE ### -->
             <div id="main-view-wrapper">
-                <div id="quick-slots-panel">
-                    <div id="quick-slot-weapon" class="quick-equip-slot-display" data-slot-type="weapon" title="Arme"><span class="slot-placeholder-text">Arme</span></div>
-                    <div id="quick-slot-shield" class="quick-equip-slot-display" data-slot-type="shield" title="Bouclier"><span class="slot-placeholder-text">Bouclier</span></div> <!-- Ajout Shield -->
-                    <div id="quick-slot-armor" class="quick-equip-slot-display" data-slot-type="body" title="Habit"><span class="slot-placeholder-text">Habit</span></div>
-                    <div id="quick-slot-feet" class="quick-equip-slot-display" data-slot-type="feet" title="Chaussures"><span class="slot-placeholder-text">Pieds</span></div>
-                    <div id="quick-slot-bag" class="quick-equip-slot-display" data-slot-type="bag" title="Sac"><span class="slot-placeholder-text">Sac</span></div>
-                </div>
+                <!-- #quick-slots-panel SUPPRIMÉ -->
                 <div id="main-view-container">
                     <div id="survival-vignette"></div><div id="action-flash"></div>
                     <canvas id="main-view-canvas"></canvas><canvas id="characters-canvas"></canvas>
@@ -50,9 +40,9 @@
 
             <!-- ### PANNEAU DE DROITE ### -->
             <div id="right-panel" class="ui-panel">
-                <section id="tile-info"><h3><span>Lieu: <span id="tile-name">Forêt</span> <span id="hud-coords" class="coords-display">(7,10)</span></span></h3><p id="tile-description">Description du lieu...</p><p id="tile-harvests-info" class="tile-detail"></p></section>
+                <section id="tile-info"><h3><span>Lieu: <span id="tile-name">Forêt</span> <span id="hud-coords" class="coords-display">(7,10)</span></span></h3><p id="tile-harvests-info" class="tile-detail"></p></section>
                 <section id="interaction-panel"><h3>Actions Possibles</h3><div id="actions"></div></section>
-                <section id="inventory-section"><h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3><div id="inventory-categories" class="droppable"></div></section>
+                <section id="inventory-section"><h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3><div id="inventory-categories" class="droppable" data-owner="player-inventory"></div></section>
             </div>
         </div>
 
@@ -65,19 +55,16 @@
             </div>
 
             <div id="bottom-bar-equipment-panel" class="bottom-bar-section">
-                <!-- Contenu similaire à #equipment-modal mais adapté -->
                 <h4>Équipements</h4>
                 <div class="equipment-preview-area">
                     <div class="player-character-placeholder-small"><div class="player-head-small"></div><div class="player-body-small"></div></div>
                     <div id="bottom-bar-equipment-slots" class="droppable" data-owner="equipment">
-                        <!-- Les slots seront générés par JS, exemple : -->
-                        <!-- <div class="equipment-slot-container-small"><label>Arme</label><div class="equipment-slot-small droppable" data-slot-type="weapon" data-owner="equipment"></div></div> -->
+                        <!-- Les slots seront générés par JS -->
                     </div>
                 </div>
             </div>
 
             <div id="bottom-bar-ground-items" class="bottom-bar-section droppable" data-owner="ground">
-                <!-- Le contenu sera généré par JS: updateGroundItemsPanel -->
                 <h4>Objets et ressources au sol</h4>
                 <ul class="inventory-list ground-items-list"></ul>
             </div>
