@@ -12,16 +12,15 @@ import * as Interactions from './interactions.js';
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
 let draggedItemInfo = null;
-// let currentBuildMenuStructureKey = null; // Remplacé par le menu déroulant dynamique
 
 function updatePossibleActions() {
     if (!DOM.actionsEl) return;
-    DOM.actionsEl.innerHTML = ''; // Nettoyer les anciennes actions
+    const oldScrollTop = DOM.actionsEl.scrollTop; // Sauvegarder la position du scroll
+    DOM.actionsEl.innerHTML = '';
 
-    // Cache pour le sous-menu de construction
     let buildSubmenu = DOM.actionsEl.querySelector('#build-submenu-container');
     if (buildSubmenu) {
-        buildSubmenu.innerHTML = ''; // Nettoyer le contenu du sous-menu s'il existe
+        buildSubmenu.innerHTML = '';
     }
 
 
@@ -41,9 +40,7 @@ function updatePossibleActions() {
         button.disabled = disabled;
         button.title = title;
         button.onclick = (e) => {
-            // Empêcher la propagation si le clic vient d'un bouton dans le sous-menu de construction
-            // pour ne pas déclencher le toggle du menu principal de construction.
-            if (parent.id === 'build-submenu-content') {
+            if (parent.id === 'build-submenu-content' || parent.classList.contains('npc-quest-btn-container')) { // Empêcher la propagation si c'est un bouton de sous-menu ou de quête PNJ
                 e.stopPropagation();
             }
             Interactions.handlePlayerAction(actionId, data, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
@@ -69,6 +66,7 @@ function updatePossibleActions() {
             statusDiv.textContent = player.animationState ? "Déplacement..." : "Action en cours...";
         }
         DOM.actionsEl.appendChild(statusDiv);
+        DOM.actionsEl.scrollTop = oldScrollTop; // Restaurer la position du scroll
         return;
     }
 
@@ -80,6 +78,7 @@ function updatePossibleActions() {
         enemyStatus.innerHTML = `<strong>DANGER !</strong><br>Un ${enemyOnTile.name} vous bloque le passage.`;
         DOM.actionsEl.appendChild(enemyStatus);
         createButton(`⚔️ Attaquer ${enemyOnTile.name}`, 'initiate_combat');
+        DOM.actionsEl.scrollTop = oldScrollTop;
         return;
     }
 
@@ -146,6 +145,17 @@ function updatePossibleActions() {
         createButton("🌱 Planter Arbre", 'plant_tree', {}, !canPlant, !canPlant ? "Nécessite 5 graines, 1 eau pure" : "Transformer cette plaine en forêt");
     }
 
+    // Gestion du bouton "Parler aux PNJ"
+    if (!combatState) {
+        const npcsOnTile = State.state.npcs.filter(npc => npc.x === player.x && npc.y === player.y);
+        npcsOnTile.forEach(npc => {
+            const talkButton = createButton(`💬 Parler à ${npc.name}`, 'talk_to_npc', { npcId: npc.id });
+            talkButton.onclick = () => { // On gère le clic directement ici pour appeler handlePlayerAction
+                Interactions.handlePlayerAction('talk_to_npc', { npcId: npc.id }, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
+            };
+        });
+    }
+
 
     if (tile.type.buildable && tile.buildings.length < CONFIG.MAX_BUILDINGS_PER_TILE) {
         const buildMenuContainer = document.createElement('div');
@@ -158,7 +168,7 @@ function updatePossibleActions() {
 
         const buildSubmenuContent = document.createElement('div');
         buildSubmenuContent.id = 'build-submenu-content';
-        buildSubmenuContent.classList.add('hidden'); // Caché par défaut
+        buildSubmenuContent.classList.add('hidden');
         DOM.actionsEl.appendChild(buildSubmenuContent);
 
         mainBuildButton.onclick = () => {
@@ -206,11 +216,11 @@ function updatePossibleActions() {
                     { structureKey: bKey },
                     !canBuild,
                     !canBuild ? "Ressources ou outil manquant" : `Construire un ${buildingType.name}`,
-                    buildSubmenuContent // Ajouter au sous-menu
+                    buildSubmenuContent
                 );
             });
         } else {
-             mainBuildButton.disabled = true; // Désactiver si rien à construire
+             mainBuildButton.disabled = true;
              mainBuildButton.textContent = "🏗️ Construire";
         }
     }
@@ -266,13 +276,14 @@ function updatePossibleActions() {
             if (buildingDef.inventory) {
                 const openChestButton = createButton(
                     `🧰 Ouvrir Stockage (${buildingDef.name})`,
-                    'open_building_inventory', // Cette action doit être gérée pour afficher la modale
+                    'open_building_inventory',
                     { buildingKey: buildingInstance.key }
                 );
                 openChestButton.onclick = () => UI.showInventoryModal(State.state);
             }
         });
     }
+    DOM.actionsEl.scrollTop = oldScrollTop; // Restaurer la position du scroll après avoir ajouté les boutons
 }
 
 
@@ -361,16 +372,7 @@ function handleNavigation(direction) {
         return;
     }
 
-    // Bug Fix: Check if any stat is already 0 before applying cost
     let canMove = true;
-    if (player.thirst === 0 || player.hunger === 0 || player.sleep === 0) {
-        // Optionnel: permettre le mouvement mais le joueur prendra des dégâts via decayStats
-        // Pour l'instant, on bloque si une stat essentielle au mouvement est à 0.
-        // On pourrait choisir de bloquer seulement si TOUTES sont à 0.
-        // Ici, on est plus strict : si UNE est à 0 et qu'elle serait choisie, on ne peut pas bouger.
-        // La logique dans applyRandomStatCost est modifiée pour ne pas décrémenter si déjà à 0.
-    }
-
 
     const currentEnemyOnTile = findEnemyOnTile(player.x, player.y, enemies);
     if (currentEnemyOnTile) {
@@ -391,13 +393,9 @@ function handleNavigation(direction) {
         UI.addChatMessage("Vous ne pouvez pas aller dans cette direction.", "system");
         return;
     }
-    
-    // Appliquer le coût seulement si possible
+
     if (!Interactions.applyRandomStatCost(player, 1, "déplacement")) {
-        // Ce cas ne devrait plus arriver si applyRandomStatCost retourne toujours true (sauf erreur interne)
-        // Mais on garde la logique de ne pas bouger si une stat à 0 est nécessaire pour le coût.
-        // En pratique, applyRandomStatCost va choisir une stat non-nulle si possible.
-        // Si toutes sont nulles, le joueur est en grande difficulté.
+        // Géré dans applyRandomStatCost
     }
 
 
@@ -480,8 +478,7 @@ function handleConsumeClick(itemName) {
          Interactions.handlePlayerAction('consume_eau_salee', {itemName: 'Eau salée'}, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
          return;
     }
-    
-    // Si c'est un équipement, on l'équipe
+
     if (itemDef && itemDef.slot && ['weapon', 'shield', 'body', 'head', 'feet', 'bag'].includes(itemDef.slot)) {
         const equipResult = State.equipItem(itemName);
         UI.addChatMessage(equipResult.message, equipResult.success ? 'system' : 'system_error');
@@ -490,10 +487,16 @@ function handleConsumeClick(itemName) {
     }
 
 
-    if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.teachesRecipe) ) {
+    if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.teachesRecipe && itemDef.type !== 'usable') ) { // Ajout de usable pour la carte
         if (itemDef && !itemDef.teachesRecipe) {
             UI.addChatMessage(`"${itemName}" n'est pas consommable directement depuis l'inventaire de cette manière.`, "system");
         }
+        return;
+    }
+
+    // Spécial pour la carte : ouvrir la grande carte au lieu de la "consommer" passivement
+    if (itemName === 'Carte') {
+        Interactions.handlePlayerAction('open_large_map', {}, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
         return;
     }
 
@@ -570,7 +573,7 @@ function handleDragStart(e) {
         itemName: itemEl.dataset.itemName,
         itemCount: parseInt(itemEl.dataset.itemCount || '1', 10),
         sourceOwner: ownerEl.dataset.owner,
-        sourceSlotType: itemEl.dataset.slotType // Pour le déséquipement depuis un slot d'équipement
+        sourceSlotType: itemEl.dataset.slotType
     };
     setTimeout(() => itemEl.classList.add('dragging'), 0);
 }
@@ -616,7 +619,6 @@ function handleDrop(e) {
                 UI.addChatMessage("Cet objet ne va pas dans cet emplacement.", "system");
             }
         } else if (draggedItemInfo.sourceOwner === 'equipment' && destOwner === 'player-inventory') {
-             // Déséquipement : sourceSlotType vient de l'item glissé depuis un slot d'équipement
             if (draggedItemInfo.sourceSlotType) {
                 State.unequipItem(draggedItemInfo.sourceSlotType);
             }
@@ -673,7 +675,6 @@ function setupEventListeners() {
 
     if (DOM.enlargeMapBtn) {
         DOM.enlargeMapBtn.addEventListener('click', () => {
-             // Utiliser handlePlayerAction pour ouvrir la carte, ce qui gérera la consommation/durabilité
             Interactions.handlePlayerAction('open_large_map', {}, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
         });
     }
@@ -685,7 +686,6 @@ function setupEventListeners() {
             if (DOM.toggleChatSizeBtn) {
                 DOM.toggleChatSizeBtn.textContent = DOM.bottomBarEl.classList.contains('chat-enlarged') ? '⌄' : '⌃';
             }
-             // S'assurer que le chat scroll vers le bas après redimensionnement
             if (DOM.chatMessagesEl) DOM.chatMessagesEl.scrollTop = DOM.chatMessagesEl.scrollHeight;
         });
     }
@@ -696,9 +696,9 @@ function setupEventListeners() {
     }
 
     if (DOM.inventoryCategoriesEl) DOM.inventoryCategoriesEl.addEventListener('click', e => {
-        const itemEl = e.target.closest('.inventory-item'); // Plus besoin de .clickable ici, on gère tout
+        const itemEl = e.target.closest('.inventory-item');
         if (itemEl && itemEl.dataset.itemName) {
-            handleConsumeClick(itemEl.dataset.itemName); // La fonction handleConsumeClick décidera si c'est équipable ou consommable
+            handleConsumeClick(itemEl.dataset.itemName);
         }
         else {
             const header = e.target.closest('.category-header');
@@ -713,7 +713,7 @@ function setupEventListeners() {
     if (DOM.inventoryModal) setupDragAndDropForModal(DOM.inventoryModal);
 
     window.addEventListener('keydown', e => {
-        if (document.activeElement === DOM.chatInputEl) return; // Ne pas intercepter les touches si l'utilisateur tape dans le chat
+        if (document.activeElement === DOM.chatInputEl) return;
 
         if (e.key === 'Escape') {
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
@@ -725,8 +725,8 @@ function setupEventListeners() {
         else if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') handleNavigation('south');
         else if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'q') handleNavigation('west');
         else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') handleNavigation('east');
-        else if (e.key.toLowerCase() === 'e') UI.showEquipmentModal(State.state); // Touche E pour équipement
-        else if (e.key.toLowerCase() === 'm') { // Touche M pour la carte
+        else if (e.key.toLowerCase() === 'e') UI.showEquipmentModal(State.state);
+        else if (e.key.toLowerCase() === 'm') {
              Interactions.handlePlayerAction('open_large_map', {}, { updateAllUI: fullUIUpdate, updatePossibleActions, updateAllButtonsState: () => UI.updateAllButtonsState(State.state) });
         }
     });
@@ -742,7 +742,6 @@ function endGame(isVictory) {
     const finalMessage = isVictory ? "Félicitations ! Vous avez survécu 100 jours !" : "Vous n'avez pas survécu...";
     UI.addChatMessage(finalMessage, 'system');
 
-    // Afficher une modale de fin de jeu
     const endModal = document.createElement('div');
     endModal.id = 'end-game-modal';
     endModal.style.cssText = `
@@ -789,8 +788,7 @@ async function init() {
 
         State.initializeGameState(CONFIG);
         console.log("État du jeu initialisé.");
-        
-        // Message de bienvenue
+
         UI.addChatMessage("Bienvenue aventurier, trouve vite d'autres aventuriers pour s'organiser ensemble!", "system_event", "Ancien");
 
 
@@ -809,7 +807,7 @@ async function init() {
         if (State.state) {
             State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
             State.state.gameIntervals.push(setInterval(() => {
-                if (State.state.npcs && State.state.npcs.length > 0 && !State.state.combatState && (!State.state.player.isBusy || !State.state.player.animationState) ) { // Modifié pour ne chatter que si joueur pas occupé
+                if (State.state.npcs && State.state.npcs.length > 0 && !State.state.combatState && (!State.state.player.isBusy || !State.state.player.animationState) ) {
                     npcChatter(State.state.npcs);
                 }
             }, CONFIG.CHAT_MESSAGE_INTERVAL_MS));

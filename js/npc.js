@@ -1,6 +1,7 @@
 // js/npc.js
-import { addChatMessage } from './ui.js'; // Assurez-vous que UI est bien importé si addChatMessage est utilisé directement
-import { TILE_TYPES, CONFIG, ITEM_TYPES } from './config.js'; // ITEM_TYPES pour les coûts
+import { addChatMessage } from './ui.js'; // UI est bien importé
+import { TILE_TYPES, CONFIG, ITEM_TYPES } from './config.js';
+import * as State from './state.js'; // Pour accéder au gameState
 
 function getTotalNpcResources(inventory) {
     return Object.values(inventory).reduce((sum, count) => sum + count, 0);
@@ -9,28 +10,62 @@ function getTotalNpcResources(inventory) {
 export function initNpcs(config, map) {
     const npcs = [];
     const npcColors = ['#ff6347', '#4682b4', '#32cd32', '#ee82ee']; // Tomate, Bleu Acier, Vert Citron, Orchidée
+    const npcNames = ["Bob", "Alice", "Charlie", "Diana", "Evan", "Fiona"]; // Noms plus distincts
+
     for (let i = 0; i < config.NUM_NPCS; i++) {
         let x, y;
         do {
             x = Math.floor(Math.random() * config.MAP_WIDTH);
             y = Math.floor(Math.random() * config.MAP_HEIGHT);
-        } while (!map[y][x].type.accessible || (x === Math.floor(config.MAP_WIDTH / 2) +1 && y === Math.floor(config.MAP_HEIGHT / 2))); // Éviter la case de départ du joueur
-        
-        npcs.push({
+        } while (!map[y][x].type.accessible || (map[y][x].x === State.state.player.x && map[y][x].y === State.state.player.y)); // Éviter la case de départ du joueur
+
+        const npcData = {
             id: `npc_${Date.now()}_${i}`,
             x, y,
             color: npcColors[i % npcColors.length],
-            name: `Survivant ${i + 1}`,
+            name: npcNames[i % npcNames.length] || `Survivant ${i + 1}`,
             timeSinceLastMove: 0,
             inventory: {},
-            capacity: 15, // Capacité d'inventaire du PNJ
-            goal: 'harvesting', // 'harvesting', 'depositing', 'fighting', ou 'gathering_build_materials'
-            targetResource: null, // Pour 'gathering_build_materials'
+            capacity: 15,
+            goal: 'harvesting',
+            targetResource: null,
             health: CONFIG.NPC_BASE_HEALTH,
             maxHealth: CONFIG.NPC_BASE_HEALTH,
             damage: CONFIG.NPC_BASE_DAMAGE,
             targetEnemyId: null,
-        });
+            // Ajout pour quêtes simples
+            availableQuest: null,
+            activeQuest: null,
+            dialogueLines: [
+                "J'espère qu'on va s'en sortir...",
+                "Il faut rester vigilant.",
+                "Travaillons ensemble pour survivre !",
+                "Chaque jour est un nouveau défi.",
+                "Gardons espoir."
+            ]
+        };
+
+        // Donner une quête simple à un PNJ sur deux par exemple
+        if (i % 2 === 0) {
+            npcData.availableQuest = {
+                id: `quest_wood_${i}`,
+                title: "Besoin de Bois",
+                description: "Nous manquons de bois pour le feu. Pourrais-tu m'apporter 10 Bois ?",
+                requirement: { item: 'Bois', amount: 10 },
+                reward: { item: 'Viande cuite', amount: 2 },
+                isCompleted: false // Marqueur pour savoir si la quête a déjà été faite une fois (pourrait être réinitialisé)
+            };
+        } else {
+             npcData.availableQuest = {
+                id: `quest_food_${i}`,
+                title: "Chasseur Affamé",
+                description: "J'ai grand faim. 3 Viandes crues seraient un festin !",
+                requirement: { item: 'Viande crue', amount: 3 },
+                reward: { item: 'Pierre', amount: 15 },
+                isCompleted: false
+            };
+        }
+        npcs.push(npcData);
     }
     return npcs;
 }
@@ -43,10 +78,8 @@ function isResourceLowAtShelter(shelterInventory, resourceName, threshold = 10) 
 
 export function updateNpcs(gameState, deltaTime) {
     const { npcs, map, shelterLocation, enemies } = gameState;
-    // Si pas d'abri collectif, les PNJ ne peuvent pas déposer/vérifier les ressources pour construction.
-    // Ils continueront de récolter pour eux-mêmes ou combattre.
     const shelterTile = shelterLocation ? map[shelterLocation.y][shelterLocation.x] : null;
-    const shelterInventory = shelterTile ? shelterTile.inventory : null;
+    const shelterInventory = shelterTile && shelterTile.buildings.some(b => b.key === 'SHELTER_COLLECTIVE') ? shelterTile.inventory : null;
 
 
     for (let i = npcs.length - 1; i >= 0; i--) {
@@ -58,14 +91,13 @@ export function updateNpcs(gameState, deltaTime) {
 
         if (npc.health <= 0) {
             addChatMessage(`${npc.name} a été vaincu...`, 'system_warning');
-            npcs.splice(i, 1); 
-            continue; 
+            npcs.splice(i, 1);
+            continue;
         }
 
         const currentTile = map[npc.y][npc.x];
         const totalResourcesInNpcInventory = getTotalNpcResources(npc.inventory);
 
-        // --- Logique de Décision de l'Objectif (Goal) ---
         let closestEnemy = null;
         let minDistanceToEnemy = Infinity;
         enemies.forEach(enemy => {
@@ -75,60 +107,57 @@ export function updateNpcs(gameState, deltaTime) {
                 closestEnemy = enemy;
             }
         });
-        
+
         if (closestEnemy) {
             npc.goal = 'fighting';
             npc.targetEnemyId = closestEnemy.id;
         } else {
-            if(npc.goal === 'fighting') npc.targetEnemyId = null; // Oublier la cible si plus d'ennemi
+            if(npc.goal === 'fighting') npc.targetEnemyId = null;
 
             if (totalResourcesInNpcInventory >= npc.capacity) {
                 npc.goal = 'depositing';
-                npc.targetResource = null; // Annuler la recherche de ressource spécifique
-            } else if (shelterInventory) { // Seulement si l'abri existe et a un inventaire
-                // Prioriser les matériaux de construction si bas à l'abri
-                if (isResourceLowAtShelter(shelterInventory, 'Bois', 50)) { // Seuil plus élevé pour le bois
+                npc.targetResource = null;
+            } else if (shelterInventory) {
+                if (isResourceLowAtShelter(shelterInventory, 'Bois', 50)) {
                     npc.goal = 'gathering_build_materials';
                     npc.targetResource = 'Bois';
                 } else if (isResourceLowAtShelter(shelterInventory, 'Pierre', 30)) {
                     npc.goal = 'gathering_build_materials';
                     npc.targetResource = 'Pierre';
                 } else {
-                    npc.goal = 'harvesting'; // Récolte générique
+                    npc.goal = 'harvesting';
                     npc.targetResource = null;
                 }
-            } else { // Pas d'abri ou d'inventaire d'abri, récolte générique
+            } else {
                 npc.goal = 'harvesting';
                 npc.targetResource = null;
             }
         }
-        
-        // --- Agir en fonction de l'Objectif ---
+
         if (npc.goal === 'fighting') {
-            // ... (logique de combat existante, inchangée pour l'instant) ...
             const target = enemies.find(e => e.id === npc.targetEnemyId);
             if (!target || target.currentHealth <= 0) {
-                npc.goal = 'harvesting'; // Retour à la récolte si la cible disparaît
+                npc.goal = 'harvesting';
                 npc.targetEnemyId = null;
                 continue;
             }
 
             if (npc.x === target.x && npc.y === target.y) {
                 target.currentHealth -= npc.damage;
-                npc.health -= target.damage; // Les PNJ peuvent aussi prendre des dégâts
+                // Les PNJ ne prennent pas de dégâts en retour pour l'instant pour simplifier
+                // Si on veut qu'ils prennent des dégâts: npc.health -= target.damage;
                 // addChatMessage(`${npc.name} attaque ${target.name} ! (${target.currentHealth}/${target.health} PV de l'ennemi)`, 'npc_combat');
 
                 if (target.currentHealth <= 0) {
                     addChatMessage(`${npc.name} a vaincu ${target.name} !`, 'gain');
-                    gameState.enemies = gameState.enemies.filter(e => e.id !== target.id); 
-                    // Le PNJ pourrait ramasser le butin, mais c'est plus complexe. Pour l'instant, il retourne à ses occupations.
+                    gameState.enemies = gameState.enemies.filter(e => e.id !== target.id);
                 }
-                if (npc.health <= 0) continue; // Vérifier si le PNJ est mort après l'échange
+                // if (npc.health <= 0) continue; // Si les PNJ prennent des dégâts
 
-            } else { // Se déplacer vers l'ennemi
+            } else {
                 let moveX = Math.sign(target.x - npc.x);
                 let moveY = Math.sign(target.y - npc.y);
-                if (moveX !== 0 && moveY !== 0) { // Mouvement diagonal simple
+                if (moveX !== 0 && moveY !== 0) {
                     if (Math.random() < 0.5) moveX = 0; else moveY = 0;
                 }
                 const newX = npc.x + moveX;
@@ -139,29 +168,23 @@ export function updateNpcs(gameState, deltaTime) {
             }
 
         } else if (npc.goal === 'depositing') {
-            if (!shelterLocation) { // Si l'abri a été détruit ou n'existe pas
-                npc.goal = 'harvesting'; // Retourner à la récolte, ne peut pas déposer
+            if (!shelterLocation || !shelterInventory) {
+                npc.goal = 'harvesting';
                 continue;
             }
             if (npc.x === shelterLocation.x && npc.y === shelterLocation.y) {
-                if (shelterInventory) { // S'assurer que l'inventaire de l'abri existe
-                    let depositedCount = 0;
-                    for (const itemName in npc.inventory) {
-                        const count = npc.inventory[itemName];
-                        shelterInventory[itemName] = (shelterInventory[itemName] || 0) + count;
-                        depositedCount += count;
-                    }
-                    if (depositedCount > 0) {
-                         addChatMessage(`${npc.name} a déposé ${depositedCount} ressource(s) à la base.`, 'npc');
-                    }
-                    npc.inventory = {};
+                let depositedCount = 0;
+                for (const itemName in npc.inventory) {
+                    const count = npc.inventory[itemName];
+                    shelterInventory[itemName] = (shelterInventory[itemName] || 0) + count;
+                    depositedCount += count;
                 }
-                // Après dépôt, redécider du but (pourrait être de chercher des matériaux de construction)
-                // La logique de décision au début de la boucle s'en chargera au prochain tick.
-                // Pour forcer une redécision immédiate, on pourrait mettre npc.goal = null;
-                // mais laissons la boucle principale gérer pour l'instant.
+                if (depositedCount > 0) {
+                     addChatMessage(`${npc.name} a déposé ${depositedCount} ressource(s) à la base.`, 'npc');
+                }
+                npc.inventory = {};
 
-            } else { // Se déplacer vers l'abri
+            } else {
                 let moveX = Math.sign(shelterLocation.x - npc.x);
                 let moveY = Math.sign(shelterLocation.y - npc.y);
                 if (moveX !== 0 && moveY !== 0) {
@@ -174,7 +197,6 @@ export function updateNpcs(gameState, deltaTime) {
                 }
             }
         } else if (npc.goal === 'harvesting' || npc.goal === 'gathering_build_materials') {
-            // Si sur une tuile avec la ressource ciblée (ou n'importe quelle ressource si 'harvesting')
             let canHarvestHere = false;
             if (currentTile.type.resource && currentTile.harvestsLeft > 0) {
                 if (npc.goal === 'harvesting' || (npc.goal === 'gathering_build_materials' && currentTile.type.resource.type === npc.targetResource)) {
@@ -184,30 +206,21 @@ export function updateNpcs(gameState, deltaTime) {
 
             if (canHarvestHere) {
                 const resourceType = currentTile.type.resource.type;
-                const yieldAmount = currentTile.type.resource.yield || 1; // Assurer un yield par défaut
-                
+                const yieldAmount = currentTile.type.resource.yield || 1;
+
                 npc.inventory[resourceType] = (npc.inventory[resourceType] || 0) + yieldAmount;
                 if(currentTile.harvestsLeft !== Infinity) currentTile.harvestsLeft--;
-                
-                // Si la tuile est épuisée, la transformer en Friche
-                if (currentTile.harvestsLeft <= 0 && currentTile.type.harvests !== Infinity) {
-                    //gameState.map[npc.y][npc.x].type = TILE_TYPES.WASTELAND; // Modifie la définition partagée, pas bon
-                    //gameState.map[npc.y][npc.x].backgroundKey = TILE_TYPES.WASTELAND.background[Math.floor(Math.random() * TILE_TYPES.WASTELAND.background.length)];
-                    // Il faudrait une fonction State.updateTileType(x, y, newTypeKey) pour gérer ça proprement
-                    // Pour l'instant, on va juste marquer que la tuile est vide pour ce PNJ
-                    // La logique de transformation de la tuile devrait être gérée par le joueur ou un système global
-                }
-            } else { // Se déplacer pour trouver la ressource ciblée ou une ressource quelconque
+
+            } else {
                 let bestTile = null;
                 let minPathDistance = Infinity;
 
-                // Chercher la ressource ciblée ou la plus proche si générique
                 for (let y_scan = 0; y_scan < CONFIG.MAP_HEIGHT; y_scan++) {
                     for (let x_scan = 0; x_scan < CONFIG.MAP_WIDTH; x_scan++) {
                         const scanTile = map[y_scan][x_scan];
                         if (scanTile.type.accessible && scanTile.type.resource && scanTile.harvestsLeft > 0) {
                             if (npc.goal === 'harvesting' || (npc.goal === 'gathering_build_materials' && scanTile.type.resource.type === npc.targetResource)) {
-                                const pathDist = Math.abs(npc.x - x_scan) + Math.abs(npc.y - y_scan); // Distance de Manhattan
+                                const pathDist = Math.abs(npc.x - x_scan) + Math.abs(npc.y - y_scan);
                                 if (pathDist < minPathDistance) {
                                     minPathDistance = pathDist;
                                     bestTile = { x: x_scan, y: y_scan };
@@ -216,8 +229,8 @@ export function updateNpcs(gameState, deltaTime) {
                         }
                     }
                 }
-                
-                if (bestTile) { // Se déplacer vers la meilleure tuile trouvée
+
+                if (bestTile) {
                     let moveX = Math.sign(bestTile.x - npc.x);
                     let moveY = Math.sign(bestTile.y - npc.y);
                     if (moveX !== 0 && moveY !== 0) {
@@ -228,8 +241,8 @@ export function updateNpcs(gameState, deltaTime) {
                     if (map[newY] && map[newY][newX] && map[newY][newX].type.accessible) {
                         npc.x = newX; npc.y = newY;
                     }
-                } else { // Pas de ressource cible trouvée, mouvement aléatoire
-                    const moveX = Math.floor(Math.random() * 3) - 1; 
+                } else {
+                    const moveX = Math.floor(Math.random() * 3) - 1;
                     const moveY = Math.floor(Math.random() * 3) - 1;
                     const newX = Math.max(0, Math.min(CONFIG.MAP_WIDTH - 1, npc.x + moveX));
                     const newY = Math.max(0, Math.min(CONFIG.MAP_HEIGHT - 1, npc.y + moveY));
@@ -243,9 +256,73 @@ export function updateNpcs(gameState, deltaTime) {
     }
 }
 
+export function handleNpcInteraction(npcId) {
+    const npc = State.state.npcs.find(n => n.id === npcId);
+    if (!npc) return;
+
+    let interactionHTML = `<p>${npc.name} dit : "${npc.dialogueLines[Math.floor(Math.random() * npc.dialogueLines.length)]}"</p>`;
+
+    if (npc.activeQuest && !npc.activeQuest.isCompleted) {
+        interactionHTML += `<p><strong>Quête en cours : ${npc.activeQuest.title}</strong></p>`;
+        interactionHTML += `<p>${npc.activeQuest.description}</p>`;
+        if (State.state.player.inventory[npc.activeQuest.requirement.item] >= npc.activeQuest.requirement.amount) {
+            interactionHTML += `<button class="npc-quest-btn" data-npc-id="${npc.id}" data-quest-action="complete">Donner ${npc.activeQuest.requirement.amount} ${npc.activeQuest.requirement.item}</button>`;
+        } else {
+            interactionHTML += `<p>(Il vous manque des ${npc.activeQuest.requirement.item} pour terminer.)</p>`;
+        }
+    } else if (npc.availableQuest && !npc.availableQuest.isCompleted) { // Ne proposer que si pas déjà complétée (ou réinitialisée)
+        interactionHTML += `<p><strong>${npc.availableQuest.title}</strong></p>`;
+        interactionHTML += `<p>${npc.availableQuest.description}</p>`;
+        interactionHTML += `<button class="npc-quest-btn" data-npc-id="${npc.id}" data-quest-action="accept">Accepter la quête</button>`;
+    } else if (npc.activeQuest && npc.activeQuest.isCompleted) {
+        interactionHTML += `<p>Merci encore pour ton aide !</p>`;
+    }
+
+
+    // Afficher dans le chat (temporaire, idéalement une modale)
+    // Pour que les boutons HTML fonctionnent dans le chat, il faut que le message soit ajouté avec innerHTML.
+    // Attention : Ceci n'est pas idéal pour la sécurité si le contenu venait d'une source non sûre.
+    // Pour ce cas interne, c'est acceptable pour prototyper.
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = interactionHTML;
+    const chatMessageElement = addChatMessage('', 'npc-dialogue', npc.name); // Crée le conteneur de message
+    chatMessageElement.innerHTML = tempDiv.innerHTML; // Injecte le HTML
+
+    // Attacher les écouteurs aux boutons nouvellement ajoutés dans le DOM du chat
+    chatMessageElement.querySelectorAll('.npc-quest-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const action = e.target.dataset.questAction;
+            const clickedNpcId = e.target.dataset.npcId;
+            const questNpc = State.state.npcs.find(n => n.id === clickedNpcId);
+            if (!questNpc) return;
+
+            if (action === 'accept' && questNpc.availableQuest) {
+                questNpc.activeQuest = { ...questNpc.availableQuest }; // Copier la quête
+                questNpc.availableQuest = null; // La quête n'est plus "disponible" en attente
+                addChatMessage(`Vous avez accepté la quête : "${questNpc.activeQuest.title}" de ${questNpc.name}.`, 'system_event');
+                // Optionnel: réafficher le dialogue pour montrer que la quête est active
+                // handleNpcInteraction(questNpc.id);
+            } else if (action === 'complete' && questNpc.activeQuest) {
+                if (State.hasResources({ [questNpc.activeQuest.requirement.item]: questNpc.activeQuest.requirement.amount }).success) {
+                    State.applyResourceDeduction({ [questNpc.activeQuest.requirement.item]: questNpc.activeQuest.requirement.amount });
+                    State.addResourceToPlayer(questNpc.activeQuest.reward.item, questNpc.activeQuest.reward.amount);
+                    addChatMessage(`Quête "${questNpc.activeQuest.title}" terminée ! ${questNpc.name} vous donne ${questNpc.activeQuest.reward.amount} ${questNpc.activeQuest.reward.item}.`, 'gain');
+                    questNpc.activeQuest.isCompleted = true;
+                    // Pour l'instant, la quête complétée reste dans activeQuest avec isCompleted=true
+                    // Vous pourriez la déplacer vers un tableau `completedQuests` ou la remettre dans `availableQuest`
+                    // si elle est répétable après un certain temps.
+                } else {
+                    addChatMessage("Vous n'avez pas les objets requis !", "system_error");
+                }
+            }
+            if (window.fullUIUpdate) window.fullUIUpdate();
+        });
+    });
+}
+
 
 export function npcChatter(npcs) {
-    if (npcs.length === 0) return;
+    if (npcs.length === 0 || !window.gameState) return; // gameState global pour l'accès
     const npc = npcs[Math.floor(Math.random() * npcs.length)];
     let messages = [
         "Quelqu'un a vu de la nourriture ?",
@@ -255,7 +332,6 @@ export function npcChatter(npcs) {
         "Je vais chercher de quoi construire."
     ];
 
-    // Messages contextuels basés sur le but du PNJ
     if (npc.goal === 'depositing') {
         messages.push("Je vais déposer ces trouvailles à l'abri.");
     } else if (npc.goal === 'fighting' && npc.targetEnemyId) {
@@ -263,7 +339,7 @@ export function npcChatter(npcs) {
     } else if (npc.goal === 'gathering_build_materials' && npc.targetResource) {
         messages.push(`L'abri a besoin de ${npc.targetResource.toLowerCase()}, j'en cherche.`);
     } else if (npc.goal === 'harvesting') {
-        const currentTile = gameState.map[npc.y][npc.x]; // Nécessite gameState accessible ou passé en paramètre
+        const currentTile = window.gameState.map[npc.y][npc.x];
         if (currentTile && currentTile.type.resource) {
              messages.push(`Je crois qu'il y a du ${currentTile.type.resource.type.toLowerCase()} par ici.`);
         } else {
@@ -271,20 +347,17 @@ export function npcChatter(npcs) {
         }
     }
 
-
-    // Ajout de messages liés à la construction si l'abri collectif manque de ressources clés
-    if (gameState.shelterLocation && gameState.map[gameState.shelterLocation.y][gameState.shelterLocation.x].inventory) {
-        const shelterInv = gameState.map[gameState.shelterLocation.y][gameState.shelterLocation.x].inventory;
+    if (window.gameState.shelterLocation && window.gameState.map[window.gameState.shelterLocation.y][window.gameState.shelterLocation.x].inventory) {
+        const shelterInv = window.gameState.map[window.gameState.shelterLocation.y][window.gameState.shelterLocation.x].inventory;
         if (isResourceLowAtShelter(shelterInv, 'Bois', 50)) {
             messages.push("Il nous faudrait plus de bois pour les constructions !");
         }
         if (isResourceLowAtShelter(shelterInv, 'Pierre', 30)) {
             messages.push("Quelqu'un a vu des pierres ? On en a besoin.");
         }
-    } else if (!gameState.shelterLocation) {
+    } else if (!window.gameState.shelterLocation) {
          messages.push("On devrait vraiment construire un abri collectif solide !");
     }
-
 
     addChatMessage(messages[Math.floor(Math.random() * messages.length)], 'npc', npc.name);
 }

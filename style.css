@@ -121,8 +121,8 @@ body {
 .category-content { list-style: none; padding: 10px 0 0 0; display: none; flex-direction: column; gap: 5px; }
 .category-content.visible { display: flex; }
 .inventory-item { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.1); position: relative; transition: background-color 0.2s; }
-.inventory-item.clickable { cursor: pointer; } /* clickable s'applique aux consommables/parchemins */
-.inventory-item:not(.clickable) { cursor: pointer; } /* Tous les items sont cliquables pour équiper/info */
+.inventory-item.clickable { cursor: pointer; }
+.inventory-item:not(.clickable) { cursor: pointer; }
 .inventory-item:hover { background-color: rgba(69, 123, 157, 0.3); }
 .inventory-item[draggable="true"] { cursor: grab; }
 .inventory-item[draggable="true"]:active { cursor: grabbing; }
@@ -145,22 +145,21 @@ body {
 #actions button:disabled, #build-submenu-content button:disabled { background-color: #2f4553; color: #9ab4c2; cursor: not-allowed; border-bottom-color: #1a2a32; transform: none; }
 #actions button:disabled:hover, #build-submenu-content button:disabled:hover { transform: none; }
 
-/* Menu de construction déroulant */
-#main-build-btn { margin-bottom: 5px; } /* Marge sous le bouton principal de construction */
+#main-build-btn { margin-bottom: 5px; }
 #build-submenu-content {
     display: flex;
     flex-direction: column;
-    gap: 8px; /* Espacement entre les boutons du sous-menu */
-    padding-left: 15px; /* Petit décalage pour indiquer la hiérarchie */
+    gap: 8px;
+    padding-left: 15px;
     border-left: 2px solid rgba(255,255,255,0.2);
     margin-left: 5px;
-    max-height: 200px; /* Limiter la hauteur et permettre le scroll si besoin */
+    max-height: 200px;
     overflow-y: auto;
 }
 #build-submenu-content button {
-    font-size: 0.9em; /* Boutons légèrement plus petits */
+    font-size: 0.9em;
     padding: 10px;
-    background-color: rgba(69, 123, 157, 0.7); /* Couleur de fond légèrement différente */
+    background-color: rgba(69, 123, 157, 0.7);
 }
 #build-submenu-content button:hover:not(:disabled) {
     background-color: rgba(94, 154, 196, 0.8);
@@ -210,16 +209,47 @@ body {
     background: rgba(0,0,0,0.2);
     padding: 10px;
     border-radius: 8px;
-    min-height: 0; /* Important pour flex-grow */
-    /* Hauteur initiale pour ~3 lignes */
+    min-height: 0;
     height: calc(1.4em * 3 + 20px);
     transition: height 0.3s ease-in-out;
 }
 #bottom-bar.chat-enlarged #chat-messages {
-    height: 100%; /* S'adaptera au parent agrandi */
+    height: 100%;
 }
 
-.chat-message { margin-bottom: 8px; line-height: 1.4; } .chat-message.player { color: #a8dadc; } .chat-message.npc { color: #f4a261; } .chat-message.system { color: #e63946; font-style: italic; } .chat-message.gain { color: #2ecc71; } .chat-message.cost { color: #e74c3c; } .chat-message.system_event { color: #f39c12; font-weight: bold; } .chat-message.system_warning { color: #e74c3c; font-weight: bold; } .chat-message.system_error { background-color: #c0392b; color: white; padding: 2px 5px; border-radius: 3px; }
+.chat-message { margin-bottom: 8px; line-height: 1.4; }
+.chat-message.player { color: #a8dadc; }
+.chat-message.npc { color: #f4a261; }
+.chat-message.npc-dialogue { /* Style spécifique pour les dialogues PNJ */
+    color: #82EEFD;
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 5px 8px;
+    border-radius: 4px;
+    border-left: 3px solid #82EEFD;
+}
+.chat-message.npc-dialogue p { margin-bottom: 5px; }
+.chat-message.npc-dialogue button.npc-quest-btn { /* Style pour les boutons dans le chat de dialogue PNJ */
+    background-color: var(--action-color);
+    color: var(--text-light);
+    border: none;
+    padding: 6px 12px;
+    margin-top: 5px;
+    margin-right: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-family: 'Poppins', sans-serif;
+}
+.chat-message.npc-dialogue button.npc-quest-btn:hover {
+    background-color: #5e9ac4;
+}
+
+.chat-message.system { color: #e63946; font-style: italic; }
+.chat-message.gain { color: #2ecc71; }
+.chat-message.cost { color: #e74c3c; }
+.chat-message.system_event { color: #f39c12; font-weight: bold; }
+.chat-message.system_warning { color: #e74c3c; font-weight: bold; }
+.chat-message.system_error { background-color: #c0392b; color: white; padding: 2px 5px; border-radius: 3px; }
 #chat-input-area { position: relative; flex-shrink: 0; display: flex; gap: 10px; align-items: center; } #chat-input-field { flex-grow: 1; background: none; border: 1px solid #ffffff40; border-radius: 8px; padding: 10px; color: var(--text-light); font-family: 'Poppins', sans-serif; } #chat-input-field:focus { outline: none; border-color: var(--action-color); }
 #quick-chat-button { background-color: var(--action-color); color: var(--text-light); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5em; line-height: 40px; text-align: center; cursor: pointer; transition: background-color 0.2s; flex-shrink: 0; }
 #quick-chat-button:hover { background-color: #5e9ac4; } #quick-chat-menu { display: none; position: absolute; bottom: 110%; left: 0; background-color: #1a2a32; border-radius: 8px; box-shadow: 0 -4px 15px rgba(0,0,0,0.3); padding: 10px; z-index: 10; width: 300px; } #quick-chat-menu.visible { display: block; } .quick-chat-item { padding: 10px; cursor: pointer; border-radius: 4px; transition: background-color 0.2s; } .quick-chat-item:hover { background-color: var(--action-color); }
@@ -387,7 +417,6 @@ body {
 #context-menu-actions button[data-action="cancel"] { background-color: #4b5563; }
 #context-menu-actions button[data-action="cancel"]:hover { background-color: #6b7280; }
 
-/* Ajustement pour le sous-menu de construction */
 #build-submenu-content.hidden {
     display: none;
 }
