@@ -182,12 +182,17 @@ function updatePossibleActions() {
             if (!bt.isBuilding || !bt.cost) return false;
             if (tile.type.name !== TILE_TYPES.PLAINS.name) {
                 return key === 'MINE' || key === 'CAMPFIRE';
+            } // Seuls Mine et Feu de Camp peuvent être construits hors Plaine
+            // Ajouter ici une vérification si la recette du bâtiment est connue si c'est une recette de bâtiment
+            const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === bt.name && item.isBuildingRecipe);
+            if (buildingRecipeParchemin && !knownRecipes[bt.name]) {
+                 return false; // Ne pas montrer si la recette du bâtiment n'est pas connue
             }
             return true;
         });
 
         if (constructibleBuildings.length > 0) {
-            constructibleBuildings.forEach(bKey => {
+            constructibleBuildings.sort().forEach(bKey => { // Trié pour la lisibilité
                 const buildingType = TILE_TYPES[bKey];
                 let costString = "";
                 const costs = { ...buildingType.cost };
@@ -282,6 +287,10 @@ function updatePossibleActions() {
                 openChestButton.onclick = () => UI.showInventoryModal(State.state);
             }
         });
+    }
+    // Bouton pour déposer objet si inventaire > 0
+    if (getTotalResources(player.inventory) > 0) {
+        createButton("📥 Déposer un objet au sol", 'drop_item_prompt');
     }
     DOM.actionsEl.scrollTop = oldScrollTop; // Restaurer la position du scroll après avoir ajouté les boutons
 }
@@ -500,7 +509,8 @@ function handleConsumeClick(itemName) {
         return;
     }
 
-    const result = State.consumeItem(itemName);
+    const result = State.consumeItem(itemName); // Cet appel gère aussi les parchemins
+
     UI.addChatMessage(result.message, result.success ? (itemName.startsWith('Parchemin') || itemName === 'Porte bonheur' ? 'system_event' : 'system') : 'system');
     if(result.success) {
         UI.triggerActionFlash('gain');
@@ -533,6 +543,9 @@ function fullUIUpdate() {
             UI.drawLargeMap(State.state, State.state.config);
             UI.populateLargeMapLegend();
         }
+    }
+    if (DOM.bottomBarEl) { // Pour le panneau d'objets au sol
+        UI.updateGroundItemsPanel(State.state.map[State.state.player.y][State.state.player.x]);
     }
 }
 
@@ -608,7 +621,7 @@ function handleDrop(e) {
     }
 
     const destOwner = dropZone.dataset.owner;
-    if (dropZone.closest('#equipment-modal')) {
+    if (dropZone.closest('#equipment-modal') || dropZone.closest('#bottom-bar-equipment-slots')) { // Modifié pour inclure la barre du bas
         const destSlotType = dropZone.dataset.slotType;
         const itemDef = ITEM_TYPES[draggedItemInfo.itemName];
 
@@ -635,13 +648,48 @@ function handleDrop(e) {
         if (transferType) {
             if (draggedItemInfo.itemCount > 1) {
                 UI.showQuantityModal(draggedItemInfo.itemName, draggedItemInfo.itemCount, amount => {
-                    if(amount > 0) State.applyBulkInventoryTransfer(draggedItemInfo.itemName, amount, transferType);
+                    // Si la destination est l'inventaire du joueur et qu'on essaie de prendre depuis le sol
+                    if (destOwner === 'player-inventory' && draggedItemInfo.sourceOwner === 'ground') {
+                         const pickupResult = State.pickUpItemFromGround(draggedItemInfo.itemName, amount);
+                         UI.addChatMessage(pickupResult.message, pickupResult.success ? 'system' : 'system_error');
+                    } else if (destOwner === 'ground' && draggedItemInfo.sourceOwner === 'player-inventory') {
+                        const dropResult = State.dropItemOnGround(draggedItemInfo.itemName, amount);
+                        UI.addChatMessage(dropResult.message, dropResult.success ? 'system' : 'system_error');
+                    } else { // Cas existant (player-inventory <-> shared)
+                        if(amount > 0) State.applyBulkInventoryTransfer(draggedItemInfo.itemName, amount, transferType);
+                    }
                     fullUIUpdate();
                 });
             } else {
-                State.applyBulkInventoryTransfer(draggedItemInfo.itemName, 1, transferType);
+                if (destOwner === 'player-inventory' && draggedItemInfo.sourceOwner === 'ground') {
+                    const pickupResult = State.pickUpItemFromGround(draggedItemInfo.itemName, 1);
+                     UI.addChatMessage(pickupResult.message, pickupResult.success ? 'system' : 'system_error');
+                } else if (destOwner === 'ground' && draggedItemInfo.sourceOwner === 'player-inventory') {
+                    const dropResult = State.dropItemOnGround(draggedItemInfo.itemName, 1);
+                    UI.addChatMessage(dropResult.message, dropResult.success ? 'system' : 'system_error');
+                } else {
+                    State.applyBulkInventoryTransfer(draggedItemInfo.itemName, 1, transferType); // Modifié, amount était 1 ici déjà
+                }
             }
         }
+    } else if (dropZone.id === 'bottom-bar-ground-items' && draggedItemInfo.sourceOwner === 'player-inventory') { // Dépôt sur le panneau "Objets au sol"
+        if (draggedItemInfo.itemCount > 1) {
+            UI.showQuantityModal(draggedItemInfo.itemName, draggedItemInfo.itemCount, amount => {
+                if (amount > 0) {
+                    const dropResult = State.dropItemOnGround(draggedItemInfo.itemName, amount);
+                    UI.addChatMessage(dropResult.message, dropResult.success ? 'system' : 'system_error');
+                }
+                fullUIUpdate();
+            });
+        } else {
+            const dropResult = State.dropItemOnGround(draggedItemInfo.itemName, 1);
+            UI.addChatMessage(dropResult.message, dropResult.success ? 'system' : 'system_error');
+        }
+    } else if (draggedItemInfo.sourceOwner === 'ground' && destOwner === 'player-inventory' && dropZone.closest('#inventory-categories')) { // Prise depuis le panneau "Objets au sol" vers l'inventaire principal
+        // Géré par le clic sur l'item dans le panneau "Objets au sol" pour le moment, via `showQuantityModal`
+        // Si on veut D&D direct du sol vers l'inventaire principal, il faudrait ajouter une logique ici.
+        // Pour l'instant, on ne fait rien pour ce cas de D&D spécifique pour éviter la complexité.
+         UI.addChatMessage("Pour prendre un objet du sol, cliquez dessus.", "system_info");
     }
     fullUIUpdate();
     if(dropZone) dropZone.classList.remove('drag-over');
@@ -680,11 +728,11 @@ function setupEventListeners() {
     }
     if (DOM.closeLargeMapBtn) DOM.closeLargeMapBtn.addEventListener('click', UI.hideLargeMap);
 
-    if (DOM.toggleChatSizeBtn && DOM.bottomBarEl) {
+    if (DOM.toggleChatSizeBtn && DOM.bottomBarChatPanelEl) { // Modifié pour bottomBarChatPanelEl
         DOM.toggleChatSizeBtn.addEventListener('click', () => {
-            DOM.bottomBarEl.classList.toggle('chat-enlarged');
+            DOM.bottomBarChatPanelEl.classList.toggle('chat-enlarged'); // Doit s'appliquer au conteneur du chat
             if (DOM.toggleChatSizeBtn) {
-                DOM.toggleChatSizeBtn.textContent = DOM.bottomBarEl.classList.contains('chat-enlarged') ? '⌄' : '⌃';
+                DOM.toggleChatSizeBtn.textContent = DOM.bottomBarChatPanelEl.classList.contains('chat-enlarged') ? '⌄' : '⌃';
             }
             if (DOM.chatMessagesEl) DOM.chatMessagesEl.scrollTop = DOM.chatMessagesEl.scrollHeight;
         });
@@ -708,13 +756,35 @@ function setupEventListeners() {
             }
         }
     });
+    if (DOM.bottomBarGroundItemsEl) {
+        DOM.bottomBarGroundItemsEl.addEventListener('click', e => {
+            const itemEl = e.target.closest('.inventory-item');
+            if (itemEl && itemEl.dataset.itemName) {
+                // Demander la quantité à ramasser
+                const itemName = itemEl.dataset.itemName;
+                const maxAmount = parseInt(itemEl.dataset.itemCount, 10);
+                UI.showQuantityModal(`Ramasser ${itemName}`, maxAmount, (amount) => {
+                    if (amount > 0) {
+                        const result = State.pickUpItemFromGround(itemName, amount);
+                        UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+                        fullUIUpdate();
+                    }
+                });
+            }
+        });
+         setupDragAndDropForModal(DOM.bottomBarGroundItemsEl); // Activer D&D pour déposer sur cette zone
+    }
 
     if (DOM.equipmentModal) setupDragAndDropForModal(DOM.equipmentModal);
     if (DOM.inventoryModal) setupDragAndDropForModal(DOM.inventoryModal);
+    if (DOM.bottomBarEquipmentPanelEl) { // Pour équiper depuis l'inventaire vers le panel du bas
+        const equipmentSlotsInBar = DOM.bottomBarEquipmentPanelEl.querySelector('#bottom-bar-equipment-slots');
+        if (equipmentSlotsInBar) setupDragAndDropForModal(equipmentSlotsInBar);
+    }
+
 
     window.addEventListener('keydown', e => {
         if (document.activeElement === DOM.chatInputEl) return;
-
         if (e.key === 'Escape') {
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
             else if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
@@ -800,7 +870,8 @@ async function init() {
 
         setupEventListeners();
         console.log("Écouteurs d'événements configurés.");
-        window.fullUIUpdate = fullUIUpdate;
+        window.fullUIUpdate = fullUIUpdate; // Export pour accès global si besoin
+        UI.updateBottomBarEquipmentPanel(State.state.player); // Mise à jour initiale du panneau d'équipement en bas
         fullUIUpdate();
         requestAnimationFrame(gameLoop);
 

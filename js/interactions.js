@@ -298,6 +298,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         case 'consume_eau_salee':
         case 'open_large_map':
         case 'talk_to_npc': // Parler ne coûte rien
+        case 'drop_item_prompt': // L'ouverture du prompt ne coûte rien, l'action de drop si
             shouldApplyBaseCost = false;
             break;
     }
@@ -973,7 +974,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     if (specificActionDef.id === 'observe_weather') {
                         UI.addChatMessage("Vous scrutez l'horizon... (Logique de prédiction à implémenter)", "system_event");
                     }
-                    if (['use_atelier', 'use_forge', 'use_laboratoire'].includes(specificActionDef.id)) {
+                    if (['use_atelier', 'use_forge', 'use_laboratoire', 'use_etabli'].includes(specificActionDef.id)) {
                         UI.addChatMessage(`Vous ouvrez l'interface de ${buildingDef.name}. (UI à implémenter)`, "system_event");
                     }
 
@@ -1018,6 +1019,25 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             // Pas de coût pour parler
             break;
+        }
+        case 'drop_item_prompt': {
+            const inventoryItems = Object.keys(player.inventory).filter(key => player.inventory[key] > 0);
+            if (inventoryItems.length === 0) {
+                UI.addChatMessage("Votre inventaire est vide.", "system");
+                return;
+            }
+            // Pour l'instant, on va juste prendre le premier item pour tester, idéalement il faudrait une sélection
+            // Ou mieux, on gère le drop par un clic sur l'item dans l'inventaire.
+            // Ici, on va simuler le prompt pour un item spécifique (le premier)
+            const firstItem = inventoryItems[0];
+            const maxAmount = player.inventory[firstItem];
+            UI.showQuantityModal(`Déposer ${firstItem}`, maxAmount, (amount) => {
+                if (amount > 0) {
+                    const result = State.dropItemOnGround(firstItem, amount);
+                    UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+                    if (updateUICallbacks && updateUICallbacks.updateAllUI) updateUICallbacks.updateAllUI();
+                }
+            });
         }
     }
 }

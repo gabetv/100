@@ -104,23 +104,24 @@ export function transferItems(itemName, amount, from, to, toCapacity = Infinity)
 }
 
 
-export function hasResources(player, costs) {
-    for (const resource in costs) {
-        if (!player.inventory[resource] || player.inventory[resource] < costs[resource]) {
-            return { success: false, missing: resource };
-        }
-    }
-    return { success: true };
-}
+// Ces fonctions sont maintenant gérées dans state.js pour inclure les groundItems
+// export function hasResources(player, costs) {
+//     for (const resource in costs) {
+//         if (!player.inventory[resource] || player.inventory[resource] < costs[resource]) {
+//             return { success: false, missing: resource };
+//         }
+//     }
+//     return { success: true };
+// }
 
-export function deductResources(player, costs) {
-    for (const resource in costs) {
-        player.inventory[resource] -= costs[resource];
-        if (player.inventory[resource] <= 0) {
-            delete player.inventory[resource];
-        }
-    }
-}
+// export function deductResources(player, costs) {
+//     for (const resource in costs) {
+//         player.inventory[resource] -= costs[resource];
+//         if (player.inventory[resource] <= 0) {
+//             delete player.inventory[resource];
+//         }
+//     }
+// }
 
 export function consumeItem(itemName, player) {
     const itemDef = ITEM_TYPES[itemName];

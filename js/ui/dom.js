@@ -16,7 +16,6 @@ export function initDOM() {
     DOM.actionsEl = document.getElementById('actions');
     DOM.chatInputEl = document.getElementById('chat-input-field');
     DOM.toggleChatSizeBtn = document.getElementById('toggle-chat-size-btn'); 
-    DOM.bottomBarEl = document.getElementById('bottom-bar');                 
     DOM.dayCounterEl = document.getElementById('day-counter');
     DOM.openEquipmentBtn = document.getElementById('open-equipment-btn');
 
@@ -107,4 +106,11 @@ export function initDOM() {
     // Chat
     DOM.quickChatButton = document.getElementById('quick-chat-button');
     DOM.chatMessagesEl = document.getElementById('chat-messages'); 
+
+    // Éléments de la nouvelle barre inférieure (réorganisation)
+    DOM.bottomBarEl = document.getElementById('bottom-bar'); // Le conteneur global de la barre
+    DOM.bottomBarChatPanelEl = document.getElementById('bottom-bar-chat-panel');
+    DOM.bottomBarEquipmentPanelEl = document.getElementById('bottom-bar-equipment-panel');
+    DOM.bottomBarGroundItemsEl = document.getElementById('bottom-bar-ground-items');
+    DOM.bottomBarEquipmentSlotsEl = document.getElementById('bottom-bar-equipment-slots'); // Slots dans la barre du bas
 }

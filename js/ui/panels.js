@@ -170,6 +170,7 @@ export function updateInventory(player) {
                 li.dataset.itemName = itemName;
                 li.setAttribute('draggable', 'true'); 
                 li.dataset.itemCount = player.inventory[itemName]; 
+                li.dataset.owner = 'player-inventory'; // Important pour le drag & drop
                 li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${player.inventory[itemName]}</span>`;
                 content.appendChild(li);
             });
@@ -205,7 +206,7 @@ export function updateTileInfoPanel(tile) {
     DOM.tileNameEl.textContent = mainDisplayName;
     const descriptions = { 
         'Forêt': "L'air est lourd et humide...", 'Plaine': "Une plaine herbeuse...", 
-        'Plage': "Le sable chaud vous brûle les pieds...", // Modifié SAND_GOLDEN en Plage
+        'Plage': "Le sable chaud vous brûle les pieds...",
         'Lagon': "L'eau turquoise vous invite...", 
         'Friche': "Le sol est nu...", 'Gisement de Pierre': "Des rochers affleurent...", 
         'Feu de Camp': "La chaleur des flammes danse...", 
@@ -224,7 +225,8 @@ export function updateTileInfoPanel(tile) {
         'Poulailler': "Des caquètements se font entendre.",
         'Enclos à Cochons': "Grognements et bruits de fouissage.",
         'Observatoire': "Une vue imprenable sur les environs."
-    };
+    }; 
+    if (mainDisplayName === 'Établi') descriptions[mainDisplayName] = "Un établi simple pour l'artisanat.";
     DOM.tileDescriptionEl.textContent = mainDurabilityInfo ? `${mainDurabilityInfo}. ${descriptions[mainDisplayName] || "Un lieu étrange..."}` : descriptions[mainDisplayName] || "Un lieu étrange...";
     
     if (tile.type.resource && tile.harvestsLeft > 0 && tile.type.harvests !== Infinity && (!tile.buildings || tile.buildings.length === 0)) {
@@ -248,18 +250,23 @@ export function addChatMessage(message, type, author) {
     msgDiv.classList.add('chat-message', type || 'system'); 
     let content = author ? `<strong>${author}: </strong>` : '';
     const spanMessage = document.createElement('span'); 
-    spanMessage.textContent = message;
-    content += spanMessage.outerHTML;
-    msgDiv.innerHTML = content; 
+    spanMessage.textContent = message; // Sécuriser le message
+    // Si le type est 'npc-dialogue', on laisse passer le HTML car il est généré en interne.
+    if (type === 'npc-dialogue') {
+        msgDiv.innerHTML = author ? `<strong>${author}: </strong>${message}` : message;
+    } else {
+        msgDiv.innerHTML = content + spanMessage.outerHTML; 
+    }
     chatMessagesEl.appendChild(msgDiv);
     
     // Gérer le nombre de messages si le chat n'est pas agrandi
-    if (DOM.bottomBarEl && !DOM.bottomBarEl.classList.contains('chat-enlarged')) {
+    if (DOM.bottomBarChatPanelEl && !DOM.bottomBarChatPanelEl.classList.contains('chat-enlarged')) { // MODIFIÉ: Utiliser bottomBarChatPanelEl
         while (chatMessagesEl.children.length > 3) { // Conserver 3 lignes max
             chatMessagesEl.removeChild(chatMessagesEl.firstChild);
         }
     }
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight; 
+    return msgDiv; // Retourner l'élément pour pouvoir y injecter du HTML si besoin (ex: boutons de quête)
 }
 
 export function updateAllButtonsState(gameState) {
@@ -308,4 +315,85 @@ export function updateAllButtonsState(gameState) {
             }
         });
     }
+}
+
+export function updateGroundItemsPanel(tile) {
+    if (!DOM.bottomBarGroundItemsEl || !tile) return;
+
+    const groundItems = tile.groundItems || {};
+    // Vider le contenu précédent sauf le titre
+    const list = DOM.bottomBarGroundItemsEl.querySelector('.ground-items-list');
+    if (list) list.innerHTML = '';
+    else { // Si la liste n'existe pas, la créer (devrait arriver une seule fois)
+        const newList = document.createElement('ul');
+        newList.className = 'inventory-list ground-items-list droppable';
+        newList.dataset.owner = 'ground';
+        DOM.bottomBarGroundItemsEl.appendChild(newList);
+    }
+    const actualList = DOM.bottomBarGroundItemsEl.querySelector('.ground-items-list');
+
+
+    if (Object.keys(groundItems).length === 0) {
+        const li = document.createElement('li');
+        li.className = 'inventory-empty';
+        li.textContent = '(Rien au sol)';
+        actualList.appendChild(li);
+    } else {
+        for (const itemName in groundItems) {
+            if (groundItems[itemName] > 0) {
+                const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
+                const li = document.createElement('li');
+                li.className = 'inventory-item clickable'; // Clickable pour ramasser
+                li.dataset.itemName = itemName;
+                li.dataset.itemCount = groundItems[itemName]; // Stocker le compte pour le modal de quantité
+                li.setAttribute('draggable', 'true'); // Pour drag vers inventaire joueur
+                li.dataset.owner = 'ground';
+
+                li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${groundItems[itemName]}</span>`;
+                actualList.appendChild(li);
+            }
+        }
+    }
+}
+
+export function updateBottomBarEquipmentPanel(player) {
+    if (!DOM.bottomBarEquipmentPanelEl || !player || !DOM.bottomBarEquipmentSlotsEl) return;
+
+    const slotsContainer = DOM.bottomBarEquipmentSlotsEl;
+    slotsContainer.innerHTML = ''; // Vider les anciens slots
+
+    const slotTypesAndLabels = [
+        { type: 'head', label: 'Chapeau' },
+        { type: 'weapon', label: 'Arme' },
+        { type: 'shield', label: 'Bouclier' },
+        { type: 'body', label: 'Habit' },
+        { type: 'feet', label: 'Pieds' },
+        { type: 'bag', label: 'Sac' }
+    ];
+
+    slotTypesAndLabels.forEach(slotInfo => {
+        const slotContainer = document.createElement('div');
+        slotContainer.className = 'equipment-slot-container-small';
+
+        const label = document.createElement('label');
+        label.textContent = slotInfo.label;
+        slotContainer.appendChild(label);
+
+        const slotEl = document.createElement('div');
+        slotEl.className = 'equipment-slot-small droppable';
+        slotEl.dataset.slotType = slotInfo.type;
+        slotEl.dataset.owner = 'equipment'; // Important pour D&D
+
+        const equippedItem = player.equipment[slotInfo.type];
+        if (equippedItem) {
+            const itemDef = ITEM_TYPES[equippedItem.name] || { icon: equippedItem.icon || '❓' };
+            const iconEl = document.createElement('span');
+            iconEl.className = 'inventory-icon'; // Utiliser la même classe pour la taille
+            iconEl.textContent = itemDef.icon;
+            slotEl.appendChild(iconEl);
+            // Pourrait ajouter nom et durabilité si besoin/place
+        }
+        slotContainer.appendChild(slotEl);
+        slotsContainer.appendChild(slotContainer);
+    });
 }

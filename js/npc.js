@@ -1,5 +1,5 @@
 // js/npc.js
-import { addChatMessage } from './ui.js'; // UI est bien importé
+import { addChatMessage } from './ui.js';
 import { TILE_TYPES, CONFIG, ITEM_TYPES } from './config.js';
 import * as State from './state.js'; // Pour accéder au gameState
 
@@ -7,7 +7,7 @@ function getTotalNpcResources(inventory) {
     return Object.values(inventory).reduce((sum, count) => sum + count, 0);
 }
 
-export function initNpcs(config, map) {
+export function initNpcs(config, map) { // Assurez-vous que 'export' est présent ici
     const npcs = [];
     const npcColors = ['#ff6347', '#4682b4', '#32cd32', '#ee82ee']; // Tomate, Bleu Acier, Vert Citron, Orchidée
     const npcNames = ["Bob", "Alice", "Charlie", "Diana", "Evan", "Fiona"]; // Noms plus distincts
@@ -17,7 +17,7 @@ export function initNpcs(config, map) {
         do {
             x = Math.floor(Math.random() * config.MAP_WIDTH);
             y = Math.floor(Math.random() * config.MAP_HEIGHT);
-        } while (!map[y][x].type.accessible || (map[y][x].x === State.state.player.x && map[y][x].y === State.state.player.y)); // Éviter la case de départ du joueur
+        } while (!map[y][x].type.accessible || (State.state.player && map[y][x].x === State.state.player.x && map[y][x].y === State.state.player.y)); // Éviter la case de départ du joueur
 
         const npcData = {
             id: `npc_${Date.now()}_${i}`,
@@ -265,7 +265,7 @@ export function handleNpcInteraction(npcId) {
     if (npc.activeQuest && !npc.activeQuest.isCompleted) {
         interactionHTML += `<p><strong>Quête en cours : ${npc.activeQuest.title}</strong></p>`;
         interactionHTML += `<p>${npc.activeQuest.description}</p>`;
-        if (State.state.player.inventory[npc.activeQuest.requirement.item] >= npc.activeQuest.requirement.amount) {
+        if (State.hasResources({ [npc.activeQuest.requirement.item]: npc.activeQuest.requirement.amount }).success) { // Utiliser State.hasResources
             interactionHTML += `<button class="npc-quest-btn" data-npc-id="${npc.id}" data-quest-action="complete">Donner ${npc.activeQuest.requirement.amount} ${npc.activeQuest.requirement.item}</button>`;
         } else {
             interactionHTML += `<p>(Il vous manque des ${npc.activeQuest.requirement.item} pour terminer.)</p>`;
@@ -279,16 +279,11 @@ export function handleNpcInteraction(npcId) {
     }
 
 
-    // Afficher dans le chat (temporaire, idéalement une modale)
-    // Pour que les boutons HTML fonctionnent dans le chat, il faut que le message soit ajouté avec innerHTML.
-    // Attention : Ceci n'est pas idéal pour la sécurité si le contenu venait d'une source non sûre.
-    // Pour ce cas interne, c'est acceptable pour prototyper.
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = interactionHTML;
-    const chatMessageElement = addChatMessage('', 'npc-dialogue', npc.name); // Crée le conteneur de message
-    chatMessageElement.innerHTML = tempDiv.innerHTML; // Injecte le HTML
+    const chatMessageElement = addChatMessage('', 'npc-dialogue', npc.name);
+    chatMessageElement.innerHTML = tempDiv.innerHTML;
 
-    // Attacher les écouteurs aux boutons nouvellement ajoutés dans le DOM du chat
     chatMessageElement.querySelectorAll('.npc-quest-btn').forEach(button => {
         button.addEventListener('click', (e) => {
             const action = e.target.dataset.questAction;
@@ -297,20 +292,15 @@ export function handleNpcInteraction(npcId) {
             if (!questNpc) return;
 
             if (action === 'accept' && questNpc.availableQuest) {
-                questNpc.activeQuest = { ...questNpc.availableQuest }; // Copier la quête
-                questNpc.availableQuest = null; // La quête n'est plus "disponible" en attente
+                questNpc.activeQuest = { ...questNpc.availableQuest };
+                questNpc.availableQuest = null;
                 addChatMessage(`Vous avez accepté la quête : "${questNpc.activeQuest.title}" de ${questNpc.name}.`, 'system_event');
-                // Optionnel: réafficher le dialogue pour montrer que la quête est active
-                // handleNpcInteraction(questNpc.id);
             } else if (action === 'complete' && questNpc.activeQuest) {
-                if (State.hasResources({ [questNpc.activeQuest.requirement.item]: questNpc.activeQuest.requirement.amount }).success) {
-                    State.applyResourceDeduction({ [questNpc.activeQuest.requirement.item]: questNpc.activeQuest.requirement.amount });
+                if (State.hasResources({ [questNpc.activeQuest.requirement.item]: questNpc.activeQuest.requirement.amount }).success) { // Utiliser State.hasResources
+                    State.applyResourceDeduction({ [questNpc.activeQuest.requirement.item]: questNpc.activeQuest.requirement.amount }); // Utiliser State.applyResourceDeduction
                     State.addResourceToPlayer(questNpc.activeQuest.reward.item, questNpc.activeQuest.reward.amount);
                     addChatMessage(`Quête "${questNpc.activeQuest.title}" terminée ! ${questNpc.name} vous donne ${questNpc.activeQuest.reward.amount} ${questNpc.activeQuest.reward.item}.`, 'gain');
                     questNpc.activeQuest.isCompleted = true;
-                    // Pour l'instant, la quête complétée reste dans activeQuest avec isCompleted=true
-                    // Vous pourriez la déplacer vers un tableau `completedQuests` ou la remettre dans `availableQuest`
-                    // si elle est répétable après un certain temps.
                 } else {
                     addChatMessage("Vous n'avez pas les objets requis !", "system_error");
                 }
@@ -322,7 +312,7 @@ export function handleNpcInteraction(npcId) {
 
 
 export function npcChatter(npcs) {
-    if (npcs.length === 0 || !window.gameState) return; // gameState global pour l'accès
+    if (npcs.length === 0 || !window.gameState) return;
     const npc = npcs[Math.floor(Math.random() * npcs.length)];
     let messages = [
         "Quelqu'un a vu de la nourriture ?",

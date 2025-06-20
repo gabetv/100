@@ -1,7 +1,7 @@
 // js/state.js
 import { generateMap } from './map.js';
-import { initPlayer, getTotalResources, hasResources as playerHasResources, deductResources, consumeItem as playerConsumeItemLogic, transferItems } from './player.js';
-import { initNpcs } from './npc.js';
+import { initPlayer, getTotalResources, consumeItem as playerConsumeItemLogic, transferItems } from './player.js'; // Retiré hasResources et deductResources d'ici
+import { initNpcs } from './npc.js'; // Assurez-vous que cet import est correct
 import { initEnemies } from './enemy.js';
 import { TILE_TYPES, CONFIG, ITEM_TYPES } from './config.js';
 
@@ -19,7 +19,7 @@ const gameState = {
     combatState: null,
     config: null, // Sera initialisé avec CONFIG
     knownRecipes: {
-        'Planche': true, // Exemple de recette de base
+        // 'Planche': true, // Retiré, les recettes sont apprises via parchemins
         // D'autres recettes initiales pourraient être ajoutées ici
     },
     mapTileGlobalVisitCounts: new Map(), // Pour le brouillard de guerre global: Map<"x,y", Set<playerId>>
@@ -332,6 +332,14 @@ export function addBuildingToTile(x, y, buildingKey) {
         gameState.shelterLocation = { x, y };
     }
 
+    // Si c'est un bâtiment appris par parchemin, on le marque comme construit pour la logique de recette
+    const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === buildingType.name && item.isBuildingRecipe);
+    if (buildingRecipeParchemin) {
+        // Optionnel : marquer la recette comme "utilisée" si on ne veut pas reconstruire le même bâtiment via parchemin
+        // gameState.knownRecipes[buildingType.name] = 'built'; // Ou une autre logique
+    }
+
+
     return { success: true, message: `${buildingType.name} construit.` };
 }
 
@@ -369,6 +377,66 @@ export function updateTileType(x, y, newTerrainTypeKey) {
 }
 
 
+/**
+ * Vérifie si le joueur ET les objets au sol sur la tuile actuelle ont les ressources nécessaires.
+ * @param {object} costs - Objet de coûts { 'item': amount }.
+ * @returns {object} - { success: true } ou { success: false, missing: 'item' }.
+ */
+export function hasResources(costs) {
+    const player = gameState.player;
+    const tile = gameState.map[player.y][player.x];
+    const groundItems = tile.groundItems || {};
+
+    for (const resource in costs) {
+        const playerAmount = player.inventory[resource] || 0;
+        const groundAmount = groundItems[resource] || 0;
+        if (playerAmount + groundAmount < costs[resource]) {
+            return { success: false, missing: resource };
+        }
+    }
+    return { success: true };
+}
+
+/**
+ * Déduit les ressources de l'inventaire du joueur ET/OU des objets au sol.
+ * Priorise l'inventaire du joueur.
+ * @param {object} costs - Objet de coûts { 'item': amount }.
+ */
+export function applyResourceDeduction(costs) {
+    const player = gameState.player;
+    const tile = gameState.map[player.y][player.x];
+    const groundItems = tile.groundItems || {};
+
+    for (const resource in costs) {
+        let needed = costs[resource];
+
+        // D'abord depuis l'inventaire du joueur
+        if (player.inventory[resource] > 0) {
+            const takeFromPlayer = Math.min(needed, player.inventory[resource]);
+            player.inventory[resource] -= takeFromPlayer;
+            if (player.inventory[resource] <= 0) {
+                delete player.inventory[resource];
+            }
+            needed -= takeFromPlayer;
+        }
+
+        // Puis depuis le sol si encore besoin
+        if (needed > 0 && groundItems[resource] > 0) {
+            const takeFromGround = Math.min(needed, groundItems[resource]);
+            groundItems[resource] -= takeFromGround;
+            if (groundItems[resource] <= 0) {
+                delete groundItems[resource];
+            }
+            needed -= takeFromGround;
+        }
+
+        if (needed > 0) {
+            // Cela ne devrait pas arriver si hasResources a été appelé avant
+            console.warn(`[applyResourceDeduction] Manque de ${resource} après tentative de déduction.`);
+        }
+    }
+}
+
 export function consumeItem(itemName) {
     const player = gameState.player;
     const itemDef = ITEM_TYPES[itemName];
@@ -389,26 +457,39 @@ export function consumeItem(itemName) {
 
 
     if (itemDef?.teachesRecipe) {
-        if (!player.inventory[itemName] || player.inventory[itemName] < (result.success ? 0:1) ) { // S'il a été consommé par playerConsumeItemLogic, il est à 0. Sinon, on vérifie >0
-             // Correction : playerConsumeItemLogic décrémente déjà si itemDef.type = consumable.
-             // Si teachesRecipe est sur un item non "consumable", il n'est pas décrémenté.
-             // On s'assure qu'on en a encore un pour l'apprendre.
-            if (!player.inventory[itemName] || player.inventory[itemName] <= 0) {
-                 return { success: false, message: "Vous n'avez plus ce parchemin." };
-            }
+        if (!player.inventory[itemName] && (result.success ? player.inventory[itemName] !== 0 : true)) {
+            // Correction : playerConsumeItemLogic décrémente déjà si itemDef.type = consumable.
+            // Si teachesRecipe est sur un item non "consumable", il n'est pas décrémenté.
+            // On s'assure qu'on en a encore un pour l'apprendre.
+            // La condition est complexe ici, s'assurer que si result.success est vrai (donc consommé), l'inventaire est à 0.
+            // Si result.success est faux (non consommé par playerConsumeItemLogic), alors il faut vérifier qu'on a l'item.
+            // Simplifions : si on a appris la recette et que l'item était un parchemin, il est consommé.
+            // On vérifie donc si la recette est déjà connue *avant* de décrémenter à nouveau
         }
-        if (gameState.knownRecipes[itemDef.teachesRecipe]) {
+        if (gameState.knownRecipes[itemDef.teachesRecipe] && !itemDef.isBuildingRecipe) { // Ne pas re-consommer si déjà connu (sauf bâtiment)
             result.message = `Vous relisez le parchemin de ${itemDef.teachesRecipe}. Vous connaissez déjà cette recette.`;
+            // Ne pas décrémenter à nouveau si c'est un consommable de base qui a déjà été décrémenté.
+            // Et ne pas décrémenter si on relit une recette déjà connue (sauf si c'est la première lecture d'un consommable)
+            if (itemDef.type !== 'consumable' && result.success !== true) { // Si ce n'est PAS un consommable, ou si playerConsumeItemLogic ne l'a pas décrémenté
+                // On ne décrémente pas, car on relit juste.
+            }
+
         } else {
             gameState.knownRecipes[itemDef.teachesRecipe] = true;
             result.message = `Vous avez appris la recette : ${itemDef.teachesRecipe} !`;
+            // Assurer la décrémentation si ce n'est pas un 'consumable' de base mais qu'il enseigne une recette
+            // et que ce n'est pas le cas où playerConsumeItemLogic l'a déjà fait.
+            if (itemDef.type !== 'consumable') {
+                 if (player.inventory[itemName] > 0) { // S'assurer qu'on en a encore un
+                    player.inventory[itemName]--;
+                    if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
+                 } else {
+                     // Cas où le parchemin aurait dû être là mais ne l'est plus. Devrait être rare.
+                     return { success: false, message: "Erreur: Parchemin non trouvé pour apprendre la recette."};
+                 }
+            }
         }
-         // Assurer la décrémentation si ce n'est pas un 'consumable' de base mais qu'il enseigne une recette
-        if (itemDef.type !== 'consumable') {
-            player.inventory[itemName]--;
-            if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
-        }
-        result.success = true;
+        result.success = true; // L'apprentissage est toujours un succès si on a le parchemin.
     } else if (itemDef?.effects?.custom) {
         if (itemDef.effects.custom === 'porteBonheur') {
             if (Math.random() < 0.5) {
@@ -449,10 +530,47 @@ export function consumeItem(itemName) {
     return result;
 }
 
-export function hasResources(costs) {
-    return playerHasResources(gameState.player, costs);
+
+// --- Fonctions spécifiques aux ressources au sol ---
+
+export function dropItemOnGround(itemName, quantity) {
+    const player = gameState.player;
+    if (!player.inventory[itemName] || player.inventory[itemName] < quantity) {
+        return { success: false, message: "Quantité insuffisante dans l'inventaire." };
+    }
+
+    const tile = gameState.map[player.y][player.x];
+    if (!tile.groundItems) {
+        tile.groundItems = {}; // S'assurer que l'objet existe
+    }
+
+    player.inventory[itemName] -= quantity;
+    if (player.inventory[itemName] <= 0) {
+        delete player.inventory[itemName];
+    }
+
+    tile.groundItems[itemName] = (tile.groundItems[itemName] || 0) + quantity;
+    return { success: true, message: `Vous avez déposé ${quantity} ${itemName} au sol.` };
 }
 
-export function applyResourceDeduction(costs) {
-    deductResources(gameState.player, costs);
+export function pickUpItemFromGround(itemName, quantity) {
+    const player = gameState.player;
+    const tile = gameState.map[player.y][player.x];
+
+    if (!tile.groundItems || !tile.groundItems[itemName] || tile.groundItems[itemName] < quantity) {
+        return { success: false, message: "Quantité insuffisante au sol." };
+    }
+
+    const currentTotalResources = getTotalResources(player.inventory);
+    if (currentTotalResources + quantity > player.maxInventory) {
+        return { success: false, message: "Inventaire plein." };
+    }
+
+    tile.groundItems[itemName] -= quantity;
+    if (tile.groundItems[itemName] <= 0) {
+        delete tile.groundItems[itemName];
+    }
+
+    player.inventory[itemName] = (player.inventory[itemName] || 0) + quantity;
+    return { success: true, message: `Vous avez ramassé ${quantity} ${itemName}.` };
 }

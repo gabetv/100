@@ -181,27 +181,56 @@ body {
 #nav-north { top: 15px; left: 50%; transform: translateX(-50%); } #nav-north:hover { transform: translateX(-50%) scale(1.1); } #nav-south { bottom: 15px; left: 50%; transform: translateX(-50%); } #nav-south:hover { transform: translateX(-50%) scale(1.1); } #nav-west { left: 15px; top: 50%; transform: translateY(-50%); } #nav-west:hover { transform: translateY(-50%) scale(1.1); } #nav-east { right: 15px; top: 50%; transform: translateY(-50%); } #nav-east:hover { transform: translateY(-50%) scale(1.1); }
 
 /* BARRE INFÉRIEURE */
-#bottom-bar {
-    background-color: var(--bg-panel);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    flex-shrink: 0;
+ #bottom-bar {
+     background-color: var(--bg-panel);
+     backdrop-filter: blur(10px);
+     -webkit-backdrop-filter: blur(10px);
+     flex-shrink: 0;
+     display: grid; /* MODIFIÉ: Utilisation de Grid */
+    grid-template-columns: 300px 1fr 1fr; /* Chat (fixe) | Equipement (flexible) | Objets au sol (flexible) */
+    gap: 15px;
+    border-radius: var(--border-radius); /* Reste le même */
+     padding: 15px;
+     border: 1px solid rgba(255, 255, 255, 0.1);
+     position: relative;
+     z-index: 20;
+     transition: min-height 0.3s ease-in-out;
+    min-height: 220px; /* Augmenté pour le nouveau contenu */
+    max-height: 350px; /* Pour éviter qu'elle ne devienne trop grande */
+    overflow: hidden; /* Empêcher le contenu de déborder de la barre elle-même */
+}
+
+.bottom-bar-section {
     display: flex;
-    border-radius: var(--border-radius);
-    padding: 15px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    position: relative;
-    z-index: 20;
-    transition: min-height 0.3s ease-in-out;
-    min-height: 180px; /* Hauteur minimale par défaut */
+    flex-direction: column;
+    overflow-y: auto; /* Permettre le scroll interne si le contenu dépasse */
+    padding: 10px;
+    background-color: rgba(0,0,0,0.15);
+    border-radius: 8px;
 }
-#bottom-bar.chat-enlarged {
-    min-height: 350px; /* Hauteur quand le chat est agrandi */
+.bottom-bar-section h4 {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    font-size: 0.9em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
 }
 
-#chat-container { width: 100%; display: flex; flex-direction: column; }
+#bottom-bar-chat-panel { /* Section pour le chat */
+    /* grid-column: 1 / 2; */ /* La grille s'occupe de ça */
+}
+#bottom-bar-chat-panel.chat-enlarged { /* Appliquer au conteneur du chat pour l'agrandissement */
+    min-height: 350px; /* Ou ajuster la hauteur de #bottom-bar */
+}
+#bottom-bar.chat-enlarged { /* Si on veut que toute la barre grandisse */
+    min-height: 350px;
+}
+
+
+/* Chat Container (maintenu pour la structure interne du chat) */
 #chat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.1); } #chat-header h3 { margin: 0; border: none; padding: 0; font-size: 1em; } #toggle-chat-size-btn { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary); cursor: pointer; border-radius: 4px; padding: 2px 8px; font-size: 1.1em; transition: all 0.2s; } #toggle-chat-size-btn:hover { background: var(--action-color); color: var(--text-light); }
-
 #chat-messages {
     flex-grow: 1;
     overflow-y: auto;
@@ -209,11 +238,11 @@ body {
     background: rgba(0,0,0,0.2);
     padding: 10px;
     border-radius: 8px;
-    min-height: 0;
+    min-height: 60px; /* S'assurer qu'il y a un minimum de place */
     height: calc(1.4em * 3 + 20px);
     transition: height 0.3s ease-in-out;
 }
-#bottom-bar.chat-enlarged #chat-messages {
+#bottom-bar-chat-panel.chat-enlarged #chat-messages { /* Si le chat est dans un panel dédié */
     height: 100%;
 }
 
@@ -249,8 +278,43 @@ body {
 .chat-message.cost { color: #e74c3c; }
 .chat-message.system_event { color: #f39c12; font-weight: bold; }
 .chat-message.system_warning { color: #e74c3c; font-weight: bold; }
+.chat-message.system_info { color: #3498db; font-style: italic; }
 .chat-message.system_error { background-color: #c0392b; color: white; padding: 2px 5px; border-radius: 3px; }
 #chat-input-area { position: relative; flex-shrink: 0; display: flex; gap: 10px; align-items: center; } #chat-input-field { flex-grow: 1; background: none; border: 1px solid #ffffff40; border-radius: 8px; padding: 10px; color: var(--text-light); font-family: 'Poppins', sans-serif; } #chat-input-field:focus { outline: none; border-color: var(--action-color); }
+
+/* Styles pour le panneau d'équipement dans la barre inférieure */
+#bottom-bar-equipment-panel {
+    /* grid-column: 2 / 3; */
+}
+.equipment-preview-area {
+    display: flex;
+    gap: 15px;
+    align-items: flex-start; /* Aligner les éléments en haut */
+    overflow-y: auto; /* Permettre le scroll si les slots dépassent */
+    flex-grow: 1;
+}
+.player-character-placeholder-small {
+    width: 80px; height: 130px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.15); border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.player-head-small { width: 30px; height: 30px; background: #ffd700; border-radius: 50%; border: 2px solid #b8860b; }
+.player-body-small { width: 45px; height: 65px; background: #ffd700; border: 2px solid #b8860b; border-radius: 20px 20px 5px 5px; margin-top: -5px; }
+
+#bottom-bar-equipment-slots {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Deux colonnes de slots */
+    gap: 8px;
+    flex-grow: 1;
+}
+.equipment-slot-container-small { text-align: center; }
+.equipment-slot-container-small label { display: block; font-size: 0.75em; margin-bottom: 3px; color: var(--text-secondary); opacity: 0.8; }
+.equipment-slot-small { width: 100%; height: 50px; background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.2); border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 1.5em; color: rgba(255,255,255,0.3); }
+.equipment-slot-small .inventory-icon { font-size: 1.2em; } /* Pour les icônes d'objets équipés */
+
+/* Styles pour le panneau des objets au sol */
+#bottom-bar-ground-items {
+    /* grid-column: 3 / 4; */
+}
+.ground-items-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 5px; flex-grow: 1; }
 #quick-chat-button { background-color: var(--action-color); color: var(--text-light); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5em; line-height: 40px; text-align: center; cursor: pointer; transition: background-color 0.2s; flex-shrink: 0; }
 #quick-chat-button:hover { background-color: #5e9ac4; } #quick-chat-menu { display: none; position: absolute; bottom: 110%; left: 0; background-color: #1a2a32; border-radius: 8px; box-shadow: 0 -4px 15px rgba(0,0,0,0.3); padding: 10px; z-index: 10; width: 300px; } #quick-chat-menu.visible { display: block; } .quick-chat-item { padding: 10px; cursor: pointer; border-radius: 4px; transition: background-color 0.2s; } .quick-chat-item:hover { background-color: var(--action-color); }
 
@@ -306,8 +370,10 @@ body {
     .ui-panel section { padding: 12px; }
     .nav-button-overlay { width: 45px; height: 45px; font-size: 1.2em; }
     #bottom-bar {
-        height: auto;
+        grid-template-columns: 1fr; /* Une seule colonne sur mobile */
+        grid-template-rows: auto auto auto; /* Chat, puis Équipement, puis Sol */
         min-height: 180px;
+        max-height: none; /* Permettre à la barre de s'étendre */
     }
     #quick-slots-panel { top: 10px; left: 50%; transform: translateX(-50%); flex-direction: row; padding: 10px; gap:10px; }
     .quick-equip-slot-display { width: 50px; height: 50px; font-size: 2em; }

@@ -46,6 +46,8 @@ export const updateStatsPanel = PanelsModule.updateStatsPanel; // Explicitement 
 export const updateInventory = PanelsModule.updateInventory;
 export const updateDayCounter = PanelsModule.updateDayCounter;
 export const updateTileInfoPanel = PanelsModule.updateTileInfoPanel;
+export const updateGroundItemsPanel = PanelsModule.updateGroundItemsPanel; // Pour le nouveau panneau
+export const updateBottomBarEquipmentPanel = PanelsModule.updateBottomBarEquipmentPanel; // Pour le nouveau panneau
 
 
 /**
@@ -71,7 +73,9 @@ export function updateAllUI(gameState) {
     PanelsModule.updateInventory(player);
     PanelsModule.updateDayCounter(day);
     PanelsModule.updateTileInfoPanel(currentTile);
-    PanelsModule.updateQuickSlots(player); 
+    PanelsModule.updateQuickSlots(player);
+    PanelsModule.updateGroundItemsPanel(currentTile); // Ajout pour le panneau des objets au sol
+    PanelsModule.updateBottomBarEquipmentPanel(player); // Ajout pour le panneau d'équipement dans la barre du bas
     
     if (gameState.config) {
        DrawModule.drawMinimap(gameState, gameState.config); 

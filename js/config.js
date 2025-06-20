@@ -55,7 +55,7 @@ export const SEARCH_ZONE_CONFIG = {
         lootTiers: { common: 0.60, uncommon: 0.25, rare: 0.10, veryRare: 0.08, offTable: 0.01 },
         enemyType: 'RAT',
         specificLoot: {
-            common: ['Feuilles', 'Liane', 'Écorce', 'Insectes', 'Parchemin Atelier Bois_PelleBois', 'Parchemin Atelier Bois_Gourdain', 'Parchemin Atelier BoisFer_Hache'],
+            common: ['Feuilles', 'Liane', 'Écorce', 'Insectes', 'Parchemin Atelier Bois_PelleBois', 'Parchemin Atelier Bois_Gourdain', 'Parchemin Atelier BoisFer_Hache', 'Parchemin Atelier Bois_Etabli'], // Ajout Parchemin Etabli
             uncommon: ['Os', 'Résine', 'Viande crue', 'Banane', 'Oeuf cru', 'Parchemin Atelier BoisFer_Scie', 'Parchemin Atelier Bois_EpeeBois', 'Parchemin Atelier BoisHamecon_CannePeche', 'Graine d\'arbre'], // Ajout Graine d'arbre
             rare: ['Bandage', 'Allumettes', 'Parchemin Atelier Bois_LanceBois', 'Parchemin Atelier Planches_SceauVide'],
             veryRare: ['Médicaments', 'Plan d\'ingénieur', 'Recette médicinale'],
@@ -185,6 +185,7 @@ export const ITEM_TYPES = {
     'Parchemin Atelier BoisHamecon_CannePeche': { type: 'consumable', icon: '📜', teachesRecipe: 'Canne à pêche', rarity: 'common', description: "Transformer 25 bois + 1 hameçon = 1 canne à pêche" },
     'Parchemin Atelier Bois_LanceBois': { type: 'consumable', icon: '📜', teachesRecipe: 'Lance en bois', rarity: 'common', description: "Transformer 25 bois = 1 lance en bois" },
     'Parchemin Atelier Planches_SceauVide': { type: 'consumable', icon: '📜', teachesRecipe: 'Sceau vide', rarity: 'common', description: "Transformer 5 planches = 1 sceau vide" },
+    'Parchemin Atelier Bois_Etabli': { type: 'consumable', icon: '📜', teachesRecipe: 'Établi', rarity: 'common', description: "Construire un établi simple pour l'artisanat de base.", isBuildingRecipe: true },
     'Parchemin Atelier BoisFer_PelleFer': { type: 'consumable', icon: '📜', teachesRecipe: 'Pelle en fer', rarity: 'uncommon', description: "Transformer 10 bois et 5 fer = 1 pelle en fer" },
     'Parchemin Atelier BoisFer_EpeeFer': { type: 'consumable', icon: '📜', teachesRecipe: 'Épée en fer', rarity: 'uncommon', description: "Transformer 15 bois et 5 fer = 1 épée en fer" },
     'Parchemin Atelier BoisBriquet_Torche': { type: 'consumable', icon: '📜', teachesRecipe: 'Torche (Briquet)', rarity: 'uncommon', description: "Transformer 15 bois et 1 briquet = 1 torche" },
@@ -291,7 +292,7 @@ export const TILE_TYPES = {
     STONE_DEPOSIT: { name: 'Gisement de Pierre', accessible: true, color: '#8d99ae', background: ['bg_stone_1'], resource: { type: 'Pierre', yield: 3 }, harvests: 15 },
 
     // Structures de base
-    CAMPFIRE: { name: 'Feu de Camp', accessible: true, color: '#e76f51', background: ['bg_campfire'], isBuilding: true, durability: 10 },
+    CAMPFIRE: { name: 'Feu de Camp', accessible: true, color: '#e76f51', background: ['bg_campfire'], isBuilding: true, durability: 10, cost: { 'Bois': 5, 'Pierre': 2} },
     SHELTER_INDIVIDUAL: {
         name: 'Abri Individuel', accessible: true, color: '#fefae0',
         background: ['bg_shelter_individual'],
@@ -304,7 +305,7 @@ export const TILE_TYPES = {
         background: ['bg_shelter_collective'],
         inventory: {}, maxInventory: 500, durability: 100,
         sleepEffect: { sleep: 8, health: 5 }, isBuilding: true,
-        cost: { 'Bois': 600, 'Pierre': 150 }
+        cost: { 'Bois': 60, 'Pierre': 15 } // Coût réduit pour le rendre plus accessible en début de partie
     },
     MINE: {
         name: 'Mine', accessible: true, color: '#5e503f', background: ['bg_mine'],
@@ -323,7 +324,7 @@ export const TILE_TYPES = {
     },
 
     // Nouveaux Bâtiments
-    ATELIER: { name: 'Atelier', accessible: true, color: '#a0522d', background: ['bg_plains_2'], isBuilding: true, durability: 200, cost: { 'Bois': 30, 'Plan d\'ingénieur': 1 }, action: { id: 'use_atelier', name: 'Utiliser Atelier' } },
+    ATELIER: { name: 'Atelier', accessible: true, color: '#a0522d', background: ['bg_plains_2'], isBuilding: true, durability: 200, cost: { 'Bois': 30, 'Pierre': 15 }, action: { id: 'use_atelier', name: 'Utiliser Atelier' } },
     PETIT_PUIT: { name: 'Petit Puit', accessible: true, color: '#add8e6', background: ['bg_plains_3'], isBuilding: true, durability: 5, cost: { 'Pierre': 50, 'toolRequired': ['Pelle en bois', 'Pelle en fer'] }, action: { id: 'draw_water_shallow_well', name: 'Puiser Eau (croupie)', result: { 'Eau croupie': 2 } } },
     PUIT_PROFOND: { name: 'Puit Profond', accessible: true, color: '#87ceeb', background: ['bg_plains_4'], isBuilding: true, durability: 20, cost: { 'Bloc taillé': 20, 'Sceau vide': 1, 'toolRequired': ['Pelle en fer'] }, action: { id: 'draw_water_deep_well', name: 'Puiser Eau (croupie)', result: { 'Eau croupie': 4 } } },
     BIBLIOTHEQUE: { name: 'Bibliothèque', accessible: true, color: '#deb887', background: ['bg_plains_1'], isBuilding: true, durability: 100, cost: { 'Bloc taillé': 40, 'Porte en bois': 2 }, action: { id: 'generate_plan', name: 'Rechercher Plan (5h)', result: { 'Plan d\'ingénieur': 1 }, intervalHours: 5 } },
@@ -336,6 +337,7 @@ export const TILE_TYPES = {
     POULAILLER: { name: 'Poulailler', accessible: true, color: '#fffacd', background: ['bg_plains_3'], isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'water_poulailler', name: 'Abreuver (-1 Eau, +5 Dura)', costItem: 'Eau pure', durabilityGain: 5 }, { id: 'harvest_poulailler', name: 'Récolter Oeufs', result: { 'Oeuf cru': 3 } } ] },
     ENCLOS_COCHONS: { name: 'Enclos à Cochons', accessible: true, color: '#ffebcd', background: ['bg_plains_4'], isBuilding: true, durability: 80, cost: { 'Planche': 50, 'Eau pure': 20 }, actions: [ { id: 'water_enclos_cochons', name: 'Abreuver (-1 Eau, +5 Dura)', costItem: 'Eau pure', durabilityGain: 5 }, { id: 'harvest_enclos_cochons', name: 'Récolter Viande', result: { 'Viande crue': 3 } } ] },
     OBSERVATOIRE: { name: 'Observatoire', accessible: true, color: '#f5f5dc', background: ['bg_plains_1'], isBuilding: true, durability: 20, cost: { 'Planche': 50, 'Porte en bois': 1 }, action: { id: 'observe_weather', name: 'Observer (Prochaine catastrophe)' } },
+    ETABLI: { name: 'Établi', accessible: true, color: '#D2B48C', background: ['bg_plains_2'], isBuilding: true, durability: 50, cost: { 'Bois': 25 }, action: {id: 'use_etabli', name: 'Utiliser Établi'} },
 };
 
 // Ajouter tous les parchemins à ALL_SEARCHABLE_ITEMS

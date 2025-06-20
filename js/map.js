@@ -157,6 +157,7 @@ export function generateMap(config) {
                 inventory: type.inventory ? JSON.parse(JSON.stringify(type.inventory)) : undefined,
                 hiddenItem: currentTileData.hiddenItemName || null, 
                 isOpened: type === TILE_TYPES.TREASURE_CHEST ? false : undefined,
+                groundItems: {}, // Initialiser les objets au sol pour chaque tuile
                 buildings: [], 
             };
 
