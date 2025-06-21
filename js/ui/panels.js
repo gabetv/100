@@ -1,7 +1,7 @@
 // js/ui/panels.js
-import { ITEM_TYPES, TILE_TYPES } from '../config.js'; // '../' pour remonter de 'ui' à 'js'
-import { getTotalResources } from '../player.js'; // '../' pour remonter de 'ui' à 'js'
-import DOM from './dom.js'; // './' car dom.js est dans le même dossier 'ui'
+import { ITEM_TYPES, TILE_TYPES } from '../config.js'; 
+import { getTotalResources } from '../player.js'; 
+import DOM from './dom.js'; 
 
 function drawSquaresBar(container, value, maxValue) {
     if (!container) return;
@@ -49,9 +49,13 @@ export function updateInventory(player) {
     DOM.inventoryCapacityEl.textContent = `(${total} / ${player.maxInventory})`;
 
     const categories = { 
-        consumable: [], tool: [], weapon: [], shield: [], armor: [], 
+        consumableAndUtility: [], // MODIFIÉ (Point 27)
+        toolAndWeapon: [],      // MODIFIÉ (Point 26)
+        shield: [], armor: [], 
         body: [], head: [], feet: [], bag: [], 
-        resource: [], usable: [], key: [], 
+        resource: [], 
+        // usable: [], // 'usable' items will be directed to 'consumableAndUtility' or 'toolAndWeapon'
+        key: [], 
     };
     
     for (const itemName in player.inventory) {
@@ -59,28 +63,51 @@ export function updateInventory(player) {
             const itemDef = ITEM_TYPES[itemName] || { type: 'resource', icon: '❓' };
             let type = itemDef.type; 
 
-            if (itemDef.slot) { 
+            if (itemDef.type === 'tool' || itemDef.type === 'weapon') { // MODIFIÉ (Point 26)
+                type = 'toolAndWeapon';
+            } else if (itemDef.type === 'consumable' || itemDef.type === 'usable') { // MODIFIÉ (Point 20, 27)
+                // Rediriger 'usable' vers 'consumableAndUtility' sauf si c'est une clé ou un outil implicite
+                 if (itemDef.type === 'usable' && (itemDef.action || itemDef.isFireStarter || itemDef.slot === 'weapon')) {
+                    // Si 'usable' a une action ou est un firestarter, il va dans consumableAndUtility
+                    // Si c'est un 'usable' avec slot weapon (ex: torche), il ira dans toolAndWeapon
+                    if (itemDef.slot === 'weapon' && categories.toolAndWeapon) {
+                        type = 'toolAndWeapon';
+                    } else {
+                        type = 'consumableAndUtility';
+                    }
+                } else if (itemDef.type === 'consumable') {
+                     type = 'consumableAndUtility';
+                }
+            } else if (itemDef.slot) { 
                 if (categories[itemDef.slot]) { type = itemDef.slot; }
-                else if (itemDef.type === 'armor' && itemDef.slot === 'body') { type = 'armor'; }
+                else if (itemDef.type === 'armor' && itemDef.slot === 'body') { type = 'armor'; } // Garder armure spécifique
                 else if (itemDef.type === 'shield' && itemDef.slot === 'shield') { type = 'shield'; }
-                if (itemDef.type === 'tool' && categories.tool) { type = 'tool'; }
+                 // 'tool' avec slot est déjà géré par toolAndWeapon
             }
 
             if (categories[type]) { categories[type].push(itemName); }
-            else if (categories.resource) { 
-                console.warn(`Type d'item '${type}' pour '${itemName}' n'a pas de catégorie dédiée, classé comme ressource.`);
+            else if (categories.resource && type === 'resource') { // S'assurer que 'resource' est bien classé
                 categories.resource.push(itemName);
-            } else { console.error(`Catégorie de ressource par défaut manquante et type inconnu pour l'item ${itemName}`); }
+            } else if (categories.key && type === 'key') {
+                categories.key.push(itemName);
+            }
+            else { 
+                console.warn(`Type d'item '${type}' pour '${itemName}' n'a pas de catégorie dédiée, classé comme ressource par défaut.`);
+                if (categories.resource) categories.resource.push(itemName); // Fallback
+                else console.error(`Catégorie de ressource par défaut manquante et type inconnu pour l'item ${itemName}`);
+            }
         }
     }
 
-    const categoryOrder = [
-        { key: 'consumable', name: 'Consommables' }, { key: 'tool', name: 'Outils' },
-        { key: 'weapon', name: 'Armes' }, { key: 'shield', name: 'Boucliers' },
+    const categoryOrder = [ // MODIFIÉ (Point 26 & 27)
+        { key: 'consumableAndUtility', name: 'Consommables et Utilitaires' }, 
+        { key: 'toolAndWeapon', name: 'Outils et Armes' },
+        { key: 'shield', name: 'Boucliers' },
         { key: 'armor', name: 'Armures (Corps)' },{ key: 'body', name: 'Habits (Corps)' },   
         { key: 'head', name: 'Chapeaux' }, { key: 'feet', name: 'Chaussures' }, 
         { key: 'bag', name: 'Sacs' }, { key: 'resource', name: 'Ressources' }, 
-        { key: 'usable', name: 'Objets Spéciaux' }, { key: 'key', name: 'Clés & Uniques' }, 
+        // { key: 'usable', name: 'Objets Spéciaux' }, // Supprimé ou fusionné
+        { key: 'key', name: 'Clés & Uniques' }, 
     ];
     
     let hasItems = false;
@@ -92,7 +119,7 @@ export function updateInventory(player) {
             categoryDiv.className = 'inventory-category';
             const header = document.createElement('div');
             header.className = 'category-header'; 
-            if (['resource', 'consumable', 'tool', 'key'].includes(cat.key)) header.classList.add('open');
+            if (['resource', 'consumableAndUtility', 'toolAndWeapon', 'key'].includes(cat.key)) header.classList.add('open'); // Ajusté
             header.innerHTML = `<span>${cat.name}</span><span class="category-toggle">▶</span>`;
             const content = document.createElement('ul');
             content.className = 'category-content';
@@ -102,7 +129,8 @@ export function updateInventory(player) {
                 const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
                 const li = document.createElement('li');
                 li.className = 'inventory-item';
-                if (itemDef.type === 'consumable' || itemName.startsWith('Parchemin Atelier') || itemName === 'Eau salée' || itemDef.slot || itemName === 'Carte') {
+                // La classe 'clickable' sera déterminée par les actions possibles dans handleConsumeClick
+                if (itemDef.type === 'consumable' || itemDef.teachesRecipe || itemName === 'Eau salée' || itemDef.slot || itemName === 'Carte' || itemDef.type === 'usable' || itemDef.type === 'key') {
                     li.classList.add('clickable'); 
                 }
                 li.dataset.itemName = itemName;
@@ -120,6 +148,7 @@ export function updateInventory(player) {
     if (!hasItems) DOM.inventoryCategoriesEl.innerHTML = '<li class="inventory-empty">(Vide)</li>'; 
 }
 
+
 export function updateDayCounter(day) { 
     if (DOM.dayCounterEl) DOM.dayCounterEl.textContent = day; 
 }
@@ -136,7 +165,7 @@ export function updateTileInfoPanel(tile) {
         const mainBuildingDef = TILE_TYPES[mainBuildingInstance.key]; 
         if (mainBuildingDef) {
             mainDisplayName = mainBuildingDef.name;
-            mainDurabilityInfo = `Durabilité: ${mainBuildingInstance.durability}/${mainBuildingInstance.maxDurability}`;
+            mainDurabilityInfo = `Durabilité: ${mainBuildingInstance.durability}/${mainBuildingInstance.maxDurability}`; // MODIFIÉ (Point 22)
         }
     }
 
@@ -195,14 +224,16 @@ export function updateAllButtonsState(gameState) {
             (player.inventory['Médicaments'] > 0 && player.status === 'Malade')) {
             canHeal = true;
         }
-        DOM.consumeHealthBtn.disabled = isPlayerBusy || !canHeal;
+        DOM.consumeHealthBtn.disabled = isPlayerBusy || !canHeal || player.health >= player.maxHealth; // MODIFIÉ (Point 24)
+        DOM.consumeHealthBtn.style.visibility = (player.health >= player.maxHealth || !canHeal) ? 'hidden' : 'visible'; // MODIFIÉ (Point 24)
     }
     if (DOM.consumeThirstBtn) {
         let canDrink = false;
         if ((player.inventory['Eau pure'] > 0) || (player.inventory['Noix de coco'] > 0)) {
             canDrink = true;
         }
-        DOM.consumeThirstBtn.disabled = isPlayerBusy || !canDrink;
+        DOM.consumeThirstBtn.disabled = isPlayerBusy || !canDrink || player.thirst >= player.maxThirst; // MODIFIÉ (Point 24)
+        DOM.consumeThirstBtn.style.visibility = (player.thirst >= player.maxThirst || !canDrink) ? 'hidden' : 'visible'; // MODIFIÉ (Point 24)
     }
     if (DOM.consumeHungerBtn) {
         let canEat = false;
@@ -210,10 +241,15 @@ export function updateAllButtonsState(gameState) {
             (player.inventory['Poisson cuit'] > 0) || 
             (player.inventory['Oeuf cuit'] > 0) || 
             (player.inventory['Barre Énergétique'] > 0) || 
-            (player.inventory['Banane'] > 0)) {
+            (player.inventory['Banane'] > 0) ||
+            (player.inventory['Sucre'] > 0) ||
+            (player.inventory['Sel'] > 0) 
+        ) {
             canEat = true;
         }
-        DOM.consumeHungerBtn.disabled = isPlayerBusy || !canEat;
+        DOM.consumeHungerBtn.disabled = isPlayerBusy || !canEat || player.hunger >= player.maxHunger; // MODIFIÉ (Point 24)
+        DOM.consumeHungerBtn.style.visibility = (player.hunger >= player.maxHunger || !canEat) ? 'hidden' : 'visible'; // MODIFIÉ (Point 24)
+
     }
     
     if (DOM.quickChatButton) DOM.quickChatButton.disabled = isPlayerBusy;
@@ -233,6 +269,7 @@ export function updateAllButtonsState(gameState) {
         });
     }
 }
+
 
 export function updateGroundItemsPanel(tile) {
     if (!DOM.bottomBarGroundItemsEl || !tile) return;
@@ -278,7 +315,8 @@ export function updateBottomBarEquipmentPanel(player) {
     const slotTypesAndLabels = [
         { type: 'head', label: 'Chapeau' }, { type: 'weapon', label: 'Arme' },
         { type: 'shield', label: 'Bouclier' }, { type: 'body', label: 'Habit' },
-        { type: 'feet', label: 'Pieds' }, { type: 'bag', label: 'Sac' }
+        { type: 'feet', label: 'Chaussures' }, // MODIFIÉ (Point 15)
+        { type: 'bag', label: 'Sac' }
     ];
 
     slotTypesAndLabels.forEach(slotInfo => {

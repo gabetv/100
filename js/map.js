@@ -157,12 +157,11 @@ export function generateMap(config) {
                 inventory: type.inventory ? JSON.parse(JSON.stringify(type.inventory)) : undefined,
                 hiddenItem: currentTileData.hiddenItemName || null, 
                 isOpened: type === TILE_TYPES.TREASURE_CHEST ? false : undefined,
-                groundItems: {}, // Initialiser les objets au sol pour chaque tuile
+                groundItems: {}, 
                 buildings: [], 
             };
 
             if (type.isBuilding && !tileObject.buildings.find(b => b.key === Object.keys(TILE_TYPES).find(k => TILE_TYPES[k] === type))) {
-                 // S'assure de ne pas dupliquer si le type de terrain est déjà un bâtiment par défaut (ne devrait pas arriver avec la logique actuelle)
                 tileObject.buildings.push({
                     key: Object.keys(TILE_TYPES).find(k => TILE_TYPES[k] === type), 
                     durability: type.durability,

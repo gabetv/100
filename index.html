@@ -67,7 +67,7 @@
                 </div>
             </div>
 
-            <div id="bottom-bar-ground-items" class="bottom-bar-section droppable" data-owner="ground">
+            <div id="bottom-bar-ground-items" class="bottom-bar-section droppable" data-owner="ground"> <!-- Assuré droppable et data-owner (Point 4) -->
                 <h4>Objets et ressources au sol</h4>
                 <ul class="inventory-list ground-items-list">
                     <!-- Les objets au sol seront générés par JS -->
@@ -156,7 +156,7 @@
                     <div class="equipment-slot-container"><label>Arme</label><div class="equipment-slot droppable" data-slot-type="weapon" data-owner="equipment"></div></div>
                     <div class="equipment-slot-container"><label>Bouclier</label><div class="equipment-slot droppable" data-slot-type="shield" data-owner="equipment"></div></div>
                     <div class="equipment-slot-container"><label>Habit/Armure</label><div class="equipment-slot droppable" data-slot-type="body" data-owner="equipment"></div></div>
-                    <div class="equipment-slot-container"><label>Chaussures</label><div class="equipment-slot droppable" data-slot-type="feet" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Chaussures</label><div class="equipment-slot droppable" data-slot-type="feet" data-owner="equipment"></div></div> <!-- Libellé déjà "Chaussures" (Point 15) -->
                     <div class="equipment-slot-container"><label>Sac</label><div class="equipment-slot droppable" data-slot-type="bag" data-owner="equipment"></div></div>
                 </div>
                 <div class="inventory-container">
@@ -194,6 +194,5 @@
     </div>
 
     <script type="module" src="js/main.js"></script>
-    <!-- Le script admin est maintenant importé et initialisé depuis main.js -->
 </body>
 </html>

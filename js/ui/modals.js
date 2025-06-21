@@ -1,10 +1,10 @@
 // js/ui/modals.js
-import { ITEM_TYPES, COMBAT_CONFIG, TILE_TYPES } from '../config.js'; // '../' pour remonter de 'ui' à 'js'
-import { getTotalResources } from '../player.js'; // '../' pour remonter de 'ui' à 'js'
-import * as State from '../state.js'; // '../' pour remonter de 'ui' à 'js'
-import DOM from './dom.js'; // './' car dom.js est dans le même dossier 'ui'
-import * as Draw from './draw.js'; // './' car draw.js est dans le même dossier 'ui'
-import { handleCombatAction, handlePlayerAction } from '../interactions.js'; // '../' pour remonter de 'ui' à 'js'
+import { ITEM_TYPES, COMBAT_CONFIG, TILE_TYPES } from '../config.js'; 
+import { getTotalResources } from '../player.js'; 
+import * as State from '../state.js'; 
+import DOM from './dom.js'; 
+import * as Draw from './draw.js'; 
+import { handleCombatAction, handlePlayerAction } from '../interactions.js'; 
 
 let quantityConfirmCallback = null;
 
@@ -247,9 +247,12 @@ function populateBuildModal(gameState) {
         const bt = TILE_TYPES[key];
         if (!bt.isBuilding || !bt.cost) return false;
         
-        if (tile.type.name !== TILE_TYPES.PLAINS.name && key !== 'MINE' && key !== 'CAMPFIRE') {
-            return false;
-        }
+        // MODIFIÉ (Point 3) - PETIT_PUIT peut être construit sur autre chose si nécessaire, ou la condition est ajustée dans handlePlayerAction
+        // Ici, on garde la logique de base, la vérification finale se fait dans handlePlayerAction.
+        // La condition `tile.type.name !== TILE_TYPES.PLAINS.name` est générale, des exceptions sont dans handlePlayerAction
+        // if (tile.type.name !== TILE_TYPES.PLAINS.name && key !== 'MINE' && key !== 'CAMPFIRE' && key !== 'PETIT_PUIT') {
+        //     return false;
+        // }
         
         const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === bt.name && item.isBuildingRecipe);
         if (buildingRecipeParchemin && !knownRecipes[bt.name]) {
@@ -308,12 +311,17 @@ function populateBuildModal(gameState) {
         toolsDiv.className = 'build-item-tools';
         toolsDiv.innerHTML = '<h4>Outils requis :</h4>';
         const toolsList = document.createElement('ul');
+        let hasRequiredToolForThisBuilding = true; // MODIFIÉ (Point 3)
         if (toolReqArray && toolReqArray.length > 0) {
             toolReqArray.forEach(toolName => {
                 const li = document.createElement('li');
                 li.textContent = toolName;
                 toolsList.appendChild(li);
             });
+            // Vérifier si le joueur a AU MOINS UN des outils requis
+            hasRequiredToolForThisBuilding = toolReqArray.some(toolName =>
+                player.equipment.weapon && player.equipment.weapon.name === toolName
+            );
         } else {
             const li = document.createElement('li');
             li.textContent = "Aucun outil spécifique";
@@ -327,19 +335,14 @@ function populateBuildModal(gameState) {
         buildButton.textContent = "Construire";
 
         const hasEnoughResources = State.hasResources(costs).success;
-        let hasRequiredTool = true;
-        if (toolReqArray) {
-            hasRequiredTool = toolReqArray.some(toolName =>
-                player.equipment.weapon && player.equipment.weapon.name === toolName
-            );
-        }
-        const canBuild = hasEnoughResources && hasRequiredTool && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE;
+        // La variable hasRequiredTool est maintenant locale à la carte pour ce bâtiment (hasRequiredToolForThisBuilding)
+        const canBuild = hasEnoughResources && hasRequiredToolForThisBuilding && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE;
         
         buildButton.disabled = !canBuild || player.isBusy;
         if (!canBuild) {
             if (tile.buildings.length >= config.MAX_BUILDINGS_PER_TILE) buildButton.title = "Max bâtiments sur tuile";
             else if (!hasEnoughResources) buildButton.title = "Ressources manquantes";
-            else if (!hasRequiredTool) buildButton.title = "Outil requis manquant";
+            else if (!hasRequiredToolForThisBuilding) buildButton.title = "Outil requis manquant";
         }
 
 

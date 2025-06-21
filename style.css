@@ -103,6 +103,8 @@ body {
 #sleep-bar-squares .stat-square.filled { background-color: #e9c46a; }
 .consume-btn { background-color: var(--action-color); color: var(--text-light); border: none; width: 22px; height: 22px; border-radius: 50%; font-size: 1.2em; line-height: 22px; cursor: pointer; transition: all 0.2s; }
 .consume-btn:hover:not(:disabled) { background-color: #5e9ac4; transform: scale(1.1); } .consume-btn:disabled { background-color: #2f4553; opacity: 0.4; cursor: not-allowed; }
+/* Point 24: La visibilité des boutons consume est gérée par JS directement sur le style de l'élément. */
+
 #inventory-section { flex-grow: 1; display: flex; flex-direction: column; }
 #inventory-categories { flex-grow: 1; overflow-y: auto; padding-right: 10px; }
 .inventory-category { margin-bottom: 15px; }
@@ -114,7 +116,7 @@ body {
 .category-content.visible { display: flex; }
 .inventory-item { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.1); position: relative; transition: background-color 0.2s; }
 .inventory-item.clickable { cursor: pointer; }
-.inventory-item:not(.clickable) { cursor: pointer; } /* Make all items seem grabbable even if consume is primary */
+.inventory-item:not(.clickable) { cursor: pointer; } 
 .inventory-item:hover { background-color: rgba(69, 123, 157, 0.3); }
 .inventory-item[draggable="true"] { cursor: grab; }
 .inventory-item[draggable="true"]:active { cursor: grabbing; }
@@ -231,10 +233,9 @@ body {
 .equipment-slot-small .inventory-icon { font-size: 1em; }
 .equipment-slot-small.droppable.drag-over { background-color: rgba(69, 123, 157, 0.5); border-color: var(--action-color); }
 
-/* Ajustement pour que .ground-items-list prenne de la place */
 #bottom-bar-ground-items .inventory-list {
-    flex-grow: 1; /* Permet à la liste de s'étendre */
-    overflow-y: auto; /* Ajoute un défilement si nécessaire */
+    flex-grow: 1; 
+    overflow-y: auto; 
 }
 .ground-items-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 5px; flex-grow: 1; }
 #quick-chat-button { background-color: var(--action-color); color: var(--text-light); border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5em; line-height: 40px; text-align: center; cursor: pointer; transition: background-color 0.2s; flex-shrink: 0; }
@@ -364,7 +365,7 @@ body {
 #build-modal-content {
     max-width: 1200px;
     min-height: 600px;
-    max-height: 90vh; /* Pour s'adapter aux écrans plus petits */
+    max-height: 90vh; 
     display: flex;
     flex-direction: column;
 }
@@ -374,7 +375,7 @@ body {
     gap: 20px;
     padding: 15px;
     overflow-y: auto;
-    flex-grow: 1; /* Permet à la grille de prendre l'espace disponible */
+    flex-grow: 1; 
 }
 .build-item-card {
     background-color: rgba(0,0,0,0.3);
@@ -415,7 +416,7 @@ body {
     font-size: 0.9em;
     color: var(--text-secondary);
     line-height: 1.4;
-    min-height: 50px; /* Espace pour la description */
+    min-height: 50px; 
     flex-grow: 1;
 }
 .build-item-costs h4, .build-item-tools h4 {
@@ -447,7 +448,7 @@ body {
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s;
-    margin-top: auto; /* Pousse le bouton en bas */
+    margin-top: auto; 
 }
 .build-item-action button:hover:not(:disabled) {
     background-color: #5e9ac4;
@@ -467,39 +468,39 @@ body {
 #admin-modal {
     position: fixed;
     inset: 0;
-    z-index: 10001; /* Au-dessus des autres modales */
-    background-color: rgba(10, 20, 30, 0.85); /* Fond plus sombre */
+    z-index: 10001; 
+    background-color: rgba(10, 20, 30, 0.85); 
     backdrop-filter: blur(6px);
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 20px;
-    opacity: 0; /* Caché par défaut via JS, mais bon à avoir */
+    opacity: 0; 
     transition: opacity 0.2s ease-in-out;
-    pointer-events: none; /* Ignorer les clics quand caché */
+    pointer-events: none; 
 }
-#admin-modal:not(.hidden) { /* Styles quand la modale est visible */
+#admin-modal:not(.hidden) { 
     opacity: 1;
     pointer-events: auto;
 }
 
 #admin-modal-content {
-    background-color: var(--bg-panel); /* Utilise le fond des panneaux UI existants */
-    border: 2px solid var(--accent-color); /* Bordure accentuée */
+    background-color: var(--bg-panel); 
+    border: 2px solid var(--accent-color); 
     border-radius: var(--border-radius);
     padding: 25px 30px;
     width: 100%;
-    max-width: 380px; /* Taille modérée */
+    max-width: 380px; 
     box-shadow: 0 8px 25px rgba(0,0,0,0.6);
     display: flex;
     flex-direction: column;
-    gap: 18px; /* Espacement entre les éléments */
+    gap: 18px; 
 }
 #admin-modal-content h2 {
     text-align: center;
-    margin-bottom: 10px; /* Réduit pour un look plus compact */
+    margin-bottom: 10px; 
     color: var(--accent-color);
-    font-size: 1.5em; /* Taille de titre standard pour modale */
+    font-size: 1.5em; 
     border-bottom: 1px solid rgba(255,255,255,0.1);
     padding-bottom: 12px;
 }
@@ -509,7 +510,7 @@ body {
     font-weight: 600;
     font-family: 'Poppins', sans-serif;
     border: none;
-    border-radius: 6px; /* Bordures plus douces */
+    border-radius: 6px; 
     cursor: pointer;
     transition: background-color 0.2s, transform 0.1s;
 }
@@ -522,10 +523,10 @@ body {
     color: var(--text-light);
 }
 #admin-give-all-resources-btn:hover {
-    background-color: #5e9ac4; /* Couleur hover de var(--action-color) */
+    background-color: #5e9ac4; 
 }
 #admin-close-modal-btn {
-    background-color: #5a6470; /* Gris plus neutre */
+    background-color: #5a6470; 
     color: var(--text-light);
 }
 #admin-close-modal-btn:hover {

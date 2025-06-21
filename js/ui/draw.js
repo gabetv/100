@@ -1,6 +1,6 @@
 // js/ui/draw.js
-import { TILE_TYPES, CONFIG } from '../config.js'; // Ajout CONFIG pour FOG_OF_WAR_REVEAL_THRESHOLD | '../' pour remonter de 'ui' à 'js'
-import DOM from './dom.js'; // './' car dom.js est dans le même dossier 'ui'
+import { TILE_TYPES, CONFIG } from '../config.js'; 
+import DOM from './dom.js'; 
 
 const loadedAssets = {};
 
@@ -69,7 +69,12 @@ export function drawMainBackground(gameState) {
             mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
         }
     } else {
-        mainViewCtx.fillStyle = '#222';
+        // Point 5: Si Bois (Forêt) ou Pierre (Gisement de Pierre) n'ont pas d'image de fond, afficher une couleur
+        let fallbackColor = '#222';
+        if (playerTile.type === TILE_TYPES.FOREST) fallbackColor = TILE_TYPES.FOREST.color || '#2d6a4f';
+        else if (playerTile.type === TILE_TYPES.STONE_DEPOSIT) fallbackColor = TILE_TYPES.STONE_DEPOSIT.color || '#8d99ae';
+        
+        mainViewCtx.fillStyle = fallbackColor;
         mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
     }
 }

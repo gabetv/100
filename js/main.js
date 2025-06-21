@@ -1,14 +1,14 @@
 // js/main.js
 import * as UI from './ui.js';
-import { initDOM } from './ui/dom.js'; // Assurez-vous que ce chemin est correct (js/ui/dom.js)
-import DOM from './ui/dom.js';         // Assurez-vous que ce chemin est correct (js/ui/dom.js)
-import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES, SEARCH_ZONE_CONFIG } from './config.js'; // './' car config.js est dans js/
-import * as State from './state.js'; // './' car state.js est dans js/
-import { decayStats, getTotalResources } from './player.js'; // './' car player.js est dans js/
-import { updateNpcs, npcChatter } from './npc.js'; // './' car npc.js est dans js/
-import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js'; // './' car enemy.js est dans js/
-import * as Interactions from './interactions.js'; // './' car interactions.js est dans js/
-import { initAdminControls } from './admin.js'; // './' car admin.js est dans js/
+import { initDOM } from './ui/dom.js'; 
+import DOM from './ui/dom.js';         
+import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES, SEARCH_ZONE_CONFIG } from './config.js'; 
+import * as State from './state.js'; 
+import { decayStats, getTotalResources } from './player.js'; 
+import { updateNpcs, npcChatter } from './npc.js'; 
+import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js'; 
+import * as Interactions from './interactions.js'; 
+import { initAdminControls } from './admin.js'; 
 
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
@@ -40,10 +40,10 @@ function updatePossibleActions() {
         return button;
     };
 
-    const actionsHeader = document.createElement('h4');
-    actionsHeader.textContent = "Actions sur la Tuile";
-    actionsHeader.style.marginTop = '0px';
-    DOM.actionsEl.appendChild(actionsHeader);
+    // const actionsHeader = document.createElement('h4'); // MODIFIÉ (Point 9)
+    // actionsHeader.textContent = "Actions sur la Tuile"; // MODIFIÉ (Point 9)
+    // actionsHeader.style.marginTop = '0px'; // MODIFIÉ (Point 9)
+    // DOM.actionsEl.appendChild(actionsHeader); // MODIFIÉ (Point 9)
 
     if (combatState || player.isBusy || player.animationState) {
         const statusDiv = document.createElement('div');
@@ -80,11 +80,29 @@ function updatePossibleActions() {
             break;
         }
     }
+    
+    const hasBuilding = tile.buildings && tile.buildings.length > 0; // MODIFIÉ (Point 21)
 
-    if (tileKeyForSearch && SEARCH_ZONE_CONFIG[tileKeyForSearch]) {
-        const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
-        createButton("🔎 Fouiller la zone", 'search_zone', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "Chercher des objets ou des ennuis...");
+    if (!hasBuilding) { // MODIFIÉ (Point 21)
+        if (tileKeyForSearch && SEARCH_ZONE_CONFIG[tileKeyForSearch]) {
+            const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
+            createButton("🔎 Fouiller la zone", 'search_zone', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "Chercher des objets ou des ennuis...");
+        }
+
+        if (tileType.name === 'Forêt' || tileType.name === 'Plaine') {
+            const equippedWeaponForActionsHunt = player.equipment.weapon; // Renommer pour éviter conflit
+            const canHunt = equippedWeaponForActionsHunt && (equippedWeaponForActionsHunt.type === 'weapon' || (equippedWeaponForActionsHunt.type === 'tool' && equippedWeaponForActionsHunt.stats && equippedWeaponForActionsHunt.stats.damage > 0));
+            if (canHunt) {
+                createButton("🏹 Chasser (Terrain)", 'hunt', {}, !canHunt, !canHunt ? "Nécessite une arme équipée" : "");
+            }
+        }
+    
+        if (tileType.name === TILE_TYPES.PLAINS.name) {
+            const canPlant = State.hasResources({ 'Graine d\'arbre': 5, 'Eau pure': 1 }).success;
+            createButton("🌱 Planter Arbre", 'plant_tree', {}, !canPlant, !canPlant ? "Nécessite 5 graines, 1 eau pure" : "Transformer cette plaine en forêt");
+        }
     }
+
 
     if (tile.type === TILE_TYPES.TREASURE_CHEST) {
         if (!tile.isOpened) {
@@ -104,46 +122,45 @@ function updatePossibleActions() {
     }
 
     if (tileType.resource && (tile.harvestsLeft > 0 || tile.harvestsLeft === Infinity)) {
-        const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
-        if (tileType.name === 'Forêt') {
-            const tool = player.equipment.weapon;
-            const canCutWood = tool && tool.action === 'harvest_wood';
-            createButton(`🪵 Couper du bois (Terrain)`, 'harvest_wood', {}, isInventoryFull || !canCutWood, isInventoryFull ? "Inventaire plein" : !canCutWood ? "Nécessite une hache ou une scie" : "");
+        const isInventoryFullHarvest = getTotalResources(player.inventory) >= player.maxInventory; // Renommer
+        if (tileType.name === 'Forêt') { // MODIFIÉ (Point 1)
+            const equippedWeapon = player.equipment.weapon;
+            if (equippedWeapon && equippedWeapon.name === 'Hache') {
+                createButton(`🪓 Couper Bois (Hache)`, 'harvest_wood_hache', {}, isInventoryFullHarvest, isInventoryFullHarvest ? "Inventaire plein" : "");
+            } else if (equippedWeapon && equippedWeapon.name === 'Scie') {
+                createButton(`🪚 Scier Bois (Scie)`, 'harvest_wood_scie', {}, isInventoryFullHarvest, isInventoryFullHarvest ? "Inventaire plein" : "");
+            } else {
+                createButton(`✋ Ramasser Bois`, 'harvest_wood_mains', {}, isInventoryFullHarvest, isInventoryFullHarvest ? "Inventaire plein" : "");
+            }
+        } else if (tileType.name === TILE_TYPES.WATER_LAGOON.name) { // MODIFIÉ (Point 7)
+            const resourceIcon = ITEM_TYPES[tileType.resource.type]?.icon || '';
+            createButton(`${resourceIcon} Récolter ${tileType.resource.type} (Terrain)`, 'harvest', {}, isInventoryFullHarvest, isInventoryFullHarvest ? "Inventaire plein" : "");
         } else {
             if (!tile.buildings.some(b => TILE_TYPES[b.key]?.action?.id === 'harvest' || TILE_TYPES[b.key]?.actions?.some(a => a.id === 'harvest'))) {
                  const resourceIcon = ITEM_TYPES[tileType.resource.type]?.icon || '';
-                createButton(`${resourceIcon} Récolter ${tileType.resource.type} (Terrain)`, 'harvest', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "");
+                createButton(`${resourceIcon} Récolter ${tileType.resource.type} (Terrain)`, 'harvest', {}, isInventoryFullHarvest, isInventoryFullHarvest ? "Inventaire plein" : "");
             }
         }
     }
-    if (player.inventory['Eau salée'] > 0) {
+    if (player.inventory['Eau salée'] > 0) { // MODIFIÉ (Point 6)
         createButton("🚱 Boire Eau Salée", 'consume_eau_salee', {itemName: 'Eau salée'});
     }
 
-    const equippedWeaponForActions = player.equipment.weapon;
-    const canHunt = equippedWeaponForActions && (equippedWeaponForActions.type === 'weapon' || (equippedWeaponForActions.type === 'tool' && equippedWeaponForActions.stats && equippedWeaponForActions.stats.damage > 0));
-    if (tileType.name === 'Forêt' || tileType.name === 'Plaine') {
-        createButton("🏹 Chasser (Terrain)", 'hunt', {}, !canHunt, !canHunt ? "Nécessite une arme équipée" : "");
-    }
-    const canFish = equippedWeaponForActions && equippedWeaponForActions.action === 'fish';
+    const equippedWeaponForActionsFish = player.equipment.weapon; // Renommer
+    const canFish = equippedWeaponForActionsFish && equippedWeaponForActionsFish.action === 'fish';
     if (tileType.name === 'Plage') {
          createButton("🎣 Pêcher (Terrain)", 'fish', {}, !canFish, !canFish ? "Nécessite une canne à pêche" : "");
     }
 
-    if (tileType.name === TILE_TYPES.PLAINS.name) {
-        const canPlant = State.hasResources({ 'Graine d\'arbre': 5, 'Eau pure': 1 }).success;
-        createButton("🌱 Planter Arbre", 'plant_tree', {}, !canPlant, !canPlant ? "Nécessite 5 graines, 1 eau pure" : "Transformer cette plaine en forêt");
-    }
 
     if (!combatState) {
         const npcsOnTile = State.state.npcs.filter(npc => npc.x === player.x && npc.y === player.y);
         npcsOnTile.forEach(npc => {
             const talkButton = createButton(`💬 Parler à ${npc.name}`, 'talk_to_npc', { npcId: npc.id });
-            // L'onclick est géré par createButton qui appelle handleGlobalPlayerAction
         });
     }
 
-    if (tile.type.buildable && tile.buildings.length < CONFIG.MAX_BUILDINGS_PER_TILE) {
+    if (tile.type.buildable && !hasBuilding) { // MODIFIÉ (Point 21)
         const mainBuildButton = document.createElement('button');
         mainBuildButton.id = 'main-build-btn';
         mainBuildButton.textContent = "🏗️ Construire...";
@@ -163,7 +180,7 @@ function updatePossibleActions() {
             if (!buildingDef) return;
 
             const buildingNameDisplay = document.createElement('p');
-            buildingNameDisplay.innerHTML = `<strong>${buildingDef.name}</strong> (Dura: ${buildingInstance.durability}/${buildingInstance.maxDurability})`;
+            buildingNameDisplay.innerHTML = `<strong>${buildingDef.name}</strong> (Durabilité: ${buildingInstance.durability}/${buildingInstance.maxDurability})`; // MODIFIÉ (Point 22)
             buildingNameDisplay.style.marginBottom = '5px';
             buildingNameDisplay.style.borderTop = '1px solid #ccc';
             buildingNameDisplay.style.paddingTop = '5px';
@@ -195,13 +212,13 @@ function updatePossibleActions() {
 
             if (buildingDef.inventory) {
                 const openChestButton = createButton( `🧰 Ouvrir Stockage (${buildingDef.name})`, 'open_building_inventory', { buildingKey: buildingInstance.key });
-                openChestButton.onclick = () => UI.showInventoryModal(State.state); // Action directe, pas via handlePlayerAction
+                openChestButton.onclick = () => UI.showInventoryModal(State.state); 
             }
         });
     }
-    if (getTotalResources(player.inventory) > 0) {
-        createButton("📥 Déposer un objet au sol", 'drop_item_prompt');
-    }
+    // if (getTotalResources(player.inventory) > 0) { // MODIFIÉ (Point 25)
+    //     createButton("📥 Déposer un objet au sol", 'drop_item_prompt'); // MODIFIÉ (Point 25)
+    // }
     DOM.actionsEl.scrollTop = oldScrollTop;
 }
 
@@ -217,17 +234,17 @@ function handleEvents() {
         }
         return;
     }
-    if (Math.random() > 0.85) { // Fréquence des événements
+    if (Math.random() > 0.85) { 
         const eventType = Math.random() < 0.5 ? 'Tempête' : 'Abondance';
         if (eventType === 'Tempête') {
             activeEvent.type = 'Tempête';
-            activeEvent.duration = 1; // Durée en jours de jeu
+            activeEvent.duration = 1; 
             UI.addChatMessage("Une tempête approche ! Il sera plus difficile de survivre.", "system_event");
         } else {
             const abundantResourceList = ['Bois', 'Poisson cru', 'Pierre', 'Feuilles'];
             const abundantResource = abundantResourceList[Math.floor(Math.random() * abundantResourceList.length)];
             activeEvent.type = 'Abondance';
-            activeEvent.duration = 2; // Durée en jours de jeu
+            activeEvent.duration = 2; 
             activeEvent.data = { resource: abundantResource };
             UI.addChatMessage(`Les ${abundantResource.toLowerCase()}s sont étrangement abondants !`, "system_event");
         }
@@ -314,7 +331,7 @@ function handleNavigation(direction) {
     }
 
     if (!Interactions.applyRandomStatCost(player, 1, "déplacement")) {
-        // Géré dans applyRandomStatCost si le joueur n'a plus de stats
+        // Géré dans applyRandomStatCost
     }
 
     player.isBusy = true; 
@@ -351,6 +368,8 @@ function handleSpecificConsume(statType) {
             else if (inventory['Oeuf cuit'] > 0) itemToConsume = 'Oeuf cuit';
             else if (inventory['Barre Énergétique'] > 0) itemToConsume = 'Barre Énergétique';
             else if (inventory['Banane'] > 0) itemToConsume = 'Banane';
+            else if (inventory['Sucre'] > 0) itemToConsume = 'Sucre'; // Ajout pour test
+            else if (inventory['Sel'] > 0) itemToConsume = 'Sel';     // Ajout pour test
             break;
         default: UI.addChatMessage("Type de consommation inconnu via bouton rapide.", "system"); return;
     }
@@ -372,7 +391,8 @@ function handleSpecificConsume(statType) {
         if (result.floatingTexts && result.floatingTexts.length > 0) {
             result.floatingTexts.forEach(text => {
                 const type = text.startsWith('+') ? 'gain' : (text.startsWith('-') ? 'cost' : 'info');
-                UI.showFloatingText(text, type);
+                // UI.showFloatingText(text, type); // MODIFIÉ (Point 23) - Commenté, sauf si c'est un statut
+                if (text.toLowerCase().includes('statut:')) UI.showFloatingText(text, type);
             });
         }
         fullUIUpdate();
@@ -395,7 +415,7 @@ function handleConsumeClick(itemName) {
         if (equipResult.success) fullUIUpdate();
         return;
     }
-    if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.teachesRecipe && itemDef.type !== 'usable') ) {
+    if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.teachesRecipe && itemDef.type !== 'usable' && itemDef.type !== 'key') ) { // Ajout key
         if (itemDef && !itemDef.teachesRecipe) {
             UI.addChatMessage(`"${itemName}" n'est pas consommable directement depuis l'inventaire de cette manière.`, "system");
         }
@@ -412,7 +432,10 @@ function handleConsumeClick(itemName) {
         if (result.floatingTexts && result.floatingTexts.length > 0) {
             result.floatingTexts.forEach(text => {
                  const type = text.startsWith('+') ? 'gain' : (text.startsWith('-') ? 'cost' : 'info');
-                UI.showFloatingText(text, type);
+                // UI.showFloatingText(text, type); // MODIFIÉ (Point 23) - Commenté, sauf si c'est un statut
+                if (text.toLowerCase().includes('statut:')) UI.showFloatingText(text, type);
+                else if (itemName === 'Porte bonheur' && text.includes('+1')) UI.showFloatingText(text, type); // Pour le parchemin du porte bonheur
+
             });
         }
         fullUIUpdate();
@@ -517,11 +540,11 @@ function handleDrop(e) {
                 transferProcessed = true;
             } else { UI.addChatMessage("Cet objet ne va pas dans cet emplacement.", "system"); }
         }
-    } else if (destOwner === 'player-inventory') {
+    } else if (destOwner === 'player-inventory') { 
         if (draggedItemInfo.sourceOwner === 'equipment' && draggedItemInfo.sourceSlotType) {
             State.unequipItem(draggedItemInfo.sourceSlotType);
             transferProcessed = true;
-        } else if (draggedItemInfo.sourceOwner === 'ground') {
+        } else if (draggedItemInfo.sourceOwner === 'ground') { 
             const itemName = draggedItemInfo.itemName;
             const maxAmount = draggedItemInfo.itemCount;
             if (maxAmount > 1) {
@@ -552,7 +575,7 @@ function handleDrop(e) {
             } else { State.applyBulkInventoryTransfer(draggedItemInfo.itemName, 1, transferType); }
             transferProcessed = true;
         }
-    } else if (destOwner === 'ground' && draggedItemInfo.sourceOwner === 'player-inventory') { 
+    } else if (destOwner === 'ground' && draggedItemInfo.sourceOwner === 'player-inventory') { // MODIFIÉ (Point 4)
         const itemName = draggedItemInfo.itemName;
         const maxAmount = draggedItemInfo.itemCount;
         if (maxAmount > 1) {
@@ -573,6 +596,7 @@ function handleDrop(e) {
     if (transferProcessed) window.fullUIUpdate();
     if (dropZone) dropZone.classList.remove('drag-over');
 }
+
 
 function setupDragAndDropForContainer(containerElement) {
     if (!containerElement) return;
@@ -683,14 +707,24 @@ function setupEventListeners() {
     }
 
     window.addEventListener('keydown', e => {
-        if (document.activeElement === DOM.chatInputEl || DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) return; 
+        // MODIFIÉ (Point 10) - Ne plus vérifier si DOM.chatInputEl est activeElement pour les flèches etc.
+        // mais le garder pour la touche Echap et les lettres spécifiques pour éviter conflit
         if (e.key === 'Escape') {
             if (DOM.buildModal && !DOM.buildModal.classList.contains('hidden')) UI.hideBuildModal();
             else if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
             else if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
             else if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) UI.hideLargeMap();
             else if (DOM.combatModal && !DOM.combatModal.classList.contains('hidden')) UI.hideCombatModal();
-        } else if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w' || e.key.toLowerCase() === 'z') handleNavigation('north'); 
+            else if (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
+            return; // Empêcher d'autres actions si une modale est fermée
+        }
+
+        if (document.activeElement === DOM.chatInputEl || 
+            (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden'))) {
+            return; 
+        }
+
+        if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w' || e.key.toLowerCase() === 'z') handleNavigation('north'); 
         else if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') handleNavigation('south');
         else if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'q') handleNavigation('west'); 
         else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') handleNavigation('east');

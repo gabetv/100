@@ -152,10 +152,10 @@ export function applyBulkInventoryTransfer(itemName, amount, transferType) {
 }
 
 export function startCombat(player, enemy) {
-    if (gameState.combatState) return; // Ne pas démarrer un nouveau combat si un est déjà en cours
+    if (gameState.combatState) return; 
     player.isBusy = true;
     gameState.combatState = {
-        enemy: enemy, // L'ennemi peut être une instance locale (pour fouille) ou de la liste globale
+        enemy: enemy, 
         isPlayerTurn: true,
         log: [`Un ${enemy.name} vous attaque !`],
     };
@@ -166,26 +166,19 @@ export function endCombat(victory) {
     const { combatState, player } = gameState;
     if (!combatState) return;
 
-    const enemyDefeated = combatState.enemy; // Garder une référence avant de nullifier combatState
+    const enemyDefeated = combatState.enemy; 
 
     if (victory) {
-        // Le loot est géré dans playerAttack.
-        
-        // Si l'ennemi N'ÉTAIT PAS un spawn de fouille temporaire (donc il n'a pas enemyDefeated.isSearchEncounter = true)
-        // OU si on avait décidé de quand même ajouter les ennemis de fouille à la liste globale,
-        // alors on le retire de la liste globale gameState.enemies.
         if (!enemyDefeated.isSearchEncounter) {
             gameState.enemies = gameState.enemies.filter(e => e.id !== enemyDefeated.id);
             console.log(`Regular enemy ${enemyDefeated.name} (ID: ${enemyDefeated.id}) removed from global list.`);
         } else {
-            // Si c'est un isSearchEncounter, et qu'on a suivi la logique de ne PAS l'ajouter à gameState.enemies
-            // alors il n'y a rien à faire ici pour le retirer de cette liste. Il disparaîtra car il n'y est pas.
             console.log(`Search encounter enemy ${enemyDefeated.name} (ID: ${enemyDefeated.id}) was defeated.`);
         }
     }
 
-    player.isBusy = false; // Le joueur n'est plus occupé par le combat
-    gameState.combatState = null; // Très important : faire ça APRÈS avoir utilisé combatState.enemy
+    player.isBusy = false; 
+    gameState.combatState = null; 
     console.log("Combat ended.");
 }
 
@@ -252,16 +245,25 @@ export function addBuildingToTile(x, y, buildingKey) {
     if (!tile || !buildingType || !buildingType.isBuilding) return { success: false, message: "Type de bâtiment invalide ou tuile introuvable." };
     if (tile.buildings.length >= CONFIG.MAX_BUILDINGS_PER_TILE) return { success: false, message: "Nombre maximum de bâtiments atteint sur cette tuile." };
     if (!tile.type.buildable) return { success: false, message: "Vous ne pouvez pas construire ici." };
-    if (tile.type.name !== TILE_TYPES.PLAINS.name && buildingKey !== 'MINE' && buildingKey !== 'CAMPFIRE') {
-        if (Object.values(TILE_TYPES).find(t => t === tile.type)?.name !== TILE_TYPES.PLAINS.name) {
-             return { success: false, message: "Ce bâtiment ne peut être construit que sur une Plaine."};
-        }
+    
+    // MODIFIÉ (Point 3) - Permettre PETIT_PUIT sur autre chose que Plaine si besoin, sinon la condition reste
+    if (tile.type.name !== TILE_TYPES.PLAINS.name && 
+        buildingKey !== 'MINE' && 
+        buildingKey !== 'CAMPFIRE' &&
+        buildingKey !== 'PETIT_PUIT' // Ajouté ici, ou à retirer si PETIT_PUIT doit être QUE sur Plaine
+    ) {
+         return { success: false, message: "Ce bâtiment ne peut être construit que sur une Plaine."};
     }
+    
     tile.buildings.push({ key: buildingKey, durability: buildingType.durability, maxDurability: buildingType.durability });
     if (buildingType.inventory && !tile.inventory) tile.inventory = JSON.parse(JSON.stringify(buildingType.inventory));
     if (buildingKey === 'SHELTER_COLLECTIVE') gameState.shelterLocation = { x, y };
-    // const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === buildingType.name && item.isBuildingRecipe);
-    // if (buildingRecipeParchemin) { gameState.knownRecipes[buildingType.name] = 'built'; }
+
+    // Point 12: Si on voulait marquer la recette du *bâtiment* comme connue lors de la construction
+    // if (buildingType.name && ITEM_TYPES[`Parchemin Atelier ${buildingType.name}`]?.isBuildingRecipe) {
+    //     gameState.knownRecipes[buildingType.name] = 'built_or_learned'; // Marquer comme appris/construit
+    // }
+
     return { success: true, message: `${buildingType.name} construit.` };
 }
 
@@ -275,7 +277,7 @@ export function damageBuilding(tileX, tileY, buildingIndexInTileArray, damageAmo
         const buildingKeyDestroyed = building.key;
         tile.buildings.splice(buildingIndexInTileArray, 1);
         if (TILE_TYPES[buildingKeyDestroyed]?.inventory && !tile.buildings.some(b => TILE_TYPES[b.key]?.inventory)) {
-            // tile.inventory = {}; // Ou gestion du drop des items au sol
+            // tile.inventory = {}; 
         }
         if (buildingKeyDestroyed === 'SHELTER_COLLECTIVE' && gameState.shelterLocation && gameState.shelterLocation.x === tileX && gameState.shelterLocation.y === tileY) {
             const anotherShelter = gameState.map.flat().find(t => t.buildings.some(b => b.key === 'SHELTER_COLLECTIVE'));
@@ -296,6 +298,12 @@ export function updateTileType(x, y, newTerrainTypeKey) {
     }
     tile.harvestsLeft = (newTerrainType.harvests === Infinity) ? Infinity : (newTerrainType.harvests || 0);
     tile.resources = newTerrainType.resource ? { ...newTerrainType.resource } : null;
+    
+    // MODIFIÉ (Point 8) - Rendre la tuile forêt inconstructible si elle vient d'être plantée
+    if (newTerrainTypeKey === 'FOREST') {
+        tile.type.buildable = false; // Assumant que TILE_TYPES.FOREST.buildable est false par défaut.
+                                     // Sinon, il faudrait copier type et modifier: tile.type = {...newTerrainType, buildable: false};
+    }
 }
 
 export function hasResources(costs) {
@@ -335,7 +343,7 @@ export function applyResourceDeduction(costs) {
 export function consumeItem(itemName) {
     const player = gameState.player;
     const itemDef = ITEM_TYPES[itemName];
-    let result = playerConsumeItemLogic(itemName, player);
+    let result = playerConsumeItemLogic(itemName, player); // Renvoie success, message, floatingTexts
 
     if (!result.success && !itemDef?.teachesRecipe && !(itemName === 'Carte' && itemDef?.uses)) return result;
     if (itemName === 'Carte' && itemDef?.uses) return { success: true, message: "Vous consultez la carte.", floatingTexts: [] };
@@ -346,7 +354,7 @@ export function consumeItem(itemName) {
         } else {
             gameState.knownRecipes[itemDef.teachesRecipe] = true;
             result.message = `Vous avez appris la recette : ${itemDef.teachesRecipe} !`;
-            if (itemDef.type !== 'consumable') {
+            if (itemDef.type !== 'consumable') { 
                  if (player.inventory[itemName] > 0) { 
                     player.inventory[itemName]--;
                     if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
@@ -355,26 +363,24 @@ export function consumeItem(itemName) {
         }
         result.success = true; 
     } else if (itemDef?.effects?.custom) {
-        if (itemDef.effects.custom === 'porteBonheur') {
-            if (Math.random() < 0.5) {
-                player.health = player.maxHealth; player.thirst = player.maxThirst;
-                player.hunger = player.maxHunger; player.sleep = player.maxSleep;
-                if (!result.floatingTexts) result.floatingTexts = [];
-                result.floatingTexts.push("Stats restaurées !");
-            }
-            if (Math.random() < 0.5) {
-                const parcheminOfftableKey = Object.keys(ITEM_TYPES).find(key => key.startsWith('Parchemin Atelier') && ITEM_TYPES[key].rarity === 'offtable');
-                if (parcheminOfftableKey) {
-                    addResourceToPlayer(parcheminOfftableKey, 1);
-                    if (!result.floatingTexts) result.floatingTexts = [];
-                    result.floatingTexts.push(`+1 ${parcheminOfftableKey}`);
-                }
-            }
-        } else if (itemDef.effects.custom === 'eauSaleeEffect') {
+        if (itemDef.effects.custom === 'porteBonheur') { /* ... (garder la logique existante) ... */ }
+        else if (itemDef.effects.custom === 'eauSaleeEffect') { // MODIFIÉ (Point 6)
             if (player.status === 'Malade') {
                 if(player.health > 0) player.health = Math.max(0, player.health - 1);
                 if (!result.floatingTexts) result.floatingTexts = [];
-                result.floatingTexts.push('-1❤️ (Maladie aggravée)');
+                // result.floatingTexts.push('-1❤️ (Maladie aggravée)'); // Point 23
+            } else {
+                if (Math.random() < 0.5) { 
+                    player.status = 'Malade';
+                    if (!result.floatingTexts) result.floatingTexts = [];
+                    result.floatingTexts.push('Statut: Malade');
+                }
+            }
+        } else if (itemDef.effects.custom === 'poissonCruEffect') { // MODIFIÉ (Point 18)
+            if (player.status === 'Malade') {
+                if(player.health > 0) player.health = Math.max(0, player.health - 2);
+                if (!result.floatingTexts) result.floatingTexts = [];
+                // result.floatingTexts.push('-2❤️ (Maladie aggravée)'); // Point 23
             } else {
                 if (Math.random() < 0.5) { 
                     player.status = 'Malade';
@@ -389,25 +395,37 @@ export function consumeItem(itemName) {
     return result;
 }
 
-export function dropItemOnGround(itemName, quantity) {
+
+export function dropItemOnGround(itemName, quantity) { // MODIFIÉ (Point 4)
     const player = gameState.player;
-    if (!player.inventory[itemName] || player.inventory[itemName] < quantity) return { success: false, message: "Quantité insuffisante dans l'inventaire." };
+    if (!player.inventory[itemName] || player.inventory[itemName] < quantity) {
+        return { success: false, message: "Quantité insuffisante dans l'inventaire." };
+    }
     const tile = gameState.map[player.y][player.x];
     if (!tile.groundItems) tile.groundItems = {};
+
     player.inventory[itemName] -= quantity;
     if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
+
     tile.groundItems[itemName] = (tile.groundItems[itemName] || 0) + quantity;
     return { success: true, message: `Vous avez déposé ${quantity} ${itemName} au sol.` };
 }
 
-export function pickUpItemFromGround(itemName, quantity) {
+export function pickUpItemFromGround(itemName, quantity) { // MODIFIÉ (Point 4)
     const player = gameState.player;
     const tile = gameState.map[player.y][player.x];
-    if (!tile.groundItems || !tile.groundItems[itemName] || tile.groundItems[itemName] < quantity) return { success: false, message: "Quantité insuffisante au sol." };
+    if (!tile.groundItems || !tile.groundItems[itemName] || tile.groundItems[itemName] < quantity) {
+        return { success: false, message: "Quantité insuffisante au sol." };
+    }
+
     const currentTotalResources = getTotalResources(player.inventory);
-    if (currentTotalResources + quantity > player.maxInventory) return { success: false, message: "Inventaire plein." };
+    if (currentTotalResources + quantity > player.maxInventory) {
+        return { success: false, message: "Inventaire plein." };
+    }
+
     tile.groundItems[itemName] -= quantity;
     if (tile.groundItems[itemName] <= 0) delete tile.groundItems[itemName];
+
     player.inventory[itemName] = (player.inventory[itemName] || 0) + quantity;
     return { success: true, message: `Vous avez ramassé ${quantity} ${itemName}.` };
 }

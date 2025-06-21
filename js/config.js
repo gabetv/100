@@ -10,8 +10,8 @@ export const CONFIG = {
     DAY_DURATION_MS: 120000, STAT_DECAY_INTERVAL_MS: 5000,
     NPC_ACTION_INTERVAL_MS: 3000, CHAT_MESSAGE_INTERVAL_MS: 25000,
     PLAYER_BASE_MAX_RESOURCES: 50,
-    MAX_BUILDINGS_PER_TILE: 2,
-    FOG_OF_WAR_REVEAL_THRESHOLD: 5, // Nombre de visites pour révéler globalement une tuile
+    MAX_BUILDINGS_PER_TILE: 1, // MODIFIÉ (Point 21)
+    FOG_OF_WAR_REVEAL_THRESHOLD: 5,
 };
 
 export const COMBAT_CONFIG = {
@@ -26,7 +26,7 @@ export const ACTION_DURATIONS = {
     OPEN_TREASURE: 1000,
     BUILD: 1000, 
     USE_BUILDING_ACTION: 1000, 
-    PLANT_TREE: 2500,
+    PLANT_TREE: 2500, // MODIFIÉ (Point 8)
     USE_MAP: 500,
 };
 
@@ -125,10 +125,9 @@ export const ITEM_TYPES = {
     'Écorce': { type: 'resource', icon: '🟫' }, 'Résine': { type: 'resource', icon: '💧' },
     'Sable': { type: 'resource', icon: '⏳' }, 'Peau de bête': { type: 'resource', icon: 'ቆዳ' },
     'Os': { type: 'resource', icon: '🦴' },
-    'Poisson cru': { type: 'resource', icon: '🐟' }, 'Sel': { type: 'resource', icon: '🧂' },
-    'Sucre': { type: 'resource', icon: '🍬' }, 'Composants électroniques': {type: 'resource', icon: '⚙️'},
+    'Sel': { type: 'consumable', icon: '🧂', effects: { hunger: 5, thirst: -2 } }, // MODIFIÉ (Point 17)
+    'Composants électroniques': {type: 'resource', icon: '⚙️'},
     'Charbon': {type: 'resource', icon: '⚫'},
-    'Venin': { type: 'resource', icon: '🧪' },
     'Planche': { type: 'resource', icon: '🟧' },
     'Ficelle': { type: 'resource', icon: '〰️' },
     'Corde': { type: 'resource', icon: '🪢' },
@@ -151,31 +150,37 @@ export const ITEM_TYPES = {
     'Recette médicinale': { type: 'resource', icon: '℞', rarity: 'veryRare' },
     'Sceau vide': { type: 'resource', icon: '🪣' },
     'Graine d\'arbre': { type: 'resource', icon: '🌱' },
+    'Allumettes': {type: 'resource', icon: '🔥', durability: 1, isFireStarter: true }, // MODIFIÉ (Point 19)
 
     // === CONSOMMABLES ===
     'Eau pure': { type: 'consumable', icon: '💧', effects: { thirst: 10 } },
-    'Eau salée': { type: 'consumable', icon: '🚱', effects: { thirst: 1, custom: 'eauSaleeEffect' } },
+    'Eau salée': { type: 'consumable', icon: '🚱', effects: { thirst: 1, custom: 'eauSaleeEffect' } }, // MODIFIÉ (Point 6)
     'Insectes': { type: 'consumable', icon: '🦗', effects: { hunger: 1 } },
-    'Viande crue': { type: 'consumable', icon: '🥩', effects: { hunger: 1, status: { name: 'Malade', chance: 0.3 } } },
+    'Viande crue': { type: 'consumable', icon: '🥩', effects: { hunger: 1, status: { name: 'Malade', chance: 0.3 } } }, // Sera réévalué avec poisson cru
     'Viande cuite': { type: 'consumable', icon: '🍖', effects: { hunger: 3 } },
+    'Poisson cru': { type: 'consumable', icon: '🐟', effects: { hunger: 3, custom: 'poissonCruEffect' } }, // MODIFIÉ (Point 18)
     'Poisson cuit': { type: 'consumable', icon: '🔥', effects: { hunger: 2 } },
     'Oeuf cru': { type: 'consumable', icon: '🥚', effects: { hunger: 2, status: { name: 'Malade', chance: 0.5 } } },
     'Oeuf cuit': { type: 'consumable', icon: '🍳', effects: { hunger: 3 } },
     'Banane': { type: 'consumable', icon: '🍌', effects: { hunger: 2, thirst: 1 } },
     'Noix de coco': { type: 'consumable', icon: '🥥', effects: { thirst: 3 } },
     'Canne à sucre': { type: 'consumable', icon: '🎋', effects: { hunger: 3, thirst: -1 } },
+    'Sucre': { type: 'consumable', icon: '🍬', effects: { hunger: 4, thirst: -1 } }, // MODIFIÉ (Point 16)
     'Barre Énergétique': { type: 'consumable', icon: '🍫', effects: { hunger: 6, sleep: 4 } },
     'Médicaments': { type: 'consumable', icon: '💊', effects: { ifStatus: 'Malade', status: 'Normal', health: 5 } },
     'Antiseptiques': { type: 'consumable', icon: '🧴', effects: { ifStatus: 'Empoisonné', status: 'Normal', health: 3 } },
     'Bandage': { type: 'consumable', icon: '🩹', effects: { ifStatus: 'Blessé', status: 'Normal', health: 4 } },
-    'Kit de Secours': { type: 'consumable', icon: '✚', effects: { ifStatus: ['Blessé', 'Malade'], status: 'Normal', health: 10 } }, // Amélioré
+    'Kit de Secours': { type: 'consumable', icon: '✚', effects: { ifStatus: ['Blessé', 'Malade'], status: 'Normal', health: 10 } }, // MODIFIÉ (Point 11)
     'Batterie déchargée': {type: 'consumable', icon: '🔋', effects: {}},
+    'Venin': { type: 'consumable', icon: '🧪', effects: { status: { name: 'Empoisonné', chance: 1.0 } } }, // MODIFIÉ (Point 14)
     'Fiole empoisonnée': { type: 'consumable', icon: '☠️', effects: { health: -1000 } },
     'Fiole anti-poison': { type: 'consumable', icon: '🧪', effects: { ifStatus: 'Empoisonné', status: 'Normal', health: 10 } },
     'Drogue': { type: 'consumable', icon: '😵', effects: { health: 10, sleep: 10, hunger: 5, thirst: 5, status: { name: 'Accro', chance: 0.2 } } },
     'Porte bonheur': { type: 'consumable', icon: '🍀', effects: { custom: 'porteBonheur' } },
+    'Carte': {type: 'consumable', icon: '🗺️', uses: 30 }, // MODIFIÉ (Point 20)
+    'Briquet': { type: 'consumable', icon: '🔥', durability: 5, isFireStarter: true }, // MODIFIÉ (Point 20)
 
-    // Parchemins
+    // Parchemins (restent consumables pour l'effet d'apprentissage)
     'Parchemin Atelier Bois_PelleBois': { type: 'consumable', icon: '📜', teachesRecipe: 'Pelle en bois', rarity: 'common', description: "Transformer 10 bois = 1 pelle en bois" },
     'Parchemin Atelier Bois_Gourdain': { type: 'consumable', icon: '📜', teachesRecipe: 'Gourdain', rarity: 'common', description: "Transformer 15 bois = 1 gourdain" },
     'Parchemin Atelier BoisFer_Hache': { type: 'consumable', icon: '📜', teachesRecipe: 'Hache', rarity: 'common', description: "Transformer 10 bois et 5 fer = 1 hache" },
@@ -214,21 +219,22 @@ export const ITEM_TYPES = {
     'Parchemin Atelier ElecEcran_RadioDechargee': { type: 'consumable', icon: '📜', teachesRecipe: 'Radio déchargée', rarity: 'offtable', description: "Transformer 15 composants electronique et 5 écran éléctronique = 1 radio déchargé" },
     'Parchemin Atelier PlanCharbon_FiltreEau': { type: 'consumable', icon: '📜', teachesRecipe: 'Filtre à eau (craft)', rarity: 'offtable', description: "Transformer 1 plan d'ingénieur et 50 charbon = 1 filtre à eau" },
 
-    // === OUTILS & ARMES ===
-    'Hache': { type: 'tool', slot: 'weapon', icon: '🪓', durability: 10, power: 5, action: 'harvest_wood' },
-    'Scie': { type: 'tool', slot: 'weapon', icon: '🪚', durability: 10, power: 10, action: 'harvest_wood' },
-    'Pelle en bois': { type: 'tool', slot: 'weapon', icon: '🦯', durability: 3, power: 1, action: 'dig' },
-    'Pelle en fer': { type: 'tool', slot: 'weapon', icon: '⛏️', durability: 10, power: 3, action: 'dig' },
-    'Canne à pêche': { type: 'tool', slot: 'weapon', icon: '🎣', durability: 10, power: 1, action: 'fish' },
-    'Filtre à eau': { type: 'tool', icon: '⚗️', durability: 10, action: 'purify_water' },
+    // === OUTILS & ARMES === (Point 26)
+    'Hache': { type: 'tool', slot: 'weapon', icon: '🪓', durability: 10, power: 5, action: 'harvest_wood', stats: { damage: 3 } }, // damage ajouté
+    'Scie': { type: 'tool', slot: 'weapon', icon: '🪚', durability: 10, power: 10, action: 'harvest_wood', stats: { damage: 2 } }, // damage ajouté
+    'Pelle en bois': { type: 'tool', slot: 'weapon', icon: '🦯', durability: 3, power: 1, action: 'dig', stats: { damage: 1 } },
+    'Pelle en fer': { type: 'tool', slot: 'weapon', icon: '⛏️', durability: 10, power: 3, action: 'dig', stats: { damage: 2 } },
+    'Canne à pêche': { type: 'tool', slot: 'weapon', icon: '🎣', durability: 10, power: 1, action: 'fish', stats: { damage: 1 } },
+    'Filtre à eau': { type: 'tool', icon: '⚗️', durability: 10, action: 'purify_water' }, // Reste tool, pas une arme
     'Gourdain': { type: 'weapon', slot: 'weapon', icon: '🏏', durability: 5, stats: { damage: 2 } },
     'Lance en bois': { type: 'weapon', slot: 'weapon', icon: '🍢', durability: 8, stats: { damage: 4 } },
     'Épée en bois': { type: 'weapon', slot: 'weapon', icon: '🗡️', durability: 3, stats: { damage: 3 }, pvpEffects: [{ name: 'Blessé', chance: 0.5 }, { name: 'Mort', chance: 0.05 }] },
     'Épée en fer': { type: 'weapon', slot: 'weapon', icon: '⚔️', durability: 10, stats: { damage: 6 }, pvpEffects: [{ name: 'Blessé', chance: 0.5 }, { name: 'Mort', chance: 0.05 }] },
     'Bouclier en bois': {type: 'shield', slot: 'shield', icon: '🛡️', durability: 10, stats: {defense: 2}},
     'Bouclier en fer': {type: 'shield', slot: 'shield', icon: '🛡️', durability: 20, stats: {defense: 4}},
-    'Kit de réparation': { type: 'tool', icon: '🛠️', action: 'repair_building', durability: 1 },
-    'Filet de pêche': { type: 'tool', icon: '🥅', action: 'net_fish', durability: 15 },
+    'Kit de réparation': { type: 'tool', icon: '🛠️', action: 'repair_building', durability: 1 }, // Reste tool
+    'Filet de pêche': { type: 'tool', icon: '🥅', action: 'net_fish', durability: 15 }, // Reste tool
+    'Torche': { type: 'usable', icon: '🔦', durability: 10, isFireStarter: true, slot: 'weapon', stats: { damage: 1 } }, // Déjà OK
 
     // === ÉQUIPEMENT ===
     'Vêtements': { type: 'body', slot: 'body', icon: '👕', stats: { maxHealth: 2 } },
@@ -239,24 +245,20 @@ export const ITEM_TYPES = {
     'Sandalette': { type: 'feet', slot: 'feet', icon: '👣', stats: { maxSleep: 1 }, durability: 10 },
     'Petit Sac': { type: 'bag', slot: 'bag', icon: '🎒', stats: { maxInventory: 50 } },
     'Grand Sac': { type: 'bag', slot: 'bag', icon: '🛍️', stats: { maxInventory: 150 } },
-    'Loupe': { type: 'tool', slot: 'tool_belt', icon: '🔍', action: 'start_fire_loupe', durability: 5 }, // tool_belt n'existe pas comme slot joueur pour l'instant
+    'Loupe': { type: 'consumable', slot: 'tool_belt', icon: '🔍', action: 'start_fire_loupe', durability: 5 }, // MODIFIÉ (Point 20)
 
     // === DIVERS (utilisables non-consommables directs) ===
-    'Boussole': {type: 'usable', icon: '🧭', action: 'find_mine'},
-    'Sifflet': { type: 'usable', icon: '😗', action: 'attract_npc_attention' },
-    'Carte': {type: 'usable', icon: '🗺️', uses: 30 },
-    'Allumettes': {type: 'usable', icon: '🔥', durability: 1, isFireStarter: true },
-    'Briquet': { type: 'usable', icon: '🔥', durability: 5, isFireStarter: true },
-    'Torche': { type: 'usable', icon: '🔦', durability: 10, isFireStarter: true, slot: 'weapon', stats: { damage: 1 } },
-    'Pistolet de détresse': { type: 'usable', icon: '🔫', durability: 2, action: 'fire_distress_gun' },
-    'Fusée de détresse': { type: 'usable', icon: '🧨', durability: 1, action: 'fire_distress_flare' },
+    'Boussole': {type: 'consumable', icon: '🧭', action: 'find_mine'}, // MODIFIÉ (Point 20)
+    'Sifflet': { type: 'consumable', icon: '😗', action: 'attract_npc_attention' }, // MODIFIÉ (Point 20)
+    'Pistolet de détresse': { type: 'consumable', icon: '🔫', durability: 2, action: 'fire_distress_gun' }, // MODIFIÉ (Point 20)
+    'Fusée de détresse': { type: 'consumable', icon: '🧨', durability: 1, action: 'fire_distress_flare' }, // MODIFIÉ (Point 20)
     'Clé du Trésor': { type: 'key', icon: '🔑', unique: true },
-    'Porte en bois': { type: 'component', icon: '🚪' },
-    'Panneau solaire fixe': { type: 'usable_placeable', icon: '☀️', action: 'place_solar_panel_fixed' },
-    'Panneau solaire portable': { type: 'tool', icon: '🌞', action: 'charge_battery_portable_solar' },
-    'Téléphone déchargé': { type: 'usable', icon: '📱', action: 'attempt_call_if_charged' },
-    'Radio déchargée': { type: 'usable', icon: '📻', action: 'listen_radio_if_charged' },
-    'Piège': { type: 'usable_placeable', icon: '🪤', action: 'place_trap' },
+    'Porte en bois': { type: 'component', icon: '🚪' }, // Reste component, pas consommable
+    'Panneau solaire fixe': { type: 'consumable', icon: '☀️', action: 'place_solar_panel_fixed' }, // MODIFIÉ (Point 20)
+    'Panneau solaire portable': { type: 'consumable', icon: '🌞', action: 'charge_battery_portable_solar' }, // MODIFIÉ (Point 20)
+    'Téléphone déchargé': { type: 'consumable', icon: '📱', action: 'attempt_call_if_charged' }, // MODIFIÉ (Point 20)
+    'Radio déchargée': { type: 'consumable', icon: '📻', action: 'listen_radio_if_charged' }, // MODIFIÉ (Point 20)
+    'Piège': { type: 'consumable', icon: '🪤', action: 'place_trap' }, // MODIFIÉ (Point 20)
 };
 
 export const TREASURE_COMBAT_KIT = {
@@ -327,7 +329,11 @@ export const TILE_TYPES = {
 
     // Nouveaux Bâtiments
     ATELIER: { name: 'Atelier', accessible: true, color: '#a0522d', background: ['bg_plains_2'], icon: '🛠️', isBuilding: true, durability: 200, cost: { 'Bois': 30, 'Pierre': 15 }, action: { id: 'use_atelier', name: 'Utiliser Atelier' }, description: "Permet de fabriquer des outils et objets avancés." },
-    PETIT_PUIT: { name: 'Petit Puit', accessible: true, color: '#add8e6', background: ['bg_plains_3'], icon: '💧', isBuilding: true, durability: 5, cost: { 'Pierre': 50, 'toolRequired': ['Pelle en bois', 'Pelle en fer'] }, action: { id: 'draw_water_shallow_well', name: 'Puiser Eau (croupie)', result: { 'Eau croupie': 2 } }, description: "Source d'eau croupie basique. Faible durabilité." },
+    PETIT_PUIT: { name: 'Petit Puit', accessible: true, color: '#add8e6', background: ['bg_plains_3'], icon: '💧', isBuilding: true, durability: 5, 
+        cost: { 'Pierre': 20, 'Bois': 20, 'toolRequired': ['Pelle en bois', 'Pelle en fer'] }, // MODIFIÉ (Point 3)
+        action: { id: 'draw_water_shallow_well', name: 'Puiser Eau (croupie)', result: { 'Eau croupie': 2 } }, 
+        description: "Source d'eau croupie basique. Faible durabilité. Nécessite une pelle." // MODIFIÉ (Point 3)
+    },
     PUIT_PROFOND: { name: 'Puit Profond', accessible: true, color: '#87ceeb', background: ['bg_plains_4'], icon: '💦', isBuilding: true, durability: 20, cost: { 'Bloc taillé': 20, 'Sceau vide': 1, 'toolRequired': ['Pelle en fer'] }, action: { id: 'draw_water_deep_well', name: 'Puiser Eau (croupie)', result: { 'Eau croupie': 4 } }, description: "Source d'eau croupie plus fiable et abondante." },
     BIBLIOTHEQUE: { name: 'Bibliothèque', accessible: true, color: '#deb887', background: ['bg_plains_1'], icon: '📚', isBuilding: true, durability: 100, cost: { 'Bloc taillé': 40, 'Porte en bois': 2 }, action: { id: 'generate_plan', name: 'Rechercher Plan (5h)', result: { 'Plan d\'ingénieur': 1 }, intervalHours: 5 }, description: "Permet de rechercher des plans d'ingénieur pour des constructions complexes." },
     FORTERESSE: { name: 'Forteresse', accessible: true, color: '#696969', background: ['bg_shelter_collective'], icon: '🏰', isBuilding: true, durability: 500, cost: { 'Bloc taillé': 96, 'Porte en bois': 4 }, sleepEffect: { sleep: 16, health: 10 }, inventory: {}, maxInventory: 1000, description: "Un bastion de survie offrant un excellent repos et un stockage massif." },
