@@ -233,7 +233,7 @@ function updatePossibleActions() {
             if (buildingInstance.key === 'LABORATOIRE' && buildingInstance.durability > 0) {
                 const canCraftAntiseptic = State.hasResources({ 'Kit de Secours': 2, 'Recette médicinale': 1 }).success;
                 createButton("🧪 Fabriquer Antiseptique", 'use_building_action',
-                             { buildingKey: 'LABORATOIRE', specificActionId: 'use_laboratoire', craftItem: 'Antiseptique' }, // On passe craftItem pour que interactions.js sache quoi faire
+                             { buildingKey: 'LABORATOIRE', specificActionId: 'use_laboratoire', craftItem: 'Antiseptique' },
                              !canCraftAntiseptic,
                              !canCraftAntiseptic ? "Nécessite 2 Kits de Secours, 1 Recette Médicinale" : "");
             }
@@ -250,7 +250,7 @@ function updatePossibleActions() {
                  // Éviter de dupliquer les actions déjà gérées spécifiquement (puits, actions spécifiques du labo/feu de camp)
                  if (actionInfo.id !== 'draw_water_shallow_well' &&
                      actionInfo.id !== 'draw_water_deep_well' &&
-                     !(buildingInstance.key === 'LABORATOIRE' && actionInfo.id === 'use_laboratoire') && // Évite le bouton générique si on a déjà "Fabriquer Antiseptique"
+                     !(buildingInstance.key === 'LABORATOIRE' && actionInfo.id === 'use_laboratoire') &&
                      !(buildingInstance.key === 'CAMPFIRE' && (actionInfo.id === 'boil_stagnant_water_campfire' || actionInfo.id === 'boil_salt_water_campfire'))
                     ) {
                     createButton( actionInfo.name, 'use_building_action', { buildingKey: buildingInstance.key, specificActionId: actionInfo.id }, disabledAction, titleAction );
@@ -397,23 +397,22 @@ function handleSpecificConsume(statType) {
     let itemToConsume = null;
     const inventory = player.inventory;
     switch (statType) {
-        case 'health': // Logique de choix d'item de soin (Bandage, Kit, Médicaments)
-            if (inventory['Kit de Secours'] > 0 && player.status === 'Malade') itemToConsume = 'Kit de Secours'; // Point 33
-            else if (inventory['Médicaments'] > 0 && (player.status === 'Malade' || player.status === 'Gravement malade' || player.status === 'Drogué')) itemToConsume = 'Médicaments'; // Point 34
-            else if (inventory['Antiseptique'] > 0 && (player.status === 'Blessé' || player.status === 'Malade' || player.status === 'Gravement malade')) itemToConsume = 'Antiseptique'; // Point 39
-            else if (inventory['Bandage'] > 0 && player.health < player.maxHealth) itemToConsume = 'Bandage'; // Point 32 (peut être utilisé même si pas blessé pour juste PV)
-            else if (inventory['Savon'] > 0 && player.health < player.maxHealth) itemToConsume = 'Savon'; // Point 37
-            else if (inventory['Huile de coco'] > 0 && player.health < player.maxHealth) itemToConsume = 'Huile de coco'; // Point 43
+        case 'health':
+            if (inventory['Kit de Secours'] > 0 && player.status === 'Malade') itemToConsume = 'Kit de Secours';
+            else if (inventory['Médicaments'] > 0 && (player.status === 'Malade' || player.status === 'Gravement malade' || player.status === 'Drogué')) itemToConsume = 'Médicaments';
+            else if (inventory['Antiseptique'] > 0 && (player.status === 'Blessé' || player.status === 'Malade' || player.status === 'Gravement malade')) itemToConsume = 'Antiseptique';
+            else if (inventory['Bandage'] > 0 && player.health < player.maxHealth) itemToConsume = 'Bandage';
+            else if (inventory['Savon'] > 0 && player.health < player.maxHealth) itemToConsume = 'Savon';
+            else if (inventory['Huile de coco'] > 0 && player.health < player.maxHealth) itemToConsume = 'Huile de coco';
             break;
         case 'thirst':
-            if (inventory['Eau pure'] > 0 && player.thirst < player.maxThirst) itemToConsume = 'Eau pure'; // Point 25
-            else if (inventory['Noix de coco'] > 0 && player.thirst < player.maxThirst) itemToConsume = 'Noix de coco'; // Point 40
-            // Eau salée et croupie ne sont pas sur les boutons rapides par défaut
+            if (inventory['Eau pure'] > 0 && player.thirst < player.maxThirst) itemToConsume = 'Eau pure';
+            else if (inventory['Noix de coco'] > 0 && player.thirst < player.maxThirst) itemToConsume = 'Noix de coco';
             break;
         case 'hunger':
             const foodItems = ['Viande cuite', 'Poisson cuit', 'Oeuf cuit', 'Barre Énergétique', 'Banane', 'Sucre', 'Sel'];
             for (const food of foodItems) {
-                if (inventory[food] > 0 && player.hunger < player.maxHunger) { // Point 41
+                if (inventory[food] > 0 && player.hunger < player.maxHunger) {
                     itemToConsume = food;
                     break;
                 }
@@ -440,13 +439,13 @@ function handleSpecificConsume(statType) {
             result.floatingTexts.forEach(text => {
                 const type = text.startsWith('+') ? 'gain' : (text.startsWith('-') ? 'cost' : 'info');
                 if (text.toLowerCase().includes('statut:')) UI.showFloatingText(text, type);
-                else if (itemName === 'Porte bonheur' && text.includes('+1')) UI.showFloatingText(text, type);
-
+                else if (itemToConsume === 'Porte bonheur' && text.includes('+1')) UI.showFloatingText(text, type); // Correction ici
             });
         }
         fullUIUpdate();
     } else { if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl); }
 }
+
 
 function handleConsumeClick(itemName) {
     if (!State.state || !State.state.player) return;
@@ -455,7 +454,6 @@ function handleConsumeClick(itemName) {
 
     const itemDef = ITEM_TYPES[itemName];
 
-    // Point 25, 40, 41, 42: Vérifications avant de tenter de consommer
     if (itemDef && itemDef.effects) {
         if ((itemName === 'Eau pure' || itemName === 'Eau salée' || itemName === 'Eau croupie' || itemName === 'Noix de coco') && player.thirst >= player.maxThirst) {
             const msg = itemName === 'Noix de coco' ? "Vous n'avez pas soif." : "Vous n'avez pas soif, vous devriez économiser cette eau précieuse.";
@@ -471,7 +469,7 @@ function handleConsumeClick(itemName) {
     }
 
 
-    if (itemName === 'Eau salée') { // Géré par action spécifique si cliqué depuis la plage
+    if (itemName === 'Eau salée') {
          handleGlobalPlayerAction('consume_eau_salee', {itemName: 'Eau salée'});
          return;
     }
@@ -481,9 +479,8 @@ function handleConsumeClick(itemName) {
         if (equipResult.success) fullUIUpdate();
         return;
     }
-    // Point 15: Charger radio/tel
     if (itemName === 'Batterie chargée' && player.equipment.weapon && (player.equipment.weapon.name === 'Radio déchargée' || player.equipment.weapon.name === 'Téléphone déchargé')) {
-        const result = State.consumeItem(itemName); // La logique de charge est dans State.consumeItem
+        const result = State.consumeItem(itemName);
         UI.addChatMessage(result.message, result.success ? 'system_event' : 'system_error');
         if (result.success) fullUIUpdate();
         return;
@@ -788,20 +785,19 @@ function setupEventListeners() {
             else if (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
             return;
         }
-        // Point 10: Entrée pour le tchat
-        if (e.key === 'Enter') {
+
+        if (e.key === 'Enter') { // Point 10
             if (document.activeElement === DOM.chatInputEl) {
                 if (DOM.chatInputEl.value.trim() !== '') {
-                    // Pour l'instant, le chat n'est pas "envoyé" à d'autres joueurs, juste affiché localement
                     UI.addChatMessage(DOM.chatInputEl.value.trim(), 'player', State.state.player.name || "Aventurier");
                     DOM.chatInputEl.value = '';
                 }
-                DOM.chatInputEl.blur(); // Optionnel: retirer le focus après envoi
+                DOM.chatInputEl.blur();
             } else {
                 DOM.chatInputEl.focus();
             }
-            e.preventDefault(); // Empêcher le comportement par défaut de la touche Entrée
-            return; // Important pour ne pas déclencher d'autres raccourcis
+            e.preventDefault();
+            return;
         }
 
 
