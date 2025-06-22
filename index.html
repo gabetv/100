@@ -39,7 +39,7 @@
 
             <!-- ### PANNEAU DE DROITE ### -->
             <div id="right-panel" class="ui-panel">
-                <section id="tile-info"><h3><span>Lieu: <span id="tile-name">Forêt</span> <span id="hud-coords" class="coords-display">(7,10)</span></span></h3><p id="tile-harvests-info" class="tile-detail"></p></section>
+                <section id="tile-info"><h3><span>Lieu: <span id="tile-name">Forêt</span> <span id="hud-coords" class="coords-display">(0,0)</span></span></h3><p id="tile-harvests-info" class="tile-detail"></p></section>
                 <section id="interaction-panel"><h3>Actions Possibles</h3><div id="actions"></div></section>
                 <section id="inventory-section"><h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3>
                     <div id="inventory-categories" class="droppable" data-owner="player-inventory">
@@ -67,7 +67,7 @@
                 </div>
             </div>
 
-            <div id="bottom-bar-ground-items" class="bottom-bar-section droppable" data-owner="ground"> <!-- Assuré droppable et data-owner (Point 4) -->
+            <div id="bottom-bar-ground-items" class="bottom-bar-section droppable" data-owner="ground">
                 <h4>Objets et ressources au sol</h4>
                 <ul class="inventory-list ground-items-list">
                     <!-- Les objets au sol seront générés par JS -->
@@ -75,7 +75,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- MODALES COMPLETES -->
     <div id="large-map-modal" class="hidden">
         <button id="close-large-map-btn">&times;</button>
@@ -141,7 +141,7 @@
             <div id="combat-actions"></div>
         </div>
     </div>
-    
+
     <div id="equipment-modal" class="hidden">
         <div id="equipment-modal-content">
             <button id="close-equipment-modal-btn">&times;</button>
@@ -153,10 +153,10 @@
                 </div>
                 <div id="equipment-slots">
                     <div class="equipment-slot-container"><label>Tête</label><div class="equipment-slot droppable" data-slot-type="head" data-owner="equipment"></div></div>
-                    <div class="equipment-slot-container"><label>Arme</label><div class="equipment-slot droppable" data-slot-type="weapon" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Arme/Outil</label><div class="equipment-slot droppable" data-slot-type="weapon" data-owner="equipment"></div></div>
                     <div class="equipment-slot-container"><label>Bouclier</label><div class="equipment-slot droppable" data-slot-type="shield" data-owner="equipment"></div></div>
                     <div class="equipment-slot-container"><label>Habit/Armure</label><div class="equipment-slot droppable" data-slot-type="body" data-owner="equipment"></div></div>
-                    <div class="equipment-slot-container"><label>Chaussures</label><div class="equipment-slot droppable" data-slot-type="feet" data-owner="equipment"></div></div> <!-- Libellé déjà "Chaussures" (Point 15) -->
+                    <div class="equipment-slot-container"><label>Chaussures</label><div class="equipment-slot droppable" data-slot-type="feet" data-owner="equipment"></div></div>
                     <div class="equipment-slot-container"><label>Sac</label><div class="equipment-slot droppable" data-slot-type="bag" data-owner="equipment"></div></div>
                 </div>
                 <div class="inventory-container">
@@ -172,7 +172,7 @@
         <div id="context-menu-actions"></div>
     </div>
 
-    <!-- NOUVELLE MODALE DE CONSTRUCTION -->
+    <!-- MODALE DE CONSTRUCTION -->
     <div id="build-modal" class="hidden">
         <div id="build-modal-content">
             <button id="close-build-modal-btn">&times;</button>
@@ -188,7 +188,6 @@
         <div id="admin-modal-content">
             <h2>Menu Admin</h2>
             <button id="admin-give-all-resources-btn">Donner Toutes les Ressources de Base</button>
-            <!-- Vous pourriez ajouter d'autres boutons admin ici à l'avenir -->
             <button id="admin-close-modal-btn">Fermer</button>
         </div>
     </div>

@@ -15,23 +15,14 @@ export function initDOM() {
     DOM.tileDescriptionEl = document.getElementById('tile-description');
     DOM.actionsEl = document.getElementById('actions');
     DOM.chatInputEl = document.getElementById('chat-input-field');
-    DOM.toggleChatSizeBtn = document.getElementById('toggle-chat-size-btn'); 
+    DOM.toggleChatSizeBtn = document.getElementById('toggle-chat-size-btn');
     DOM.dayCounterEl = document.getElementById('day-counter');
-    // DOM.openEquipmentBtn = document.getElementById('open-equipment-btn'); // Déjà supprimé dans la base
 
     // BOUTONS DE NAVIGATION
     DOM.navNorth = document.getElementById('nav-north');
     DOM.navSouth = document.getElementById('nav-south');
     DOM.navEast = document.getElementById('nav-east');
     DOM.navWest = document.getElementById('nav-west');
-
-    // --- SLOTS D'ÉQUIPEMENT RAPIDE --- (Supprimés, mais je laisse les refs commentées si jamais)
-    // DOM.quickSlotWeapon = document.getElementById('quick-slot-weapon');
-    // DOM.quickSlotShield = document.getElementById('quick-slot-shield'); 
-    // DOM.quickSlotArmor = document.getElementById('quick-slot-armor');
-    // DOM.quickSlotBag = document.getElementById('quick-slot-bag');
-    // DOM.quickSlotFeet = document.getElementById('quick-slot-feet'); 
-    // DOM.quickSlotsPanel = document.getElementById('quick-slots-panel'); 
 
     // --- INVENTAIRE PAR CATÉGORIES ---
     DOM.inventoryCategoriesEl = document.getElementById('inventory-categories');
@@ -64,7 +55,7 @@ export function initDOM() {
 
     // --- MODALE D'INVENTAIRE PARTAGÉ ---
     DOM.inventoryModal = document.getElementById('inventory-modal');
-    DOM.closeInventoryModalBtn = document.getElementById('close-inventory-modal-btn'); 
+    DOM.closeInventoryModalBtn = document.getElementById('close-inventory-modal-btn');
     DOM.modalPlayerInventoryEl = document.getElementById('modal-player-inventory');
     DOM.modalSharedInventoryEl = document.getElementById('modal-shared-inventory');
     DOM.modalPlayerCapacityEl = document.getElementById('modal-player-capacity');
@@ -107,7 +98,7 @@ export function initDOM() {
 
     // Chat
     DOM.quickChatButton = document.getElementById('quick-chat-button');
-    DOM.chatMessagesEl = document.getElementById('chat-messages'); 
+    DOM.chatMessagesEl = document.getElementById('chat-messages');
 
     // Éléments de la nouvelle barre inférieure (réorganisation)
     DOM.bottomBarEl = document.getElementById('bottom-bar');

@@ -1,16 +1,18 @@
 // js/ui/modals.js
-import { ITEM_TYPES, COMBAT_CONFIG, TILE_TYPES } from '../config.js'; 
-import { getTotalResources } from '../player.js'; 
-import * as State from '../state.js'; 
-import DOM from './dom.js'; 
-import * as Draw from './draw.js'; 
-import { handleCombatAction, handlePlayerAction } from '../interactions.js'; 
+import { ITEM_TYPES, COMBAT_CONFIG, TILE_TYPES } from '../config.js';
+import { getTotalResources } from '../player.js';
+import * as State from '../state.js';
+import DOM from './dom.js';
+import * as Draw from './draw.js';
+import { handleCombatAction, handlePlayerAction } from '../interactions.js';
 
 let quantityConfirmCallback = null;
 
 function populateInventoryList(inventory, listElement, owner) {
     if (!listElement) return;
     listElement.innerHTML = '';
+    let itemCountInList = 0; // Pour le point 22
+
     if (Object.keys(inventory).length === 0) {
         const li = document.createElement('li');
         li.className = 'inventory-empty';
@@ -20,6 +22,24 @@ function populateInventoryList(inventory, listElement, owner) {
         for (const itemName in inventory) {
             const count = inventory[itemName];
             if (count <= 0) continue;
+
+            // Point 22: Limiter à 13 items visibles pour les coffres d'abri (simplification)
+            if (owner === 'shared' && (listElement.id === 'modal-shared-inventory')) {
+                const tile = State.state.map[State.state.player.y][State.state.player.x];
+                const building = tile.buildings.find(b => TILE_TYPES[b.key]?.inventory && (b.key === 'SHELTER_INDIVIDUAL' || b.key === 'SHELTER_COLLECTIVE'));
+                if (building && itemCountInList >= 13) {
+                    if (itemCountInList === 13) { // Afficher le message une seule fois
+                        const liMore = document.createElement('li');
+                        liMore.className = 'inventory-empty';
+                        liMore.textContent = `(...et plus. Faites défiler pour voir tout.)`; // Simplification sans pagination
+                        listElement.appendChild(liMore);
+                    }
+                    itemCountInList++; // Continuer de compter pour savoir s'il y a "plus"
+                    // On ne `break` pas pour permettre le défilement. La pagination est plus complexe.
+                }
+            }
+
+
             const li = document.createElement('li');
             li.className = 'inventory-item';
             li.setAttribute('draggable', 'true');
@@ -29,6 +49,7 @@ function populateInventoryList(inventory, listElement, owner) {
             const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
             li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${count}</span>`;
             listElement.appendChild(li);
+            if (owner === 'shared' && listElement.id === 'modal-shared-inventory') itemCountInList++;
         }
     }
 }
@@ -47,16 +68,16 @@ export function showInventoryModal(gameState) {
 
     if (buildingWithInventoryInstance) {
         tileInventorySourceDef = TILE_TYPES[buildingWithInventoryInstance.key];
-        if (!tile.inventory) { 
+        if (!tile.inventory) {
             if (tileInventorySourceDef && tileInventorySourceDef.inventory) {
                 tile.inventory = JSON.parse(JSON.stringify(tileInventorySourceDef.inventory));
             }
         }
         currentTileInventory = tile.inventory;
         currentTileMaxInventory = tileInventorySourceDef.maxInventory || Infinity;
-    } else if (tile.type.inventory) { 
+    } else if (tile.type.inventory) { // Pour les trésors ou autres tuiles avec inventaire direct
         tileInventorySourceDef = tile.type;
-        if (!tile.inventory) { 
+        if (!tile.inventory) {
             tile.inventory = JSON.parse(JSON.stringify(tileInventorySourceDef.inventory));
         }
         currentTileInventory = tile.inventory;
@@ -110,16 +131,19 @@ export function updateEquipmentModal(gameState) {
             const slotType = slotEl.dataset.slotType;
             if (!slotType) return;
             const equippedItem = player.equipment[slotType];
-            slotEl.innerHTML = '';
+            slotEl.innerHTML = ''; // Vider le slot
             if (equippedItem) {
                 const itemDiv = document.createElement('div');
-                itemDiv.className = 'inventory-item';
+                itemDiv.className = 'inventory-item'; // Utiliser la même classe pour le style
                 itemDiv.setAttribute('draggable', 'true');
                 itemDiv.dataset.itemName = equippedItem.name;
-                itemDiv.dataset.owner = 'equipment';
-                itemDiv.dataset.slotType = slotType;
+                itemDiv.dataset.owner = 'equipment'; // Important pour le drag & drop
+                itemDiv.dataset.slotType = slotType; // Pour identifier le slot source
+
                 const itemDef = ITEM_TYPES[equippedItem.name] || { icon: equippedItem.icon || '❓' };
                 itemDiv.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${equippedItem.name}</span>`;
+
+                // Point 24: Afficher la durabilité
                 if (equippedItem.hasOwnProperty('currentDurability') && equippedItem.hasOwnProperty('durability')) {
                      itemDiv.innerHTML += `<span class="item-durability">${equippedItem.currentDurability}/${equippedItem.durability}</span>`;
                 }
@@ -153,7 +177,7 @@ export function updateCombatUI(combatState) {
     if (!combatState || !DOM.combatModal) return;
     const { combatEnemyName, combatEnemyHealthBar, combatEnemyHealthText, combatPlayerHealthBar, combatPlayerHealthText, combatLogEl, combatActionsEl } = DOM;
     if (!window.gameState || !window.gameState.player) { console.error("gameState.player non accessible dans updateCombatUI"); return; }
-    const player = window.gameState.player;
+    const player = window.gameState.player; // Utiliser la référence globale au gameState
     const { enemy, isPlayerTurn, log } = combatState;
 
     if(combatEnemyName) combatEnemyName.textContent = enemy.name;
@@ -246,23 +270,26 @@ function populateBuildModal(gameState) {
     const constructibleBuildings = Object.keys(TILE_TYPES).filter(key => {
         const bt = TILE_TYPES[key];
         if (!bt.isBuilding || !bt.cost) return false;
-        
-        // MODIFIÉ (Point 3) - PETIT_PUIT peut être construit sur autre chose si nécessaire, ou la condition est ajustée dans handlePlayerAction
-        // Ici, on garde la logique de base, la vérification finale se fait dans handlePlayerAction.
-        // La condition `tile.type.name !== TILE_TYPES.PLAINS.name` est générale, des exceptions sont dans handlePlayerAction
-        // if (tile.type.name !== TILE_TYPES.PLAINS.name && key !== 'MINE' && key !== 'CAMPFIRE' && key !== 'PETIT_PUIT') {
-        //     return false;
-        // }
-        
+
+        // Vérifier si le joueur a appris la recette si elle est enseignable
         const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === bt.name && item.isBuildingRecipe);
         if (buildingRecipeParchemin && !knownRecipes[bt.name]) {
-            return false; 
+            return false;
         }
+
+        // Point 3: Petit Puit - ne l'afficher que si l'outil requis est équipé
+        if (key === 'PETIT_PUIT' && bt.cost.toolRequired && bt.cost.toolRequired.length > 0) {
+            const hasRequiredToolForWell = bt.cost.toolRequired.some(toolName =>
+                player.equipment.weapon && player.equipment.weapon.name === toolName
+            );
+            if (!hasRequiredToolForWell) return false; // Ne pas inclure si l'outil n'est pas là
+        }
+
         return true;
     });
 
     if (constructibleBuildings.length === 0) {
-        DOM.buildModalGridEl.innerHTML = '<p class="inventory-empty">Aucune construction disponible ici ou apprise.</p>';
+        DOM.buildModalGridEl.innerHTML = '<p class="inventory-empty">Aucune construction disponible ici ou apprise (ou outil requis manquant).</p>';
         return;
     }
 
@@ -290,9 +317,9 @@ function populateBuildModal(gameState) {
         costsDiv.className = 'build-item-costs';
         costsDiv.innerHTML = '<h4>Coûts :</h4>';
         const costsList = document.createElement('ul');
-        const costs = { ...buildingType.cost };
-        const toolReqArray = costs.toolRequired; 
-        delete costs.toolRequired;
+        const costs = { ...buildingType.cost }; // Copie pour manipulation
+        const toolReqArray = costs.toolRequired; // Sauvegarder avant de supprimer
+        delete costs.toolRequired; // Ne pas afficher 'toolRequired' comme coût en ressource
 
         if (Object.keys(costs).length > 0) {
             for (const item in costs) {
@@ -306,19 +333,18 @@ function populateBuildModal(gameState) {
             costsList.appendChild(li);
         }
         costsDiv.appendChild(costsList);
-        
+
         const toolsDiv = document.createElement('div');
         toolsDiv.className = 'build-item-tools';
         toolsDiv.innerHTML = '<h4>Outils requis :</h4>';
         const toolsList = document.createElement('ul');
-        let hasRequiredToolForThisBuilding = true; // MODIFIÉ (Point 3)
+        let hasRequiredToolForThisBuilding = true;
         if (toolReqArray && toolReqArray.length > 0) {
             toolReqArray.forEach(toolName => {
                 const li = document.createElement('li');
                 li.textContent = toolName;
                 toolsList.appendChild(li);
             });
-            // Vérifier si le joueur a AU MOINS UN des outils requis
             hasRequiredToolForThisBuilding = toolReqArray.some(toolName =>
                 player.equipment.weapon && player.equipment.weapon.name === toolName
             );
@@ -334,13 +360,14 @@ function populateBuildModal(gameState) {
         const buildButton = document.createElement('button');
         buildButton.textContent = "Construire";
 
-        const hasEnoughResources = State.hasResources(costs).success;
-        // La variable hasRequiredTool est maintenant locale à la carte pour ce bâtiment (hasRequiredToolForThisBuilding)
-        const canBuild = hasEnoughResources && hasRequiredToolForThisBuilding && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE;
-        
+        const hasEnoughResources = State.hasResources(costs).success; // Vérifier les coûts SANS toolRequired
+        const canBuildHere = tile.type.buildable || (bKey === 'MINE' || bKey === 'CAMPFIRE' || bKey === 'PETIT_PUIT'); // Conditions de terrain
+        const canBuild = hasEnoughResources && hasRequiredToolForThisBuilding && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE && canBuildHere;
+
         buildButton.disabled = !canBuild || player.isBusy;
         if (!canBuild) {
             if (tile.buildings.length >= config.MAX_BUILDINGS_PER_TILE) buildButton.title = "Max bâtiments sur tuile";
+            else if (!canBuildHere) buildButton.title = "Ne peut pas être construit sur ce type de terrain.";
             else if (!hasEnoughResources) buildButton.title = "Ressources manquantes";
             else if (!hasRequiredToolForThisBuilding) buildButton.title = "Outil requis manquant";
         }
@@ -349,10 +376,10 @@ function populateBuildModal(gameState) {
         buildButton.onclick = () => {
             if (window.handleGlobalPlayerAction) {
                 window.handleGlobalPlayerAction('build_structure', { structureKey: bKey });
-            } else { 
+            } else {
                  handlePlayerAction('build_structure', { structureKey: bKey }, { updateAllUI: window.fullUIUpdate, updatePossibleActions: window.updatePossibleActions, updateAllButtonsState: () => window.UI.updateAllButtonsState(State.state) });
             }
-            hideBuildModal(); 
+            hideBuildModal();
         };
         actionDiv.appendChild(buildButton);
 

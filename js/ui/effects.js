@@ -2,22 +2,24 @@
 
 export function showFloatingText(text, type) {
     const mainView = document.getElementById('main-view-container');
+    if (!mainView) return; // S'assurer que mainView existe
     const textEl = document.createElement('div');
     textEl.textContent = text;
-    textEl.className = `floating-text ${type}`;
+    textEl.className = `floating-text ${type}`; // ex: type = 'gain', 'cost', 'info'
     const rect = mainView.getBoundingClientRect();
     textEl.style.left = `${rect.left + rect.width / 2}px`;
-    textEl.style.top = `${rect.top + rect.height / 3}px`;
+    textEl.style.top = `${rect.top + rect.height / 3}px`; // Positionner par rapport à mainView
     document.body.appendChild(textEl);
     setTimeout(() => {
         textEl.remove();
-    }, 2000);
+    }, 2000); // Durée d'affichage du texte
 }
 
 export function triggerActionFlash(type) {
     const flashEl = document.getElementById('action-flash');
-    flashEl.className = '';
-    void flashEl.offsetWidth; // Force reflow
+    if (!flashEl) return;
+    flashEl.className = ''; // Réinitialiser les classes
+    void flashEl.offsetWidth; // Forcer un reflow pour que l'animation redémarre
     flashEl.classList.add(type === 'gain' ? 'flash-gain' : 'flash-cost');
 }
 
@@ -26,7 +28,7 @@ export function triggerShake(element) {
     element.classList.add('action-failed-shake');
     setTimeout(() => {
         element.classList.remove('action-failed-shake');
-    }, 500);
+    }, 500); // Durée de l'animation de secousse
 }
 
 export function resizeGameView() {
@@ -34,9 +36,8 @@ export function resizeGameView() {
     const container = document.getElementById('main-view-container');
     if (!wrapper || !container) return;
 
-    // CORRECTION : On s'assure que la taille n'est jamais négative
-    const size = Math.max(10, Math.min(wrapper.clientWidth, wrapper.clientHeight) - 10);
-    
+    const size = Math.max(10, Math.min(wrapper.clientWidth, wrapper.clientHeight) - 10); // -10 pour un petit padding
+
     container.style.width = `${size}px`;
     container.style.height = `${size}px`;
 

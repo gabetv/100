@@ -1,12 +1,12 @@
 // js/ui/panels.js
-import { ITEM_TYPES, TILE_TYPES } from '../config.js'; 
-import { getTotalResources } from '../player.js'; 
-import DOM from './dom.js'; 
+import { ITEM_TYPES, TILE_TYPES } from '../config.js';
+import { getTotalResources } from '../player.js';
+import DOM from './dom.js';
 
 function drawSquaresBar(container, value, maxValue) {
     if (!container) return;
     container.innerHTML = '';
-    const numSquares = 10; 
+    const numSquares = 10;
     const filledCount = Math.ceil((value / maxValue) * numSquares);
 
     for (let i = 0; i < numSquares; i++) {
@@ -20,96 +20,82 @@ function drawSquaresBar(container, value, maxValue) {
 export function updateStatsPanel(player) {
     if (!player) return;
     const { healthBarSquaresEl, thirstBarSquaresEl, hungerBarSquaresEl, sleepBarSquaresEl, healthStatusEl } = DOM;
-    
+
     drawSquaresBar(healthBarSquaresEl, player.health, player.maxHealth);
     drawSquaresBar(thirstBarSquaresEl, player.thirst, player.maxThirst);
     drawSquaresBar(hungerBarSquaresEl, player.hunger, player.maxHunger);
     drawSquaresBar(sleepBarSquaresEl, player.sleep, player.maxSleep);
-    
+
     if (healthStatusEl) healthStatusEl.textContent = player.status;
 
     if (healthBarSquaresEl) healthBarSquaresEl.classList.toggle('pulsing', player.health <= (player.maxHealth * 0.3));
     if (thirstBarSquaresEl) thirstBarSquaresEl.classList.toggle('pulsing', player.thirst <= (player.maxThirst * 0.2));
     if (hungerBarSquaresEl) hungerBarSquaresEl.classList.toggle('pulsing', player.hunger <= (player.maxHunger * 0.2));
     if (sleepBarSquaresEl) sleepBarSquaresEl.classList.toggle('pulsing', player.sleep <= (player.maxSleep * 0.2));
-    
+
     const survivalVignette = document.getElementById('survival-vignette');
     if (survivalVignette) survivalVignette.classList.toggle('active', player.health <= (player.maxHealth * 0.3));
 }
 
 export function updateQuickSlots(player) {
-    // console.log("updateQuickSlots est appelée mais les quick slots sont supprimés de l'UI.");
+    // Quick slots sont désactivés/supprimés, cette fonction est gardée pour compatibilité si elle est appelée ailleurs.
 }
 
 export function updateInventory(player) {
     if (!player || !player.inventory || !DOM.inventoryCategoriesEl || !DOM.inventoryCapacityEl) return;
-    
-    DOM.inventoryCategoriesEl.innerHTML = ''; 
-    const total = getTotalResources(player.inventory); 
+
+    DOM.inventoryCategoriesEl.innerHTML = '';
+    const total = getTotalResources(player.inventory);
     DOM.inventoryCapacityEl.textContent = `(${total} / ${player.maxInventory})`;
 
-    const categories = { 
-        consumableAndUtility: [], // MODIFIÉ (Point 27)
-        toolAndWeapon: [],      // MODIFIÉ (Point 26)
-        shield: [], armor: [], 
-        body: [], head: [], feet: [], bag: [], 
-        resource: [], 
-        // usable: [], // 'usable' items will be directed to 'consumableAndUtility' or 'toolAndWeapon'
-        key: [], 
+    const categories = {
+        consumableAndUtility: [],
+        toolAndWeapon: [],
+        shield: [], armor: [], // 'armor' est souvent utilisé pour 'body' avec défense
+        body: [], head: [], feet: [], bag: [],
+        resource: [],
+        key: [],
     };
-    
+
     for (const itemName in player.inventory) {
         if (player.inventory[itemName] > 0) {
             const itemDef = ITEM_TYPES[itemName] || { type: 'resource', icon: '❓' };
-            let type = itemDef.type; 
+            let type = itemDef.type;
 
-            if (itemDef.type === 'tool' || itemDef.type === 'weapon') { // MODIFIÉ (Point 26)
+            if (itemDef.type === 'tool' || itemDef.type === 'weapon' || (itemDef.type === 'usable' && itemDef.slot === 'weapon')) {
                 type = 'toolAndWeapon';
-            } else if (itemDef.type === 'consumable' || itemDef.type === 'usable') { // MODIFIÉ (Point 20, 27)
-                // Rediriger 'usable' vers 'consumableAndUtility' sauf si c'est une clé ou un outil implicite
-                 if (itemDef.type === 'usable' && (itemDef.action || itemDef.isFireStarter || itemDef.slot === 'weapon')) {
-                    // Si 'usable' a une action ou est un firestarter, il va dans consumableAndUtility
-                    // Si c'est un 'usable' avec slot weapon (ex: torche), il ira dans toolAndWeapon
-                    if (itemDef.slot === 'weapon' && categories.toolAndWeapon) {
-                        type = 'toolAndWeapon';
-                    } else {
-                        type = 'consumableAndUtility';
-                    }
-                } else if (itemDef.type === 'consumable') {
-                     type = 'consumableAndUtility';
-                }
-            } else if (itemDef.slot) { 
+            } else if (itemDef.type === 'consumable' || itemDef.type === 'usable') {
+                type = 'consumableAndUtility';
+            } else if (itemDef.slot) { // Pour les équipements
                 if (categories[itemDef.slot]) { type = itemDef.slot; }
-                else if (itemDef.type === 'armor' && itemDef.slot === 'body') { type = 'armor'; } // Garder armure spécifique
+                else if (itemDef.type === 'armor' && itemDef.slot === 'body') { type = 'armor'; }
                 else if (itemDef.type === 'shield' && itemDef.slot === 'shield') { type = 'shield'; }
-                 // 'tool' avec slot est déjà géré par toolAndWeapon
             }
 
             if (categories[type]) { categories[type].push(itemName); }
-            else if (categories.resource && type === 'resource') { // S'assurer que 'resource' est bien classé
+            else if (categories.resource && type === 'resource') {
                 categories.resource.push(itemName);
             } else if (categories.key && type === 'key') {
                 categories.key.push(itemName);
             }
-            else { 
+            else {
                 console.warn(`Type d'item '${type}' pour '${itemName}' n'a pas de catégorie dédiée, classé comme ressource par défaut.`);
-                if (categories.resource) categories.resource.push(itemName); // Fallback
+                if (categories.resource) categories.resource.push(itemName);
                 else console.error(`Catégorie de ressource par défaut manquante et type inconnu pour l'item ${itemName}`);
             }
         }
     }
 
-    const categoryOrder = [ // MODIFIÉ (Point 26 & 27)
-        { key: 'consumableAndUtility', name: 'Consommables et Utilitaires' }, 
+    const categoryOrder = [
+        { key: 'consumableAndUtility', name: 'Consommables et Utilitaires' },
         { key: 'toolAndWeapon', name: 'Outils et Armes' },
         { key: 'shield', name: 'Boucliers' },
-        { key: 'armor', name: 'Armures (Corps)' },{ key: 'body', name: 'Habits (Corps)' },   
-        { key: 'head', name: 'Chapeaux' }, { key: 'feet', name: 'Chaussures' }, 
-        { key: 'bag', name: 'Sacs' }, { key: 'resource', name: 'Ressources' }, 
-        // { key: 'usable', name: 'Objets Spéciaux' }, // Supprimé ou fusionné
-        { key: 'key', name: 'Clés & Uniques' }, 
+        { key: 'armor', name: 'Armures (Corps)' },{ key: 'body', name: 'Habits (Corps)' },
+        { key: 'head', name: 'Chapeaux & Casques' }, { key: 'feet', name: 'Chaussures' },
+        { key: 'bag', name: 'Sacs' }, { key: 'resource', name: 'Ressources' },
+        { key: 'key', name: 'Clés & Uniques' },
     ];
-    
+
     let hasItems = false;
     categoryOrder.forEach(cat => {
         const itemsInCategory = categories[cat.key];
@@ -118,8 +104,8 @@ export function updateInventory(player) {
             const categoryDiv = document.createElement('div');
             categoryDiv.className = 'inventory-category';
             const header = document.createElement('div');
-            header.className = 'category-header'; 
-            if (['resource', 'consumableAndUtility', 'toolAndWeapon', 'key'].includes(cat.key)) header.classList.add('open'); // Ajusté
+            header.className = 'category-header';
+            if (['resource', 'consumableAndUtility', 'toolAndWeapon', 'key'].includes(cat.key)) header.classList.add('open');
             header.innerHTML = `<span>${cat.name}</span><span class="category-toggle">▶</span>`;
             const content = document.createElement('ul');
             content.className = 'category-content';
@@ -129,13 +115,14 @@ export function updateInventory(player) {
                 const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
                 const li = document.createElement('li');
                 li.className = 'inventory-item';
-                // La classe 'clickable' sera déterminée par les actions possibles dans handleConsumeClick
-                if (itemDef.type === 'consumable' || itemDef.teachesRecipe || itemName === 'Eau salée' || itemDef.slot || itemName === 'Carte' || itemDef.type === 'usable' || itemDef.type === 'key') {
-                    li.classList.add('clickable'); 
+
+                // Déterminer si l'item est cliquable (consommable, enseignable, équipable, utilisable, clé)
+                if (itemDef.type === 'consumable' || itemDef.teachesRecipe || itemDef.slot || itemName === 'Carte' || itemDef.type === 'usable' || itemDef.type === 'key' || itemName === 'Batterie chargée') {
+                    li.classList.add('clickable');
                 }
                 li.dataset.itemName = itemName;
-                li.setAttribute('draggable', 'true'); 
-                li.dataset.itemCount = player.inventory[itemName]; 
+                li.setAttribute('draggable', 'true');
+                li.dataset.itemCount = player.inventory[itemName];
                 li.dataset.owner = 'player-inventory';
                 li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${player.inventory[itemName]}</span>`;
                 content.appendChild(li);
@@ -145,38 +132,41 @@ export function updateInventory(player) {
             DOM.inventoryCategoriesEl.appendChild(categoryDiv);
         }
     });
-    if (!hasItems) DOM.inventoryCategoriesEl.innerHTML = '<li class="inventory-empty">(Vide)</li>'; 
+    if (!hasItems) DOM.inventoryCategoriesEl.innerHTML = '<li class="inventory-empty">(Vide)</li>';
 }
 
 
-export function updateDayCounter(day) { 
-    if (DOM.dayCounterEl) DOM.dayCounterEl.textContent = day; 
+export function updateDayCounter(day) {
+    if (DOM.dayCounterEl) DOM.dayCounterEl.textContent = day;
 }
 
-export function updateTileInfoPanel(tile) { 
+export function updateTileInfoPanel(tile) {
     if (!tile || !DOM.tileNameEl || !DOM.tileHarvestsInfoEl) return;
 
-    let mainDisplayName = tile.type.name; 
-    let mainHarvestsInfo = "";
+    let mainDisplayName = tile.type.name;
     let mainDurabilityInfo = "";
 
     if (tile.buildings && tile.buildings.length > 0) {
-        const mainBuildingInstance = tile.buildings[0]; 
-        const mainBuildingDef = TILE_TYPES[mainBuildingInstance.key]; 
+        const mainBuildingInstance = tile.buildings[0]; // Affiche info du premier bâtiment
+        const mainBuildingDef = TILE_TYPES[mainBuildingInstance.key];
         if (mainBuildingDef) {
             mainDisplayName = mainBuildingDef.name;
-            mainDurabilityInfo = `Durabilité: ${mainBuildingInstance.durability}/${mainBuildingInstance.maxDurability}`; // MODIFIÉ (Point 22)
+            mainDurabilityInfo = `Durabilité: ${mainBuildingInstance.durability}/${mainBuildingInstance.maxDurability}`;
         }
     }
 
     DOM.tileNameEl.textContent = mainDisplayName;
 
-    if (mainDurabilityInfo && DOM.tileHarvestsInfoEl) { 
+    if (mainDurabilityInfo && DOM.tileHarvestsInfoEl) {
         DOM.tileHarvestsInfoEl.textContent = mainDurabilityInfo;
         DOM.tileHarvestsInfoEl.style.display = 'block';
     } else if (tile.type.resource && tile.harvestsLeft > 0 && tile.type.harvests !== Infinity && (!tile.buildings || tile.buildings.length === 0) && DOM.tileHarvestsInfoEl) {
-        mainHarvestsInfo = `Récoltes (terrain): ${tile.harvestsLeft}`;
-        DOM.tileHarvestsInfoEl.textContent = mainHarvestsInfo;
+        let harvestsInfoText = `Récoltes (terrain): ${tile.harvestsLeft}`;
+        // Point 1: Afficher les actions restantes pour la plage
+        if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsLeft) {
+            harvestsInfoText = `Fouilles: ${tile.actionsLeft.search_zone}, Sable: ${tile.actionsLeft.harvest_sand}, Pêche: ${tile.actionsLeft.fish}, Eau salée: ${tile.actionsLeft.harvest_salt_water}`;
+        }
+        DOM.tileHarvestsInfoEl.textContent = harvestsInfoText;
         DOM.tileHarvestsInfoEl.style.display = 'block';
     } else if (DOM.tileHarvestsInfoEl) {
         DOM.tileHarvestsInfoEl.style.display = 'none';
@@ -188,23 +178,23 @@ export function addChatMessage(message, type, author) {
     if (!chatMessagesEl) return;
 
     const msgDiv = document.createElement('div');
-    msgDiv.classList.add('chat-message', type || 'system'); 
+    msgDiv.classList.add('chat-message', type || 'system');
     let content = author ? `<strong>${author}: </strong>` : '';
-    const spanMessage = document.createElement('span'); 
+    const spanMessage = document.createElement('span');
     spanMessage.textContent = message;
     if (type === 'npc-dialogue') {
         msgDiv.innerHTML = author ? `<strong>${author}: </strong>${message}` : message;
     } else {
-        msgDiv.innerHTML = content + spanMessage.outerHTML; 
+        msgDiv.innerHTML = content + spanMessage.outerHTML;
     }
     chatMessagesEl.appendChild(msgDiv);
-    
+
     if (DOM.bottomBarChatPanelEl && !DOM.bottomBarChatPanelEl.classList.contains('chat-enlarged')) {
         while (chatMessagesEl.children.length > 3) {
             chatMessagesEl.removeChild(chatMessagesEl.firstChild);
         }
     }
-    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight; 
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
     return msgDiv;
 }
 
@@ -216,54 +206,57 @@ export function updateAllButtonsState(gameState) {
     document.querySelectorAll('.nav-button-overlay').forEach(b => {
         b.disabled = isPlayerBusy;
     });
-    
+
     if (DOM.consumeHealthBtn) {
         let canHeal = false;
-        if ((player.inventory['Kit de Secours'] > 0 && (player.status === 'Blessé' || player.status === 'Malade')) || 
-            (player.inventory['Bandage'] > 0 && player.status === 'Blessé') || 
-            (player.inventory['Médicaments'] > 0 && player.status === 'Malade')) {
+        if ((player.inventory['Kit de Secours'] > 0 && player.status === 'Malade') || // Point 33
+            (player.inventory['Médicaments'] > 0 && (player.status === 'Malade' || player.status === 'Gravement malade' || player.status === 'Drogué')) || // Point 34
+            (player.inventory['Antiseptique'] > 0 && (player.status === 'Blessé' || player.status === 'Malade' || player.status === 'Gravement malade')) || // Point 39
+            (player.inventory['Bandage'] > 0 && player.health < player.maxHealth) || // Point 32
+            (player.inventory['Savon'] > 0 && player.health < player.maxHealth) || // Point 37
+            (player.inventory['Huile de coco'] > 0 && player.health < player.maxHealth) // Point 43
+        ) {
             canHeal = true;
         }
-        DOM.consumeHealthBtn.disabled = isPlayerBusy || !canHeal || player.health >= player.maxHealth; // MODIFIÉ (Point 24)
-        DOM.consumeHealthBtn.style.visibility = (player.health >= player.maxHealth || !canHeal) ? 'hidden' : 'visible'; // MODIFIÉ (Point 24)
+        DOM.consumeHealthBtn.disabled = isPlayerBusy || !canHeal || player.health >= player.maxHealth;
+        DOM.consumeHealthBtn.style.visibility = (player.health >= player.maxHealth || !canHeal) ? 'hidden' : 'visible';
     }
     if (DOM.consumeThirstBtn) {
         let canDrink = false;
-        if ((player.inventory['Eau pure'] > 0) || (player.inventory['Noix de coco'] > 0)) {
+        if ((player.inventory['Eau pure'] > 0 && player.thirst < player.maxThirst) ||
+            (player.inventory['Noix de coco'] > 0 && player.thirst < player.maxThirst)
+        ) { // Point 25, 40
             canDrink = true;
         }
-        DOM.consumeThirstBtn.disabled = isPlayerBusy || !canDrink || player.thirst >= player.maxThirst; // MODIFIÉ (Point 24)
-        DOM.consumeThirstBtn.style.visibility = (player.thirst >= player.maxThirst || !canDrink) ? 'hidden' : 'visible'; // MODIFIÉ (Point 24)
+        DOM.consumeThirstBtn.disabled = isPlayerBusy || !canDrink;
+        DOM.consumeThirstBtn.style.visibility = !canDrink ? 'hidden' : 'visible';
     }
     if (DOM.consumeHungerBtn) {
         let canEat = false;
-        if ((player.inventory['Viande cuite'] > 0) || 
-            (player.inventory['Poisson cuit'] > 0) || 
-            (player.inventory['Oeuf cuit'] > 0) || 
-            (player.inventory['Barre Énergétique'] > 0) || 
-            (player.inventory['Banane'] > 0) ||
-            (player.inventory['Sucre'] > 0) ||
-            (player.inventory['Sel'] > 0) 
-        ) {
-            canEat = true;
+        const foodItems = ['Viande cuite', 'Poisson cuit', 'Oeuf cuit', 'Barre Énergétique', 'Banane', 'Sucre', 'Sel'];
+        for (const food of foodItems) {
+            if (player.inventory[food] > 0 && player.hunger < player.maxHunger) { // Point 41
+                canEat = true;
+                break;
+            }
         }
-        DOM.consumeHungerBtn.disabled = isPlayerBusy || !canEat || player.hunger >= player.maxHunger; // MODIFIÉ (Point 24)
-        DOM.consumeHungerBtn.style.visibility = (player.hunger >= player.maxHunger || !canEat) ? 'hidden' : 'visible'; // MODIFIÉ (Point 24)
+        DOM.consumeHungerBtn.disabled = isPlayerBusy || !canEat;
+        DOM.consumeHungerBtn.style.visibility = !canEat ? 'hidden' : 'visible';
 
     }
-    
+
     if (DOM.quickChatButton) DOM.quickChatButton.disabled = isPlayerBusy;
 
     if (DOM.actionsEl) {
         DOM.actionsEl.querySelectorAll('button').forEach(b => {
-            if (isPlayerBusy && !b.classList.contains('action-always-enabled')) { 
+            if (isPlayerBusy && !b.classList.contains('action-always-enabled')) {
                 b.disabled = true;
             }
         });
     }
     if (DOM.buildModalGridEl) {
         DOM.buildModalGridEl.querySelectorAll('button').forEach(b => {
-             if (isPlayerBusy && !b.classList.contains('action-always-enabled')) { 
+             if (isPlayerBusy && !b.classList.contains('action-always-enabled')) {
                 b.disabled = true;
             }
         });
@@ -277,7 +270,7 @@ export function updateGroundItemsPanel(tile) {
     const groundItems = tile.groundItems || {};
     const list = DOM.bottomBarGroundItemsEl.querySelector('.ground-items-list');
     if (list) {
-        list.innerHTML = ''; 
+        list.innerHTML = '';
     } else {
         console.error("Élément .ground-items-list non trouvé dans #bottom-bar-ground-items");
         return;
@@ -293,10 +286,10 @@ export function updateGroundItemsPanel(tile) {
             if (groundItems[itemName] > 0) {
                 const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
                 const li = document.createElement('li');
-                li.className = 'inventory-item clickable'; 
+                li.className = 'inventory-item clickable';
                 li.dataset.itemName = itemName;
                 li.dataset.itemCount = groundItems[itemName];
-                li.setAttribute('draggable', 'true'); 
+                li.setAttribute('draggable', 'true');
                 li.dataset.owner = 'ground';
 
                 li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${groundItems[itemName]}</span>`;
@@ -313,9 +306,9 @@ export function updateBottomBarEquipmentPanel(player) {
     slotsContainer.innerHTML = '';
 
     const slotTypesAndLabels = [
-        { type: 'head', label: 'Chapeau' }, { type: 'weapon', label: 'Arme' },
-        { type: 'shield', label: 'Bouclier' }, { type: 'body', label: 'Habit' },
-        { type: 'feet', label: 'Chaussures' }, // MODIFIÉ (Point 15)
+        { type: 'head', label: 'Tête' }, { type: 'weapon', label: 'Arme/Outil' },
+        { type: 'shield', label: 'Bouclier' }, { type: 'body', label: 'Habit/Armure' },
+        { type: 'feet', label: 'Chaussures' },
         { type: 'bag', label: 'Sac' }
     ];
 
@@ -327,7 +320,7 @@ export function updateBottomBarEquipmentPanel(player) {
         slotContainer.appendChild(label);
 
         const slotEl = document.createElement('div');
-        slotEl.className = 'equipment-slot-small droppable'; 
+        slotEl.className = 'equipment-slot-small droppable';
         slotEl.dataset.slotType = slotInfo.type;
         slotEl.dataset.owner = 'equipment';
 
@@ -335,17 +328,25 @@ export function updateBottomBarEquipmentPanel(player) {
         if (equippedItem) {
             const itemDef = ITEM_TYPES[equippedItem.name] || { icon: equippedItem.icon || '❓' };
             const itemDiv = document.createElement('div');
-            itemDiv.className = 'inventory-item'; 
-            itemDiv.setAttribute('draggable', 'true'); 
+            itemDiv.className = 'inventory-item';
+            itemDiv.setAttribute('draggable', 'true');
             itemDiv.dataset.itemName = equippedItem.name;
-            itemDiv.dataset.owner = 'equipment'; 
-            itemDiv.dataset.slotType = slotInfo.type; 
+            itemDiv.dataset.owner = 'equipment';
+            itemDiv.dataset.slotType = slotInfo.type;
 
             const iconEl = document.createElement('span');
             iconEl.className = 'inventory-icon';
             iconEl.textContent = itemDef.icon;
             itemDiv.appendChild(iconEl);
-            slotEl.appendChild(itemDiv); 
+
+            // Point 24: Afficher la durabilité
+            if (equippedItem.hasOwnProperty('currentDurability') && equippedItem.hasOwnProperty('durability')) {
+                const durabilityEl = document.createElement('span');
+                durabilityEl.className = 'item-durability-overlay'; // Classe pour styler en CSS
+                durabilityEl.textContent = `${equippedItem.currentDurability}/${equippedItem.durability}`;
+                itemDiv.appendChild(durabilityEl);
+            }
+            slotEl.appendChild(itemDiv);
         }
         slotContainer.appendChild(slotEl);
         slotsContainer.appendChild(slotContainer);

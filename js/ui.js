@@ -1,5 +1,5 @@
 // js/ui.js
-import DOM from './ui/dom.js'; 
+import DOM from './ui/dom.js';
 
 // Importer les modules en entier (namespace import)
 import * as PanelsModule from './ui/panels.js';
@@ -37,9 +37,9 @@ export const hideQuantityModal = ModalsModule.hideQuantityModal;
 export const setupQuantityModalListeners = ModalsModule.setupQuantityModalListeners;
 export const showLargeMap = ModalsModule.showLargeMap;
 export const hideLargeMap = ModalsModule.hideLargeMap;
-export const showBuildModal = ModalsModule.showBuildModal; // Nouvelle exportation
-export const hideBuildModal = ModalsModule.hideBuildModal; // Nouvelle exportation
-export const populateBuildModal = ModalsModule.populateBuildModal; // Nouvelle exportation (utilisée par showBuildModal)
+export const showBuildModal = ModalsModule.showBuildModal;
+export const hideBuildModal = ModalsModule.hideBuildModal;
+export const populateBuildModal = ModalsModule.populateBuildModal;
 
 
 // Depuis ./ui/panels.js
@@ -63,36 +63,36 @@ export function updateAllUI(gameState) {
         console.warn("[ui.js] updateAllUI appelée sans gameState ou player valide.");
         return;
     }
-    
+
     const { player, map, day } = gameState;
     if (!map || !map[player.y] || !map[player.y][player.x]) {
         console.warn("[ui.js] updateAllUI: Coordonnées du joueur invalides ou carte non définie.");
         return;
     }
     const currentTile = map[player.y][player.x];
-    
+
     PanelsModule.updateStatsPanel(player);
     PanelsModule.updateInventory(player);
     PanelsModule.updateDayCounter(day);
     PanelsModule.updateTileInfoPanel(currentTile);
-    PanelsModule.updateQuickSlots(player); // Même si supprimé visuellement, la fonction peut exister
+    PanelsModule.updateQuickSlots(player);
     PanelsModule.updateGroundItemsPanel(currentTile);
     PanelsModule.updateBottomBarEquipmentPanel(player);
-    
+
     if (gameState.config) {
-       DrawModule.drawMinimap(gameState, gameState.config); 
+       DrawModule.drawMinimap(gameState, gameState.config);
     } else {
         console.warn("[ui.js] updateAllUI: gameState.config manquant pour drawMinimap.");
     }
-    
-    if(DOM.hudCoordsEl) { 
+
+    if(DOM.hudCoordsEl) {
         DOM.hudCoordsEl.textContent = `(${player.x}, ${player.y})`;
     }
 }
 
 /**
  * Redessine toute la scène principale du jeu (arrière-plan et personnages).
- * @param {object} gameState 
+ * @param {object} gameState
  */
 export function renderScene(gameState) {
     if (!gameState) {
