@@ -4,14 +4,14 @@ import { getTotalResources } from '../player.js';
 import * as State from '../state.js';
 import DOM from './dom.js';
 import * as Draw from './draw.js';
-import { handleCombatAction, handlePlayerAction } from '../interactions.js';
+import { handleCombatAction, handlePlayerAction } from '../interactions.js'; // Assurez-vous que UI est importé si vous l'utilisez ici, ou passez les fonctions UI nécessaires
 
 let quantityConfirmCallback = null;
 
 function populateInventoryList(inventory, listElement, owner) {
     if (!listElement) return;
     listElement.innerHTML = '';
-    let itemCountInList = 0; // Pour le point 22
+    let itemCountInList = 0;
 
     if (Object.keys(inventory).length === 0) {
         const li = document.createElement('li');
@@ -23,22 +23,19 @@ function populateInventoryList(inventory, listElement, owner) {
             const count = inventory[itemName];
             if (count <= 0) continue;
 
-            // Point 22: Limiter à 13 items visibles pour les coffres d'abri (simplification)
             if (owner === 'shared' && (listElement.id === 'modal-shared-inventory')) {
                 const tile = State.state.map[State.state.player.y][State.state.player.x];
                 const building = tile.buildings.find(b => TILE_TYPES[b.key]?.inventory && (b.key === 'SHELTER_INDIVIDUAL' || b.key === 'SHELTER_COLLECTIVE'));
                 if (building && itemCountInList >= 13) {
-                    if (itemCountInList === 13) { // Afficher le message une seule fois
+                    if (itemCountInList === 13) {
                         const liMore = document.createElement('li');
                         liMore.className = 'inventory-empty';
-                        liMore.textContent = `(...et plus. Faites défiler pour voir tout.)`; // Simplification sans pagination
+                        liMore.textContent = `(...et plus. Faites défiler pour voir tout.)`;
                         listElement.appendChild(liMore);
                     }
-                    itemCountInList++; // Continuer de compter pour savoir s'il y a "plus"
-                    // On ne `break` pas pour permettre le défilement. La pagination est plus complexe.
+                    itemCountInList++;
                 }
             }
-
 
             const li = document.createElement('li');
             li.className = 'inventory-item';
@@ -75,7 +72,7 @@ export function showInventoryModal(gameState) {
         }
         currentTileInventory = tile.inventory;
         currentTileMaxInventory = tileInventorySourceDef.maxInventory || Infinity;
-    } else if (tile.type.inventory) { // Pour les trésors ou autres tuiles avec inventaire direct
+    } else if (tile.type.inventory) {
         tileInventorySourceDef = tile.type;
         if (!tile.inventory) {
             tile.inventory = JSON.parse(JSON.stringify(tileInventorySourceDef.inventory));
@@ -131,19 +128,18 @@ export function updateEquipmentModal(gameState) {
             const slotType = slotEl.dataset.slotType;
             if (!slotType) return;
             const equippedItem = player.equipment[slotType];
-            slotEl.innerHTML = ''; // Vider le slot
+            slotEl.innerHTML = '';
             if (equippedItem) {
                 const itemDiv = document.createElement('div');
-                itemDiv.className = 'inventory-item'; // Utiliser la même classe pour le style
+                itemDiv.className = 'inventory-item';
                 itemDiv.setAttribute('draggable', 'true');
                 itemDiv.dataset.itemName = equippedItem.name;
-                itemDiv.dataset.owner = 'equipment'; // Important pour le drag & drop
-                itemDiv.dataset.slotType = slotType; // Pour identifier le slot source
+                itemDiv.dataset.owner = 'equipment';
+                itemDiv.dataset.slotType = slotType;
 
                 const itemDef = ITEM_TYPES[equippedItem.name] || { icon: equippedItem.icon || '❓' };
                 itemDiv.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${equippedItem.name}</span>`;
 
-                // Point 24: Afficher la durabilité
                 if (equippedItem.hasOwnProperty('currentDurability') && equippedItem.hasOwnProperty('durability')) {
                      itemDiv.innerHTML += `<span class="item-durability">${equippedItem.currentDurability}/${equippedItem.durability}</span>`;
                 }
@@ -177,7 +173,7 @@ export function updateCombatUI(combatState) {
     if (!combatState || !DOM.combatModal) return;
     const { combatEnemyName, combatEnemyHealthBar, combatEnemyHealthText, combatPlayerHealthBar, combatPlayerHealthText, combatLogEl, combatActionsEl } = DOM;
     if (!window.gameState || !window.gameState.player) { console.error("gameState.player non accessible dans updateCombatUI"); return; }
-    const player = window.gameState.player; // Utiliser la référence globale au gameState
+    const player = window.gameState.player;
     const { enemy, isPlayerTurn, log } = combatState;
 
     if(combatEnemyName) combatEnemyName.textContent = enemy.name;
@@ -261,7 +257,7 @@ export function hideBuildModal() {
     if (DOM.buildModal) DOM.buildModal.classList.add('hidden');
 }
 
-function populateBuildModal(gameState) {
+export function populateBuildModal(gameState) { // Rendre exportable si besoin
     if (!DOM.buildModalGridEl || !gameState || !gameState.player || !gameState.map || !gameState.knownRecipes) return;
     const { player, map, knownRecipes, config } = gameState;
     const tile = map[player.y][player.x];
@@ -271,20 +267,17 @@ function populateBuildModal(gameState) {
         const bt = TILE_TYPES[key];
         if (!bt.isBuilding || !bt.cost) return false;
 
-        // Vérifier si le joueur a appris la recette si elle est enseignable
         const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === bt.name && item.isBuildingRecipe);
         if (buildingRecipeParchemin && !knownRecipes[bt.name]) {
             return false;
         }
 
-        // Point 3: Petit Puit - ne l'afficher que si l'outil requis est équipé
         if (key === 'PETIT_PUIT' && bt.cost.toolRequired && bt.cost.toolRequired.length > 0) {
             const hasRequiredToolForWell = bt.cost.toolRequired.some(toolName =>
                 player.equipment.weapon && player.equipment.weapon.name === toolName
             );
-            if (!hasRequiredToolForWell) return false; // Ne pas inclure si l'outil n'est pas là
+            if (!hasRequiredToolForWell) return false;
         }
-
         return true;
     });
 
@@ -317,9 +310,9 @@ function populateBuildModal(gameState) {
         costsDiv.className = 'build-item-costs';
         costsDiv.innerHTML = '<h4>Coûts :</h4>';
         const costsList = document.createElement('ul');
-        const costs = { ...buildingType.cost }; // Copie pour manipulation
-        const toolReqArray = costs.toolRequired; // Sauvegarder avant de supprimer
-        delete costs.toolRequired; // Ne pas afficher 'toolRequired' comme coût en ressource
+        const costs = { ...buildingType.cost };
+        const toolReqArray = costs.toolRequired;
+        delete costs.toolRequired;
 
         if (Object.keys(costs).length > 0) {
             for (const item in costs) {
@@ -360,8 +353,8 @@ function populateBuildModal(gameState) {
         const buildButton = document.createElement('button');
         buildButton.textContent = "Construire";
 
-        const hasEnoughResources = State.hasResources(costs).success; // Vérifier les coûts SANS toolRequired
-        const canBuildHere = tile.type.buildable || (bKey === 'MINE' || bKey === 'CAMPFIRE' || bKey === 'PETIT_PUIT'); // Conditions de terrain
+        const hasEnoughResources = State.hasResources(costs).success;
+        const canBuildHere = tile.type.buildable || (bKey === 'MINE' || bKey === 'CAMPFIRE' || bKey === 'PETIT_PUIT');
         const canBuild = hasEnoughResources && hasRequiredToolForThisBuilding && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE && canBuildHere;
 
         buildButton.disabled = !canBuild || player.isBusy;
@@ -371,7 +364,6 @@ function populateBuildModal(gameState) {
             else if (!hasEnoughResources) buildButton.title = "Ressources manquantes";
             else if (!hasRequiredToolForThisBuilding) buildButton.title = "Outil requis manquant";
         }
-
 
         buildButton.onclick = () => {
             if (window.handleGlobalPlayerAction) {
@@ -390,4 +382,292 @@ function populateBuildModal(gameState) {
         card.appendChild(actionDiv);
         DOM.buildModalGridEl.appendChild(card);
     });
+}
+
+// --- MODALE D'ATELIER ---
+let currentWorkshopRecipes = [];
+let selectedRecipeQuantities = {};
+
+export function showWorkshopModal(gameState) {
+    if (!DOM.workshopModal || !DOM.workshopRecipesContainerEl) return;
+    populateWorkshopModal(gameState);
+    DOM.workshopModal.classList.remove('hidden');
+    selectedRecipeQuantities = {};
+}
+
+export function hideWorkshopModal() {
+    if (DOM.workshopModal) DOM.workshopModal.classList.add('hidden');
+}
+
+function getRecipeCategory(itemName) {
+    const itemDef = ITEM_TYPES[itemName];
+    if (!itemDef) return 'other';
+    if (itemDef.type === 'tool') return 'tool';
+    if (itemDef.type === 'weapon') return 'weapon';
+    if (itemDef.type === 'resource') return 'resource';
+    return 'other';
+}
+
+export function populateWorkshopModal(gameState) { // Changé pour être exportable
+    if (!DOM.workshopRecipesContainerEl || !gameState || !gameState.player || !gameState.knownRecipes) return;
+    const { player, knownRecipes } = gameState;
+    DOM.workshopRecipesContainerEl.innerHTML = '';
+    currentWorkshopRecipes = [];
+
+    let craftableRecipes = [];
+
+    for (const itemName in ITEM_TYPES) {
+        const itemDef = ITEM_TYPES[itemName];
+        if (itemDef.teachesRecipe && knownRecipes[itemDef.teachesRecipe]) {
+            if (itemDef.isBuildingRecipe) continue;
+
+            const costs = {};
+            let yieldAmount = 1;
+            const description = itemDef.description || "";
+            const match = description.match(/Transformer\s+(.+?)\s*=\s*(?:(\d+)\s+)?(.+)/i);
+
+            if (match) {
+                const ingredientsString = match[1];
+                const outputAmountString = match[2];
+                if (outputAmountString) yieldAmount = parseInt(outputAmountString, 10) || 1;
+
+                const ingredientParts = ingredientsString.split(/\s+(?:et|\+)\s+/i);
+                ingredientParts.forEach(part => {
+                    const partMatch = part.trim().match(/(\d+)\s+(.+)/);
+                    if (partMatch) {
+                        const amount = parseInt(partMatch[1], 10);
+                        const name = partMatch[2].trim();
+                        if (ITEM_TYPES[name]) {
+                           costs[name] = amount;
+                        } else {
+                            console.warn(`Ingrédient inconnu "${name}" dans la recette de ${itemDef.teachesRecipe} via ${itemName}`);
+                        }
+                    }
+                });
+            } else {
+                console.warn(`Impossible de parser les coûts pour la recette de ${itemDef.teachesRecipe} (via ${itemName}) à partir de la description: "${description}"`);
+                continue;
+            }
+
+            if (Object.keys(costs).length > 0) {
+                 craftableRecipes.push({
+                    name: itemDef.teachesRecipe,
+                    icon: ITEM_TYPES[itemDef.teachesRecipe]?.icon || '🛠️',
+                    costs: costs,
+                    yield: yieldAmount,
+                    category: getRecipeCategory(itemDef.teachesRecipe),
+                    sourceParchemin: itemName
+                });
+            }
+        }
+    }
+
+    currentWorkshopRecipes = craftableRecipes.sort((a,b) => a.name.localeCompare(b.name));
+    renderWorkshopRecipes(player);
+}
+
+function renderWorkshopRecipes(player) {
+    if (!DOM.workshopRecipesContainerEl) return;
+    DOM.workshopRecipesContainerEl.innerHTML = '';
+
+    const searchTerm = DOM.workshopSearchInputEl ? DOM.workshopSearchInputEl.value.toLowerCase() : '';
+    const categoryFilter = DOM.workshopCategoryFilterEl ? DOM.workshopCategoryFilterEl.value : 'all';
+
+    const filteredRecipes = currentWorkshopRecipes.filter(recipe => {
+        const nameMatch = recipe.name.toLowerCase().includes(searchTerm);
+        const categoryMatch = categoryFilter === 'all' || recipe.category === categoryFilter;
+        return nameMatch && categoryMatch;
+    });
+
+    if (filteredRecipes.length === 0) {
+        DOM.workshopRecipesContainerEl.innerHTML = '<p class="inventory-empty">Aucune recette ne correspond à vos critères ou apprise pour l\'atelier.</p>';
+        return;
+    }
+
+    filteredRecipes.forEach(recipe => {
+        const card = document.createElement('div');
+        card.className = 'workshop-recipe-card';
+        card.dataset.recipeName = recipe.name;
+
+        const header = document.createElement('div');
+        header.className = 'workshop-recipe-header';
+        const iconEl = document.createElement('span');
+        iconEl.className = 'workshop-recipe-icon';
+        iconEl.textContent = recipe.icon;
+        const nameEl = document.createElement('span');
+        nameEl.className = 'workshop-recipe-name';
+        nameEl.textContent = recipe.name;
+        header.appendChild(iconEl);
+        header.appendChild(nameEl);
+
+        const yieldEl = document.createElement('div');
+        yieldEl.className = 'workshop-recipe-yield';
+        yieldEl.innerHTML = `Produit: <strong>${recipe.yield}</strong>`;
+
+        const costsDiv = document.createElement('div');
+        costsDiv.className = 'workshop-recipe-costs';
+        const costsTitle = document.createElement('h5');
+        costsTitle.textContent = 'Coûts (par unité fabriquée):';
+        const costsList = document.createElement('ul');
+
+        for (const itemName in recipe.costs) {
+            const requiredAmount = recipe.costs[itemName];
+            const playerAmount = player.inventory[itemName] || 0;
+            const itemIcon = ITEM_TYPES[itemName]?.icon || '';
+
+            const li = document.createElement('li');
+            const costNameSpan = document.createElement('span');
+            costNameSpan.className = 'cost-name';
+            costNameSpan.innerHTML = `<span class="item-icon">${itemIcon}</span>${itemName}`;
+            
+            const costAmountSpan = document.createElement('span');
+            costAmountSpan.className = 'cost-amount';
+            // Initial display for 1 unit craft
+            costAmountSpan.textContent = `${playerAmount} / ${requiredAmount}`;
+            if (playerAmount < requiredAmount) {
+                costAmountSpan.classList.add('insufficient');
+            }
+            li.appendChild(costNameSpan);
+            li.appendChild(costAmountSpan);
+            costsList.appendChild(li);
+        }
+        costsDiv.appendChild(costsTitle);
+        costsDiv.appendChild(costsList);
+
+        const quantityInputWrapper = document.createElement('div');
+        quantityInputWrapper.className = 'quantity-input-wrapper';
+        const quantityLabel = document.createElement('label');
+        quantityLabel.textContent = 'Quantité à fabriquer:';
+        const quantityInput = document.createElement('input');
+        quantityInput.type = 'number';
+        quantityInput.min = '1';
+        quantityInput.value = '1';
+        quantityInput.dataset.recipeName = recipe.name;
+        quantityInput.oninput = (e) => handleWorkshopQuantityChange(e, player, recipe);
+        
+        quantityInputWrapper.appendChild(quantityLabel);
+        quantityInputWrapper.appendChild(quantityInput);
+
+        const actionDiv = document.createElement('div');
+        actionDiv.className = 'workshop-recipe-action';
+        const transformButton = document.createElement('button');
+        transformButton.textContent = "Transformer";
+        
+        transformButton.onclick = () => {
+            const currentQuantityToCraft = parseInt(quantityInput.value, 10);
+            if (isNaN(currentQuantityToCraft) || currentQuantityToCraft <= 0) {
+                if (window.UI && window.UI.addChatMessage) window.UI.addChatMessage("Quantité invalide.", "system_error");
+                else console.error("UI.addChatMessage non disponible");
+                return;
+            }
+
+            let hasEnoughForQuantity = true;
+            for (const itemName in recipe.costs) {
+                if ((player.inventory[itemName] || 0) < recipe.costs[itemName] * currentQuantityToCraft) {
+                    hasEnoughForQuantity = false;
+                    break;
+                }
+            }
+
+            if (!hasEnoughForQuantity) {
+                 if (window.UI && window.UI.addChatMessage) {
+                    window.UI.addChatMessage("Ressources insuffisantes pour la quantité demandée.", "system_error");
+                    if (DOM.inventoryCategoriesEl) window.UI.triggerShake(DOM.inventoryCategoriesEl);
+                 } else console.error("UI.addChatMessage non disponible");
+                 return;
+            }
+            
+            if (window.handleGlobalPlayerAction) {
+                window.handleGlobalPlayerAction('craft_item_workshop', {
+                    recipeName: recipe.name,
+                    costs: recipe.costs,
+                    yields: { [recipe.name]: recipe.yield },
+                    quantity: currentQuantityToCraft
+                });
+            }
+            // Re-peupler pour mettre à jour l'état après le craft
+            populateWorkshopModal(State.state);
+            if (window.UI && window.UI.updateInventory) window.UI.updateInventory(player);
+            if (window.UI && window.UI.updateAllButtonsState) window.UI.updateAllButtonsState(State.state);
+        };
+        actionDiv.appendChild(transformButton);
+
+        card.appendChild(header);
+        card.appendChild(yieldEl);
+        card.appendChild(costsDiv);
+        card.appendChild(quantityInputWrapper);
+        card.appendChild(actionDiv);
+        DOM.workshopRecipesContainerEl.appendChild(card);
+        
+        // Appeler handleWorkshopQuantityChange pour définir l'état initial du bouton
+        handleWorkshopQuantityChange({ target: quantityInput }, player, recipe);
+    });
+}
+
+function handleWorkshopQuantityChange(event, player, recipe) {
+    const inputElement = event.target;
+    const quantityToCraft = parseInt(inputElement.value, 10);
+    const recipeCard = inputElement.closest('.workshop-recipe-card');
+    const transformButton = recipeCard.querySelector('.workshop-recipe-action button');
+
+    if (isNaN(quantityToCraft) || quantityToCraft <= 0) {
+        if (transformButton) transformButton.disabled = true;
+        // Mettre à jour l'affichage des coûts pour refléter "pas assez" si qté = 0 ou invalide
+        recipeCard.querySelectorAll('.workshop-recipe-costs li .cost-amount').forEach(costAmountEl => {
+            const costItemName = costAmountEl.previousElementSibling.textContent.replace(ITEM_TYPES[costItemName]?.icon || '', '').trim();
+            const requiredForOne = recipe.costs[costItemName];
+            const playerHas = player.inventory[costItemName] || 0;
+            costAmountEl.textContent = `${playerHas} / ${requiredForOne}`; // Affiche pour 1 si qté invalide
+            costAmountEl.classList.add('insufficient');
+        });
+        return;
+    }
+
+    let canCraftThisQuantity = true;
+    recipeCard.querySelectorAll('.workshop-recipe-costs li .cost-amount').forEach(costAmountEl => {
+        // Pour extraire le nom de l'item du span qui contient aussi l'icône
+        let costItemName = '';
+        const costNameSpan = costAmountEl.previousElementSibling;
+        if (costNameSpan) {
+            // Le nom de l'item est le dernier nœud texte du span .cost-name
+            for (let i = costNameSpan.childNodes.length - 1; i >= 0; i--) {
+                if (costNameSpan.childNodes[i].nodeType === Node.TEXT_NODE) {
+                    costItemName = costNameSpan.childNodes[i].textContent.trim();
+                    break;
+                }
+            }
+        }
+        
+        if (!recipe.costs[costItemName]) { // Sécurité si le nom n'est pas trouvé
+            console.warn("Nom d'item de coût non trouvé pour :", costAmountEl.previousElementSibling.innerHTML);
+            return;
+        }
+
+        const requiredForOne = recipe.costs[costItemName];
+        const playerHas = player.inventory[costItemName] || 0;
+        
+        costAmountEl.textContent = `${playerHas} / ${requiredForOne * quantityToCraft}`;
+        if (playerHas < requiredForOne * quantityToCraft) {
+            costAmountEl.classList.add('insufficient');
+            canCraftThisQuantity = false;
+        } else {
+            costAmountEl.classList.remove('insufficient');
+        }
+    });
+
+    if (transformButton) transformButton.disabled = !canCraftThisQuantity || player.isBusy;
+}
+
+
+export function setupWorkshopModalListeners(gameState) {
+    if (DOM.closeWorkshopModalBtn) {
+        DOM.closeWorkshopModalBtn.addEventListener('click', hideWorkshopModal);
+    }
+    if (DOM.workshopSearchInputEl) {
+        // Utiliser gameState.player au lieu de player directement car player peut changer
+        DOM.workshopSearchInputEl.addEventListener('input', () => renderWorkshopRecipes(gameState.player));
+    }
+    if (DOM.workshopCategoryFilterEl) {
+        DOM.workshopCategoryFilterEl.addEventListener('change', () => renderWorkshopRecipes(gameState.player));
+    }
 }

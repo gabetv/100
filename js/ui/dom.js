@@ -111,4 +111,11 @@ export function initDOM() {
     DOM.buildModal = document.getElementById('build-modal');
     DOM.closeBuildModalBtn = document.getElementById('close-build-modal-btn');
     DOM.buildModalGridEl = document.getElementById('build-modal-grid');
+
+    // --- MODALE D'ATELIER ---
+    DOM.workshopModal = document.getElementById('workshop-modal');
+    DOM.closeWorkshopModalBtn = document.getElementById('close-workshop-modal-btn');
+    DOM.workshopRecipesContainerEl = document.getElementById('workshop-recipes-container');
+    DOM.workshopSearchInputEl = document.getElementById('workshop-search-input');
+    DOM.workshopCategoryFilterEl = document.getElementById('workshop-category-filter');
 }

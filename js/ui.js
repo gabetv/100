@@ -40,6 +40,10 @@ export const hideLargeMap = ModalsModule.hideLargeMap;
 export const showBuildModal = ModalsModule.showBuildModal;
 export const hideBuildModal = ModalsModule.hideBuildModal;
 export const populateBuildModal = ModalsModule.populateBuildModal;
+export const showWorkshopModal = ModalsModule.showWorkshopModal; // AJOUT
+export const hideWorkshopModal = ModalsModule.hideWorkshopModal; // AJOUT
+export const populateWorkshopModal = ModalsModule.populateWorkshopModal; // AJOUT
+export const setupWorkshopModalListeners = ModalsModule.setupWorkshopModalListeners; // AJOUT
 
 
 // Depuis ./ui/panels.js

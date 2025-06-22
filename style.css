@@ -132,11 +132,16 @@ body {
 .coords-display { font-size: 0.8em; font-weight: 400; color: var(--text-secondary); background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 6px; }
 .capacity-display { font-size: 0.8em; font-weight: 400; color: var(--text-secondary); }
 
-#actions { display: flex; flex-direction: column; gap: 10px; }
+#actions { display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 5px;} /* Ajout max-height et overflow */
 #actions button { width: 100%; padding: 12px; background-color: var(--action-color); color: var(--text-light); font-weight: 600; font-family: 'Poppins', sans-serif; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; border-bottom: 3px solid #2f5a7a; }
 #actions button:hover:not(:disabled) { background-color: #5e9ac4; transform: translateY(-2px); border-bottom-color: #457b9d; }
 #actions button:disabled { background-color: #2f4553; color: #9ab4c2; cursor: not-allowed; border-bottom-color: #1a2a32; transform: none; }
 #actions button:disabled:hover { transform: none; }
+#actions::-webkit-scrollbar { width: 6px; }
+#actions::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 3px; }
+#actions::-webkit-scrollbar-thumb { background: rgba(69,123,157,0.5); border-radius: 3px; }
+#actions::-webkit-scrollbar-thumb:hover { background: var(--action-color); }
+
 
 #minimap-section h3 button#enlarge-map-btn { margin-left: auto; }
 #enlarge-map-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary); cursor: pointer; border-radius: 4px; padding: 0 6px; font-size: 1.2em; transition: all 0.2s; }
@@ -292,17 +297,17 @@ body {
 @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
 
 /* === MODALES === */
-#inventory-modal, #quantity-modal, #combat-modal, #equipment-modal, #build-modal { position: fixed; inset: 0; display: flex; justify-content: center; align-items: center; padding: 20px; opacity: 1; transition: opacity 0.3s ease; }
-#inventory-modal.hidden, #quantity-modal.hidden, #combat-modal.hidden, #equipment-modal.hidden, #build-modal.hidden { opacity: 0; pointer-events: none; }
-#inventory-modal, #equipment-modal, #build-modal { z-index: 3000; background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); }
+#inventory-modal, #quantity-modal, #combat-modal, #equipment-modal, #build-modal, #workshop-modal { position: fixed; inset: 0; display: flex; justify-content: center; align-items: center; padding: 20px; opacity: 1; transition: opacity 0.3s ease; }
+#inventory-modal.hidden, #quantity-modal.hidden, #combat-modal.hidden, #equipment-modal.hidden, #build-modal.hidden, #workshop-modal.hidden { opacity: 0; pointer-events: none; }
+#inventory-modal, #equipment-modal, #build-modal, #workshop-modal { z-index: 3000; background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); }
 #quantity-modal { z-index: 4000; background-color: rgba(0, 0, 0, 0.5); }
 #combat-modal { z-index: 5000; background-color: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); }
 
-#inventory-modal-content, #equipment-modal-content, #build-modal-content { background-color: var(--bg-panel); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: var(--border-radius); padding: 30px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; }
+#inventory-modal-content, #equipment-modal-content, #build-modal-content, #workshop-modal-content { background-color: var(--bg-panel); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: var(--border-radius); padding: 30px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; }
 #inventory-modal-content { max-width: 900px; min-height: 400px; display: flex; flex-direction: column; }
-#close-inventory-modal-btn, #close-equipment-modal-btn, #close-build-modal-btn { position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: var(--text-secondary); font-size: 2em; cursor: pointer; line-height: 1; transition: color 0.2s, transform 0.2s; }
-#close-inventory-modal-btn:hover, #close-equipment-modal-btn:hover, #close-build-modal-btn:hover { color: var(--accent-color); transform: scale(1.1); }
-#inventory-modal h2, #equipment-modal h2, #build-modal h2 { text-align: center; margin-bottom: 25px; color: var(--text-light); }
+#close-inventory-modal-btn, #close-equipment-modal-btn, #close-build-modal-btn, #close-workshop-modal-btn { position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: var(--text-secondary); font-size: 2em; cursor: pointer; line-height: 1; transition: color 0.2s, transform 0.2s; }
+#close-inventory-modal-btn:hover, #close-equipment-modal-btn:hover, #close-build-modal-btn:hover, #close-workshop-modal-btn:hover { color: var(--accent-color); transform: scale(1.1); }
+#inventory-modal h2, #equipment-modal h2, #build-modal h2, #workshop-modal h2 { text-align: center; margin-bottom: 25px; color: var(--text-light); }
 #inventory-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; flex-grow: 1; overflow: hidden; } /* Ajout overflow: hidden */
 .inventory-container { display: flex; flex-direction: column; overflow: hidden;} /* Ajout overflow: hidden */
 .inventory-container h3 { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
@@ -554,4 +559,217 @@ body {
 }
 #admin-close-modal-btn:hover {
     background-color: #6b7280;
+}
+
+
+/* ---- MODALE ATELIER ---- */
+#workshop-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 3500; /* Au-dessus des autres modales sauf quantité/combat */
+    background-color: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+#workshop-modal:not(.hidden) {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#workshop-modal-content {
+    background-color: var(--bg-panel);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--border-radius);
+    padding: 25px;
+    width: 100%;
+    max-width: 900px; /* Plus large pour afficher plus de recettes */
+    min-height: 500px;
+    max-height: 85vh; /* Limiter la hauteur */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    position: relative;
+    display: flex;
+    flex-direction: column; /* Pour que le container des recettes puisse scroller */
+}
+
+#close-workshop-modal-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 2em;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s, transform 0.2s;
+}
+#close-workshop-modal-btn:hover {
+    color: var(--accent-color);
+    transform: scale(1.1);
+}
+
+#workshop-modal h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: var(--text-light);
+}
+
+.workshop-controls {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+.workshop-controls input[type="text"],
+.workshop-controls select {
+    padding: 10px;
+    background-color: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    color: var(--text-light);
+    font-family: 'Poppins', sans-serif;
+}
+.workshop-controls input[type="text"] {
+    flex-grow: 1;
+}
+
+#workshop-recipes-container {
+    flex-grow: 1; /* Permet au conteneur de prendre l'espace restant */
+    overflow-y: auto; /* Active le défilement vertical si nécessaire */
+    padding-right: 10px; /* Espace pour la barre de défilement */
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* Grille responsive */
+    gap: 15px;
+}
+#workshop-recipes-container::-webkit-scrollbar { width: 8px; }
+#workshop-recipes-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 4px; }
+#workshop-recipes-container::-webkit-scrollbar-thumb { background: var(--action-color); border-radius: 4px; }
+#workshop-recipes-container::-webkit-scrollbar-thumb:hover { background: #5e9ac4; }
+
+
+.workshop-recipe-card {
+    background-color: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.workshop-recipe-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.workshop-recipe-icon {
+    font-size: 1.8em;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.workshop-recipe-name {
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+.workshop-recipe-yield {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    text-align: right;
+    margin-bottom: 5px;
+}
+.workshop-recipe-yield strong {
+    color: var(--text-light);
+}
+
+.workshop-recipe-costs {
+    margin-bottom: 10px;
+}
+.workshop-recipe-costs h5 {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+.workshop-recipe-costs ul {
+    list-style: none;
+    padding: 0;
+    font-size: 0.9em;
+}
+.workshop-recipe-costs li {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+}
+.workshop-recipe-costs .cost-name .item-icon { /* Icône pour les coûts */
+    font-size: 0.9em;
+    margin-right: 5px;
+}
+.workshop-recipe-costs .cost-amount {
+    color: rgba(255,255,255,0.7);
+    /* cursor: pointer; */ /* Retiré car pas de clic direct sur la quantité individuelle pour l'instant */
+    padding: 2px 5px;
+    border-radius: 3px;
+    /* transition: background-color 0.2s; */ /* Retiré */
+}
+/* .workshop-recipe-costs .cost-amount:hover {
+    background-color: rgba(255,255,255,0.1);
+} */
+.workshop-recipe-costs .cost-amount.insufficient { /* Si pas assez de ressources */
+    color: var(--accent-color);
+    /* text-decoration: line-through; */ /* Optionnel, peut être visuellement chargé */
+}
+
+
+.workshop-recipe-action {
+    margin-top: auto; /* Pousse le bouton en bas de la carte */
+}
+.workshop-recipe-action button {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--action-color);
+    color: var(--text-light);
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.workshop-recipe-action button:hover:not(:disabled) {
+    background-color: #5e9ac4;
+}
+.workshop-recipe-action button:disabled {
+    background-color: #2f4553;
+    color: #9ab4c2;
+    cursor: not-allowed;
+}
+
+.workshop-recipe-card .quantity-input-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.workshop-recipe-card .quantity-input-wrapper label {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+}
+.workshop-recipe-card .quantity-input-wrapper input[type="number"] {
+    width: 60px;
+    padding: 5px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+    color: var(--text-light);
+    text-align: center;
 }

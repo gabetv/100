@@ -238,6 +238,11 @@ function updatePossibleActions() {
                              !canCraftAntiseptic ? "Nécessite 2 Kits de Secours, 1 Recette Médicinale" : "");
             }
 
+            // Pour l'Atelier, l'action 'use_atelier' ouvrira la modale
+            if (buildingInstance.key === 'ATELIER' && buildingInstance.durability > 0) {
+                createButton("🛠️ Utiliser l'Atelier", 'use_building_action', { buildingKey: 'ATELIER', specificActionId: 'use_atelier'});
+            }
+
 
             const actionsToShow = buildingDef.actions || (buildingDef.action ? [buildingDef.action] : []);
             actionsToShow.forEach(actionInfo => {
@@ -247,8 +252,9 @@ function updatePossibleActions() {
                      disabledAction = true;
                      titleAction += ` (Nécessite 1 ${actionInfo.costItem})`;
                  }
-                 // Éviter de dupliquer les actions déjà gérées spécifiquement (puits, actions spécifiques du labo/feu de camp)
-                 if (actionInfo.id !== 'draw_water_shallow_well' &&
+                 // Éviter de dupliquer les actions déjà gérées (Atelier, puits spécifiques, actions spécifiques du labo/feu de camp)
+                 if (actionInfo.id !== 'use_atelier' && // Atelier géré spécifiquement ci-dessus
+                     actionInfo.id !== 'draw_water_shallow_well' &&
                      actionInfo.id !== 'draw_water_deep_well' &&
                      !(buildingInstance.key === 'LABORATOIRE' && actionInfo.id === 'use_laboratoire') &&
                      !(buildingInstance.key === 'CAMPFIRE' && (actionInfo.id === 'boil_stagnant_water_campfire' || actionInfo.id === 'boil_salt_water_campfire'))
@@ -439,7 +445,7 @@ function handleSpecificConsume(statType) {
             result.floatingTexts.forEach(text => {
                 const type = text.startsWith('+') ? 'gain' : (text.startsWith('-') ? 'cost' : 'info');
                 if (text.toLowerCase().includes('statut:')) UI.showFloatingText(text, type);
-                else if (itemToConsume === 'Porte bonheur' && text.includes('+1')) UI.showFloatingText(text, type); // Correction ici
+                else if (itemToConsume === 'Porte bonheur' && text.includes('+1')) UI.showFloatingText(text, type);
             });
         }
         fullUIUpdate();
@@ -467,7 +473,6 @@ function handleConsumeClick(itemName) {
             UI.addChatMessage("Vous n'avez pas besoin d'augmenter votre santé, vous devriez partager ou échanger cet objet.", "system"); return;
         }
     }
-
 
     if (itemName === 'Eau salée') {
          handleGlobalPlayerAction('consume_eau_salee', {itemName: 'Eau salée'});
@@ -528,12 +533,15 @@ window.fullUIUpdate = function() {
     if (DOM.buildModal && !DOM.buildModal.classList.contains('hidden')) {
         UI.populateBuildModal(State.state);
     }
+    if (DOM.workshopModal && !DOM.workshopModal.classList.contains('hidden')) { // AJOUT
+        UI.populateWorkshopModal(State.state);
+    }
     if (DOM.bottomBarEl) {
         UI.updateGroundItemsPanel(State.state.map[State.state.player.y][State.state.player.x]);
     }
 };
 window.updatePossibleActions = updatePossibleActions;
-window.UI = UI;
+window.UI = UI; // Rendre UI globalement accessible (peut-être déjà fait par l'import, mais pour être sûr)
 
 window.handleGlobalPlayerAction = (actionId, data) => {
     Interactions.handlePlayerAction(actionId, data, {
@@ -701,6 +709,7 @@ function setupEventListeners() {
 
     if (DOM.closeEquipmentModalBtn) DOM.closeEquipmentModalBtn.addEventListener('click', UI.hideEquipmentModal);
     if (DOM.closeBuildModalBtn) DOM.closeBuildModalBtn.addEventListener('click', UI.hideBuildModal);
+    if (DOM.closeWorkshopModalBtn) DOM.closeWorkshopModalBtn.addEventListener('click', UI.hideWorkshopModal); // Corrigé
 
     if (DOM.enlargeMapBtn) DOM.enlargeMapBtn.addEventListener('click', () => handleGlobalPlayerAction('open_large_map', {}));
     if (DOM.closeLargeMapBtn) DOM.closeLargeMapBtn.addEventListener('click', UI.hideLargeMap);
@@ -753,7 +762,7 @@ function setupEventListeners() {
     if (DOM.equipmentModal) setupDragAndDropForContainer(DOM.equipmentModal);
     if (DOM.inventoryModal) setupDragAndDropForContainer(DOM.inventoryModal);
     if (DOM.buildModal) setupDragAndDropForContainer(DOM.buildModal);
-
+    if (DOM.workshopModal) setupDragAndDropForContainer(DOM.workshopModal);
 
     if (DOM.bottomBarEquipmentSlotsEl) {
         setupDragAndDropForContainer(DOM.bottomBarEquipmentSlotsEl);
@@ -777,7 +786,8 @@ function setupEventListeners() {
 
     window.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
-            if (DOM.buildModal && !DOM.buildModal.classList.contains('hidden')) UI.hideBuildModal();
+            if (DOM.workshopModal && !DOM.workshopModal.classList.contains('hidden')) UI.hideWorkshopModal();
+            else if (DOM.buildModal && !DOM.buildModal.classList.contains('hidden')) UI.hideBuildModal();
             else if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
             else if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
             else if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) UI.hideLargeMap();
@@ -786,7 +796,7 @@ function setupEventListeners() {
             return;
         }
 
-        if (e.key === 'Enter') { // Point 10
+        if (e.key === 'Enter') {
             if (document.activeElement === DOM.chatInputEl) {
                 if (DOM.chatInputEl.value.trim() !== '') {
                     UI.addChatMessage(DOM.chatInputEl.value.trim(), 'player', State.state.player.name || "Aventurier");
@@ -800,9 +810,11 @@ function setupEventListeners() {
             return;
         }
 
-
         if (document.activeElement === DOM.chatInputEl ||
-            (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden'))) {
+            (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) ||
+            (DOM.workshopSearchInputEl && document.activeElement === DOM.workshopSearchInputEl) || 
+            (DOM.workshopRecipesContainerEl && DOM.workshopRecipesContainerEl.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') 
+           ) {
             return;
         }
 
@@ -813,6 +825,17 @@ function setupEventListeners() {
         else if (e.key.toLowerCase() === 'e') UI.showEquipmentModal(State.state);
         else if (e.key.toLowerCase() === 'm') handleGlobalPlayerAction('open_large_map', {});
         else if (e.key.toLowerCase() === 'c') UI.showBuildModal(State.state);
+        else if (e.key.toLowerCase() === 't') { 
+            const tile = State.state.map[State.state.player.y][State.state.player.x];
+            const atelierBuilding = tile.buildings.find(b => b.key === 'ATELIER' && b.durability > 0);
+            if (atelierBuilding) {
+                if (DOM.workshopModal && DOM.workshopModal.classList.contains('hidden')) {
+                     UI.showWorkshopModal(State.state);
+                } else if (DOM.workshopModal) {
+                    UI.hideWorkshopModal();
+                }
+            }
+        }
         else if (e.key.toLowerCase() === 'i') {
             if (DOM.inventoryModal && DOM.inventoryModal.classList.contains('hidden')) {
                 const tile = State.state.map[State.state.player.y][State.state.player.x];
@@ -826,6 +849,7 @@ function setupEventListeners() {
     });
     window.gameState = State.state;
     UI.setupQuantityModalListeners();
+    UI.setupWorkshopModalListeners(State.state); // Assurez-vous de passer gameState
 }
 
 function endGame(isVictory) {

@@ -183,6 +183,27 @@
         </div>
     </div>
 
+    <!-- MODALE D'ATELIER -->
+    <div id="workshop-modal" class="hidden">
+        <div id="workshop-modal-content">
+            <button id="close-workshop-modal-btn">&times;</button>
+            <h2>Atelier d'Artisanat</h2>
+            <div class="workshop-controls">
+                <input type="text" id="workshop-search-input" placeholder="Rechercher une recette...">
+                <select id="workshop-category-filter">
+                    <option value="all">Toutes les catégories</option>
+                    <option value="tool">Outils</option>
+                    <option value="weapon">Armes</option>
+                    <option value="resource">Ressources transformées</option>
+                    <!-- Autres catégories si besoin -->
+                </select>
+            </div>
+            <div id="workshop-recipes-container">
+                <!-- Les recettes seront générées par JS ici -->
+            </div>
+        </div>
+    </div>
+
     <!-- MODALE ADMIN (cachée par défaut) -->
     <div id="admin-modal" class="hidden">
         <div id="admin-modal-content">
