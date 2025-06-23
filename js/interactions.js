@@ -8,8 +8,7 @@ import DOM from './ui/dom.js';
 import { handleNpcInteraction as npcInteractionHandler } from './npc.js';
 
 function applyActionCosts(player, costs) {
-    // Ne pas afficher de texte flottant ici pour les coûts de stats, car applyRandomStatCost le fait déjà ou est désactivé.
-    if (costs.thirst && player.thirst > 0) { // #38: Alcoolisé stat cost handled in applyRandomStatCost directly or before calling this.
+    if (costs.thirst && player.thirst > 0) {
         player.thirst = Math.max(0, player.thirst - costs.thirst);
     }
     if (costs.hunger && player.hunger > 0) {
@@ -29,22 +28,19 @@ export function applyRandomStatCost(player, amount = 1, actionNameForLog = "") {
     if (player.sleep > 0) availableStats.push({ name: 'sleep', icon: '🌙' });
     if (availableStats.length === 0) {
         UI.addChatMessage("Vous êtes à bout de forces !", "warning");
-        return true; // Indique que le coût a été "appliqué" (le joueur est à 0 partout)
+        return true;
     }
 
-    // #38: Effet statut Alcoolisé
     if (player.status === 'Alcoolisé') {
-        amount = 2; // Coût doublé ou fixe à 2
+        amount = 2;
     }
     const rand = Math.random();
     let selectedStatChoice = null;
 
-    // Prioriser la soif si elle est basse, puis la faim, puis le sommeil
     if (rand < 0.10 && player.thirst > 0) selectedStatChoice = availableStats.find(s => s.name === 'thirst');
     else if (rand < 0.50 && player.hunger > 0) selectedStatChoice = availableStats.find(s => s.name === 'hunger');
     else if (player.sleep > 0) selectedStatChoice = availableStats.find(s => s.name === 'sleep');
 
-    // Fallback si aucun n'a été choisi par la priorité (ex: soif et faim sont à 0)
     if (!selectedStatChoice && availableStats.length > 0) {
         selectedStatChoice = availableStats[Math.floor(Math.random() * availableStats.length)];
     }
@@ -53,13 +49,12 @@ export function applyRandomStatCost(player, amount = 1, actionNameForLog = "") {
         chosenStatName = selectedStatChoice.name;
         statIcon = selectedStatChoice.icon;
         player[chosenStatName] = Math.max(0, player[chosenStatName] - amount);
-        // UI.showFloatingText(`-${amount}${statIcon}`, 'cost'); // Point 23: Texte flottant pour coûts désactivé
         const maxStatValue = player[`max${chosenStatName.charAt(0).toUpperCase() + chosenStatName.slice(1)}`];
-        if (player[chosenStatName] <= (maxStatValue * 0.1) && player[chosenStatName] > 0 ) { // Avertir si la stat devient très basse
+        if (player[chosenStatName] <= (maxStatValue * 0.1) && player[chosenStatName] > 0 ) {
             UI.addChatMessage(`Attention, votre ${chosenStatName} est très basse !`, "warning");
         }
     }
-    return true; // Toujours retourner true pour indiquer que la fonction a été exécutée
+    return true;
 }
 
 function performTimedAction(player, duration, onStart, onComplete, updateUICallbacks, actionData = {}) {
@@ -67,7 +62,7 @@ function performTimedAction(player, duration, onStart, onComplete, updateUICallb
         console.warn("[performTimedAction] Joueur occupé ou en animation, action annulée.");
         return;
     }
-    console.log(`[performTimedAction] Démarrage action. Durée: ${duration}ms`);
+    console.log(`[performTimedAction] Démarrage action. Durée: ${duration}ms, Action Data:`, actionData);
     player.isBusy = true;
     if(typeof onStart === 'function') onStart();
     if (updateUICallbacks && updateUICallbacks.updatePossibleActions) updateUICallbacks.updatePossibleActions();
@@ -75,7 +70,7 @@ function performTimedAction(player, duration, onStart, onComplete, updateUICallb
 
     setTimeout(() => {
         console.log("[performTimedAction] Timeout terminé. Exécution de onComplete.");
-        if(typeof onComplete === 'function') onComplete(actionData); // Passer actionData à onComplete
+        if(typeof onComplete === 'function') onComplete(actionData);
         player.isBusy = false;
         console.log("[performTimedAction] Joueur n'est plus occupé.");
         if (updateUICallbacks && updateUICallbacks.updateAllUI) updateUICallbacks.updateAllUI();
@@ -83,49 +78,63 @@ function performTimedAction(player, duration, onStart, onComplete, updateUICallb
 }
 
 
-// Modifiée pour gérer la durabilité des outils plus génériquement
 function performToolAction(player, toolSlot, actionType, onComplete, updateUICallbacks, actionData = {}, specificToolName = null) {
     const tool = player.equipment[toolSlot];
 
-    if (specificToolName) { // Si un nom d'outil spécifique est requis (ex: "Pelle en bois")
+    if (specificToolName) {
         if (!tool || tool.name !== specificToolName) {
             UI.addChatMessage(`Vous avez besoin d'un(e) ${specificToolName} équipé(e).`, 'system');
             if (DOM.equipmentSlotsEl) UI.triggerShake(DOM.equipmentSlotsEl);
             else if (DOM.bottomBarEquipmentSlotsEl) UI.triggerShake(DOM.bottomBarEquipmentSlotsEl);
             return;
         }
-    } else if (actionType) { // Si un type d'action est requis (ex: 'dig', 'harvest_wood')
+    } else if (actionType) { // General action check (e.g., 'dig')
         if (!tool || tool.action !== actionType) {
-            UI.addChatMessage(`Vous n'avez pas le bon outil équipé pour cette action.`, 'system');
+            UI.addChatMessage(`Vous n'avez pas le bon outil équipé pour "${actionType}".`, 'system');
              if (DOM.equipmentSlotsEl) UI.triggerShake(DOM.equipmentSlotsEl);
              else if (DOM.bottomBarEquipmentSlotsEl) UI.triggerShake(DOM.bottomBarEquipmentSlotsEl);
             return;
         }
     }
-    // Si ni specificToolName ni actionType, on assume que l'action peut se faire à mains nues ou que la vérification est ailleurs
+    // If no specificToolName and no actionType, it implies hands or logic is handled by caller
 
-    performTimedAction(player, ACTION_DURATIONS.HARVEST, // Ou une autre durée si pertinent
+    let durationKey = actionType ? actionType.toUpperCase() : 'HARVEST';
+    // Normalize duration keys
+    if (actionType === 'harvest_wood') durationKey = 'HARVEST';
+    else if (actionType === 'mine_ore') durationKey = 'HARVEST'; // Mining ore is a type of harvest
+    else if (actionType === 'dig') durationKey = 'DIG';
+    else if (actionType === 'fish') durationKey = 'HARVEST'; // Fishing is a type of harvest
+
+    performTimedAction(player, ACTION_DURATIONS[durationKey] || ACTION_DURATIONS.HARVEST,
         () => UI.addChatMessage(`Utilisation de ${tool ? tool.name : 'vos mains'}...`, 'system'),
         () => {
-            onComplete(tool ? tool.power : 1, tool); // Passer l'outil à onComplete
-            if (tool && tool.hasOwnProperty('currentDurability') && typeof tool.currentDurability === 'number') {
-                tool.currentDurability--;
-                if (tool.currentDurability <= 0) {
-                    UI.addChatMessage(`${tool.name} s'est cassé !`, 'system_warning');
-                    State.unequipItem(toolSlot); // Utiliser la fonction de State pour déséquiper proprement
+            onComplete(tool ? (tool.power || 1) : 1, tool); // Pass tool instance
+            if (tool) { // Only process tool if one was actually used (not hands)
+                if (tool.hasOwnProperty('currentDurability') && typeof tool.currentDurability === 'number') {
+                    tool.currentDurability--;
+                    if (tool.currentDurability <= 0) {
+                        UI.addChatMessage(`${tool.name} s'est cassé !`, 'system_warning');
+                        State.unequipItem(toolSlot);
+                    }
+                } else if (tool.hasOwnProperty('uses')) { // Check for uses property first (e.g. for tools like Filtre à eau)
+                    // If the item definition has 'uses' but the instance doesn't have 'currentUses', initialize it.
+                    if (typeof tool.currentUses === 'undefined' && typeof tool.uses === 'number') {
+                        tool.currentUses = tool.uses;
+                    }
+                    if (tool.hasOwnProperty('currentUses') && typeof tool.currentUses === 'number') {
+                        tool.currentUses--;
+                        if (tool.currentUses <= 0) {
+                            UI.addChatMessage(`${tool.name} est épuisé !`, 'system_warning');
+                            State.unequipItem(toolSlot); // Remove from equipment
+                        }
+                    }
                 }
-            } else if (tool && tool.hasOwnProperty('uses')) { // Pour les objets avec "uses" (comme la carte)
-                 // tool.uses--; // Cette logique est mieux dans State.consumeItem pour la carte
-                 if (tool.uses <= 0) {
-                     UI.addChatMessage(`${tool.name} est épuisé !`, 'system_warning');
-                     State.unequipItem(toolSlot);
-                 }
             }
-            // Mettre à jour l'UI de l'équipement après une possible casse/épuisement
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.updateEquipmentModal(State.state);
             if (DOM.bottomBarEquipmentSlotsEl) UI.updateBottomBarEquipmentPanel(player);
         },
-        updateUICallbacks
+        updateUICallbacks,
+        actionData
     );
 }
 
@@ -161,7 +170,7 @@ function playerAttack() {
         weapon.currentDurability--;
         if (weapon.currentDurability <= 0) {
             combatState.log.unshift(`${weapon.name} s'est cassé !`);
-            State.unequipItem('weapon'); // Utiliser State.unequipItem
+            State.unequipItem('weapon');
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.updateEquipmentModal(State.state);
             if (DOM.bottomBarEquipmentSlotsEl) UI.updateBottomBarEquipmentPanel(player);
         }
@@ -204,7 +213,7 @@ function enemyAttack() {
     const { combatState, player } = State.state;
     if (!combatState) return;
     const defense = (player.equipment.body?.stats?.defense || 0) +
-                    (player.equipment.head?.stats?.defense || 0) + // #13, #15 handled by slot system
+                    (player.equipment.head?.stats?.defense || 0) +
                     (player.equipment.feet?.stats?.defense || 0) +
                     (player.equipment.shield?.stats?.defense || 0);
     const damageTaken = Math.max(0, combatState.enemy.damage - defense);
@@ -233,16 +242,19 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
     }
     const tile = map[player.y][player.x];
     let shouldApplyBaseCost = true;
-    switch(actionId) {
-        case 'sleep': case 'initiate_combat': case 'take_hidden_item': case 'open_treasure':
-        case 'use_building_action': case 'consume_eau_salee': case 'open_large_map':
-        case 'talk_to_npc': case 'open_building_inventory':
-        case 'plant_tree': case 'sleep_by_campfire': case 'dismantle_building':
-        case 'craft_item_workshop': // Ajout pour ne pas appliquer de coût de base pour le craft
-        case 'open_all_parchemins': // #6
-            shouldApplyBaseCost = false;
-            break;
+    const noBaseCostActions = [
+        'sleep', 'initiate_combat', 'take_hidden_item', 'open_treasure',
+        'consume_eau_salee', 'open_large_map',
+        'talk_to_npc', 'open_building_inventory',
+        'plant_tree', 'sleep_by_campfire', 'dismantle_building',
+        'craft_item_workshop', 'open_all_parchemins',
+        'fire_distress_gun', 'fire_distress_flare', 'place_solar_panel_fixed', 'charge_battery_portable_solar',
+        'place_trap', 'attract_npc_attention', 'find_mine_compass', 'observe_weather', 'use_building_action'
+    ];
+    if (noBaseCostActions.includes(actionId)) {
+        shouldApplyBaseCost = false;
     }
+
     if (shouldApplyBaseCost) applyRandomStatCost(player, 1, actionId);
 
     switch(actionId) {
@@ -255,19 +267,19 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             } else UI.addChatMessage("Il n'y a plus rien à attaquer ici.", "system");
             break;
         }
-        case 'consume_eau_salee': { // #2
+        case 'consume_eau_salee': {
             if (tile.type.name !== TILE_TYPES.PLAGE.name) {
                 UI.addChatMessage("Vous ne pouvez boire de l'eau salée que sur la plage.", "system"); return;
             }
-            if (player.thirst > player.maxThirst - ITEM_TYPES['Eau salée'].effects.thirst) { // Check against actual thirst gain
+            if (player.thirst > player.maxThirst - ITEM_TYPES['Eau salée'].effects.thirst) {
                  UI.addChatMessage("Vous n'avez pas assez soif pour risquer de boire ceci.", "system"); return;
             }
             if (player.inventory['Eau salée'] > 0) {
-                const result = State.consumeItem('Eau salée'); // La logique d'effet est dans State.consumeItem
+                const result = State.consumeItem('Eau salée');
                 UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
                 if (result.success && result.floatingTexts) {
                     result.floatingTexts.forEach(text => {
-                         if (!text.includes('💧') || text.includes('❤️')) { // Ne pas afficher le +1 soif pour l'eau salée mais afficher le -1 santé
+                         if (!text.includes('💧') || text.includes('❤️')) {
                              UI.showFloatingText(text, text.startsWith('-') ? 'cost' : 'info')
                          }
                     });
@@ -277,22 +289,21 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             break;
         }
-        case 'harvest_salt_water': { // Point 7 (Récolter Eau Salée) et Point 1 (Actions Plage)
+        case 'harvest_salt_water': {
             if (tile.type.name !== TILE_TYPES.PLAGE.name) {
                 UI.addChatMessage("Vous ne pouvez récolter de l'eau salée que sur la plage.", "system"); return;
             }
             if (!tile.actionsLeft || tile.actionsLeft.harvest_salt_water <= 0) {
                 UI.addChatMessage("Vous ne pouvez plus récolter d'eau salée ici pour le moment.", "system"); return;
             }
-            // Tool use for salt water not specified to increase yield, default 1
             performTimedAction(player, ACTION_DURATIONS.HARVEST,
                 () => UI.addChatMessage(`Récolte d'Eau salée...`, "system"),
                 () => {
                     let amount = 1;
-                    let toolUsedForSaltWater = null;
+                    let toolUsed = null;
                     if (player.equipment.weapon && player.equipment.weapon.name === 'Seau') {
                         amount = 3;
-                        toolUsedForSaltWater = player.equipment.weapon;
+                        toolUsed = player.equipment.weapon;
                     }
 
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
@@ -301,10 +312,10 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         UI.showFloatingText(`+${amount} Eau salée`, 'gain'); UI.triggerActionFlash('gain');
                         tile.actionsLeft.harvest_salt_water--;
 
-                        if (toolUsedForSaltWater && toolUsedForSaltWater.hasOwnProperty('currentDurability')) {
-                            toolUsedForSaltWater.currentDurability--;
-                            if (toolUsedForSaltWater.currentDurability <= 0) {
-                                UI.addChatMessage(`${toolUsedForSaltWater.name} s'est cassé !`, 'system_warning');
+                        if (toolUsed && toolUsed.hasOwnProperty('currentDurability')) {
+                            toolUsed.currentDurability--;
+                            if (toolUsed.currentDurability <= 0) {
+                                UI.addChatMessage(`${toolUsed.name} s'est cassé !`, 'system_warning');
                                 State.unequipItem('weapon');
                             }
                         }
@@ -315,27 +326,26 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks );
             break;
         }
-        case 'harvest_sand': { // Point 1 (Actions Plage) et Point 9 (Récolter Sable)
+        case 'harvest_sand': {
             if (tile.type.name !== TILE_TYPES.PLAGE.name) {
                  UI.addChatMessage("Vous ne pouvez récolter du sable que sur la plage.", "system"); return;
             }
             if (!tile.actionsLeft || tile.actionsLeft.harvest_sand <= 0) {
                 UI.addChatMessage("Vous ne pouvez plus récolter de sable ici pour le moment.", "system"); return;
             }
-            // Tool use for sand (pelle, seau) handled in interactions
             performTimedAction(player, ACTION_DURATIONS.HARVEST,
                 () => UI.addChatMessage(`Récolte de Sable...`, "system"),
                 () => {
                     let yieldAmount = 1;
-                    let toolUsedForSand = null;
+                    let toolUsed = null;
                     if (player.equipment.weapon) {
                         const weaponName = player.equipment.weapon.name;
                         if (weaponName === 'Pelle en bois' || weaponName === 'Seau') {
                             yieldAmount = 3;
-                            toolUsedForSand = player.equipment.weapon;
+                            toolUsed = player.equipment.weapon;
                         } else if (weaponName === 'Pelle en fer') {
                             yieldAmount = 5;
-                            toolUsedForSand = player.equipment.weapon;
+                            toolUsed = player.equipment.weapon;
                         }
                     }
 
@@ -347,10 +357,10 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         UI.showFloatingText(`+${amountToHarvest} Sable`, 'gain'); UI.triggerActionFlash('gain');
                         tile.actionsLeft.harvest_sand--;
 
-                        if (toolUsedForSand && toolUsedForSand.hasOwnProperty('currentDurability')) {
-                            toolUsedForSand.currentDurability--;
-                            if (toolUsedForSand.currentDurability <= 0) {
-                                UI.addChatMessage(`${toolUsedForSand.name} s'est cassé !`, 'system_warning');
+                        if (toolUsed && toolUsed.hasOwnProperty('currentDurability')) {
+                            toolUsed.currentDurability--;
+                            if (toolUsed.currentDurability <= 0) {
+                                UI.addChatMessage(`${toolUsed.name} s'est cassé !`, 'system_warning');
                                 State.unequipItem('weapon');
                             }
                         }
@@ -363,66 +373,43 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks );
             break;
         }
-        case 'harvest': {
+        case 'harvest': { // Generic harvest for stone from MINE_TERRAIN
             const resource = tile.type.resource;
-            if (!resource || resource.type === 'Sable' || resource.type === 'Eau salée') {
-                console.warn("[handlePlayerAction - harvest] Action générique appelée pour une ressource gérée spécifiquement ou absente."); return;
+            if (!resource || resource.type !== 'Pierre' || tile.type.name !== TILE_TYPES.MINE_TERRAIN.name) {
+                console.warn("[handlePlayerAction - harvest] Action générique appelée pour une ressource non-Pierre ou un mauvais type de terrain."); return;
             }
             if (tile.harvestsLeft <= 0 && tile.harvestsLeft !== Infinity) {
                  UI.addChatMessage("Plus rien à récolter ici.", "system"); return;
             }
-
-            const specificResourceCosts = { thirst: resource.thirstCost || 0, hunger: resource.hungerCost || 0, sleep: resource.sleepCost || 0 };
-            let canProceed = true; // thirstCost, hungerCost, sleepCost removed from Forest in config, so this check may not be relevant for wood.
-            if (resource.type === TILE_TYPES.FOREST.name) { // For wood
-                if (tile.woodActionsLeft <= 0) { UI.addChatMessage("Plus de bois à récolter ici.", "system"); return; }
-            } else if (resource.type === TILE_TYPES.MINE_TERRAIN.name) { // For stone from MINE_TERRAIN
-                if (tile.harvestsLeft <= 0) { UI.addChatMessage("Plus de pierre à récolter ici.", "system"); return; }
-            }
-
-            if (specificResourceCosts.thirst > 0 && player.thirst === 0) canProceed = false; // Generally for other resources if they had costs
-            if (specificResourceCosts.hunger > 0 && player.hunger === 0) canProceed = false;
-            if (specificResourceCosts.sleep > 0 && player.sleep === 0) canProceed = false;
-            if (!canProceed) { UI.addChatMessage("Vous êtes trop épuisé pour cette récolte.", "system"); return; }
-
-            applyActionCosts(player, specificResourceCosts);
-
             performTimedAction(player, ACTION_DURATIONS.HARVEST,
                 () => UI.addChatMessage(`Récolte de ${resource.type}...`, "system"),
                 () => {
-                    let finalYield = (activeEvent && activeEvent.type === 'Abondance' && activeEvent.data && activeEvent.data.resource === resource.type) ? resource.yield * 2 : resource.yield;
-                    
-                    // #30: Récolter Pierre avec Pioche
-                    if (resource.type === 'Pierre' && tile.type.name === TILE_TYPES.MINE_TERRAIN.name && player.equipment.weapon && player.equipment.weapon.name === 'Pioche') {
+                    let finalYield = resource.yield;
+                    let toolUsed = null;
+                    if (player.equipment.weapon && player.equipment.weapon.name === 'Pioche') {
                         finalYield = 3;
-                        if (player.equipment.weapon.hasOwnProperty('currentDurability')) {
-                            player.equipment.weapon.currentDurability--;
-                            if (player.equipment.weapon.currentDurability <= 0) {
-                                UI.addChatMessage(`${player.equipment.weapon.name} s'est cassé !`, 'system_warning');
-                                State.unequipItem('weapon');
-                            }
-                        }
+                        toolUsed = player.equipment.weapon;
                     }
 
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                     const amountToHarvest = Math.min(finalYield, availableSpace, tile.harvestsLeft === Infinity ? Infinity : tile.harvestsLeft);
-                    
+
                     if (amountToHarvest > 0) {
                         State.addResourceToPlayer(resource.type, amountToHarvest);
                         if (tile.harvestsLeft !== Infinity) tile.harvestsLeft -= amountToHarvest;
-                        
+
                         UI.showFloatingText(`+${amountToHarvest} ${resource.type}`, 'gain'); UI.triggerActionFlash('gain');
                         if (amountToHarvest < finalYield && availableSpace === 0) UI.addChatMessage("Inventaire plein, récolte partielle.", "system");
-                        else if (amountToHarvest < finalYield) UI.addChatMessage("Récolte partielle due à la limite de la zone ou de l'inventaire.", "system");
-                        
-                        if (tile.harvestsLeft <= 0 && tile.type.harvests !== Infinity) {
-                            // For MINE_TERRAIN, it doesn't turn into wasteland, just depleted for stone.
-                            if (tile.type.name !== TILE_TYPES.MINE_TERRAIN.name) {
-                                State.updateTileType(player.x, player.y, 'WASTELAND');
-                                UI.addChatMessage("Les ressources de cette zone sont épuisées.", "system");
-                            } else {
-                                UI.addChatMessage("Ce filon de pierre est épuisé.", "system");
+
+                        if (toolUsed && toolUsed.hasOwnProperty('currentDurability')) {
+                            toolUsed.currentDurability--;
+                            if (toolUsed.currentDurability <= 0) {
+                                UI.addChatMessage(`${toolUsed.name} s'est cassé !`, 'system_warning');
+                                State.unequipItem('weapon');
                             }
+                        }
+                        if (tile.harvestsLeft <= 0 && tile.harvestsLeft !== Infinity) {
+                            UI.addChatMessage("Ce filon de pierre est épuisé.", "system");
                         }
                     } else {
                         UI.addChatMessage(availableSpace <=0 ? "Votre inventaire est plein !" : (tile.harvestsLeft <=0 && tile.type.harvests !== Infinity ? "Plus rien à récolter ici." : "Impossible de récolter."), "system");
@@ -435,15 +422,12 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         case 'harvest_wood_scie':
         case 'harvest_wood_mains': {
             const requiredToolName = actionId === 'harvest_wood_hache' ? 'Hache' : (actionId === 'harvest_wood_scie' ? 'Scie' : null);
-            const forestTileRef = map[player.y][player.x]; // Use a reference that won't change
-            if (forestTileRef.type.name !== TILE_TYPES.FOREST.name || forestTileRef.woodActionsLeft <= 0) { // #24
+            const forestTileRef = map[player.y][player.x];
+            if (forestTileRef.type.name !== TILE_TYPES.FOREST.name || forestTileRef.woodActionsLeft <= 0) {
                 UI.addChatMessage("Plus de bois à couper/ramasser ici ou ce n'est pas une forêt.", "system"); return;
             }
-            performToolAction(player, 'weapon',
-                'harvest_wood',
+            performToolAction(player, 'weapon', 'harvest_wood',
                 (powerOverride, toolUsed) => {
-                    // forestTileRef already checked above
-
                     let woodYield = 1;
                     let toolUsedNameForMessage = "vos mains";
 
@@ -456,29 +440,27 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     }
 
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
-                    const amountToHarvest = Math.min(woodYield, availableSpace); // woodActionsLeft is the limiter now, not harvestsLeft
+                    const amountToHarvest = Math.min(woodYield, availableSpace);
 
                     if (amountToHarvest > 0) {
                         State.addResourceToPlayer('Bois', amountToHarvest);
-                        forestTileRef.woodActionsLeft--; // #24
+                        forestTileRef.woodActionsLeft--;
                         UI.showFloatingText(`+${amountToHarvest} Bois`, 'gain'); UI.triggerActionFlash('gain');
                         UI.addChatMessage(`Vous obtenez ${amountToHarvest} Bois avec ${toolUsedNameForMessage}.`, 'system');
                         if (amountToHarvest < woodYield && availableSpace === 0) UI.addChatMessage("Inventaire plein, récolte partielle de bois.", "system");
 
-                        if (forestTileRef.woodActionsLeft <= 0) { // #24
+                        if (forestTileRef.woodActionsLeft <= 0) {
                             UI.addChatMessage("Cette partie de la forêt est épuisée pour le bois.", "system");
                         }
                     } else {
-                         UI.addChatMessage(availableSpace <=0 ? "Votre inventaire est plein !" : "Impossible de récolter du bois.", "system");                         if (availableSpace <=0 && DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
+                         UI.addChatMessage(availableSpace <=0 ? "Votre inventaire est plein !" : "Impossible de récolter du bois.", "system");
+                         if (availableSpace <=0 && DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
                     }
                 },
-                updateUICallbacks,
-                {},
-                requiredToolName
-            );
+                updateUICallbacks, {}, requiredToolName);
             break;
         }
-        case 'fish': {
+        case 'fish': { // Pêche à la Canne à pêche
              if (tile.type.name !== TILE_TYPES.PLAGE.name) {
                  UI.addChatMessage("Vous ne pouvez pêcher que sur la plage.", "system"); return;
             }
@@ -486,43 +468,73 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 UI.addChatMessage("Vous ne pouvez plus pêcher ici pour le moment.", "system"); return;
             }
             performToolAction(player, 'weapon', 'fish', (power, toolUsed) => {
-                const fishCaught = Math.ceil(Math.random() * power);
-                if (fishCaught > 0) {
+                if (toolUsed && toolUsed.name === 'Canne à pêche') {
+                    const fishCaught = Math.ceil(Math.random() * (toolUsed.power || 1));
+                    if (fishCaught > 0) {
+                        const availableSpace = player.maxInventory - getTotalResources(player.inventory);
+                        const amountToAdd = Math.min(fishCaught, availableSpace);
+                        if (amountToAdd > 0) {
+                            State.addResourceToPlayer('Poisson cru', amountToAdd);
+                            UI.showFloatingText(`+${amountToAdd} Poisson cru`, 'gain'); UI.triggerActionFlash('gain');
+                            tile.actionsLeft.fish--;
+                            if (amountToAdd < fishCaught) UI.addChatMessage("Inventaire plein, une partie du poisson a été relâchée.", "system");
+                        } else {
+                            UI.addChatMessage("Inventaire plein, impossible de garder le poisson.", "system");
+                            if (DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
+                        }
+                    } else UI.addChatMessage("Ça ne mord pas aujourd'hui...", "system");
+                } else {
+                     UI.addChatMessage("Vous avez besoin d'une Canne à pêche équipée.", "system");
+                }
+            }, updateUICallbacks, {}, 'Canne à pêche');
+            break;
+        }
+        case 'net_fish': { // Pêche au Filet
+             if (tile.type.name !== TILE_TYPES.PLAGE.name) {
+                 UI.addChatMessage("Vous ne pouvez pêcher que sur la plage.", "system"); return;
+            }
+            performToolAction(player, 'weapon', 'net_fish', (power, toolUsed) => {
+                if (toolUsed && toolUsed.name === 'Filet de pêche') {
+                    const fishCaught = Math.ceil(Math.random() * 5) + 2; // 3-7 poissons avec filet
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                     const amountToAdd = Math.min(fishCaught, availableSpace);
                     if (amountToAdd > 0) {
                         State.addResourceToPlayer('Poisson cru', amountToAdd);
                         UI.showFloatingText(`+${amountToAdd} Poisson cru`, 'gain'); UI.triggerActionFlash('gain');
-                        tile.actionsLeft.fish--;
+                        // Pas de actionsLeft pour le filet, il est moins "épuisable" sur une zone, mais a des "uses"
                         if (amountToAdd < fishCaught) UI.addChatMessage("Inventaire plein, une partie du poisson a été relâchée.", "system");
                     } else {
                         UI.addChatMessage("Inventaire plein, impossible de garder le poisson.", "system");
                         if (DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
                     }
-                } else UI.addChatMessage("Ça ne mord pas aujourd'hui...", "system");
-            }, updateUICallbacks, {}, 'Canne à pêche');
+                } else {
+                    UI.addChatMessage("Vous avez besoin d'un Filet de pêche équipé.", "system");
+                }
+            }, updateUICallbacks, {}, 'Filet de pêche');
             break;
         }
         case 'hunt': {
              const weapon = player.equipment.weapon;
              const currentTileForHunt = map[player.y][player.x];
-             if (!currentTileForHunt.huntActionsLeft || currentTileForHunt.huntActionsLeft <= 0) { // #21
+             if (!currentTileForHunt.huntActionsLeft || currentTileForHunt.huntActionsLeft <= 0) {
                  UI.addChatMessage("Plus d'opportunités de chasse ici pour le moment.", "system"); return;
              }
-             if (!weapon) { UI.addChatMessage("Vous ne pouvez pas chasser sans arme.", "system"); return; }
-             if (player.status === 'Drogué') { UI.addChatMessage("Vous ne pouvez pas chasser sous l'effet de la drogue.", "system"); return; } // #41
-             performTimedAction(player, ACTION_DURATIONS.CRAFT,
+             if (!weapon || !weapon.stats || weapon.stats.damage <= 0) { // Need a weapon with damage
+                 UI.addChatMessage("Vous ne pouvez pas chasser sans arme infligeant des dégâts.", "system"); return;
+             }
+             if (player.status === 'Drogué') { UI.addChatMessage("Vous ne pouvez pas chasser sous l'effet de la drogue.", "system"); return; }
+             performTimedAction(player, ACTION_DURATIONS.CRAFT, // Hunt duration might need its own constant
                 () => UI.addChatMessage(`Vous chassez avec ${weapon.name}...`, "system"),
                 () => {
-                    if (Math.random() < 0.6) {
-                        const baseAmount = (weapon.stats?.damage || weapon.power || 1);
-                        const amount = baseAmount * (Math.floor(Math.random() * 2) + 1);
+                    if (Math.random() < 0.6) { // 60% chance de succès
+                        const baseAmount = (weapon.stats?.damage || 1);
+                        const amount = baseAmount * (Math.floor(Math.random() * 2) + 1); // 1x ou 2x les dégâts de l'arme
                         const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                         const amountToAdd = Math.min(amount, availableSpace);
                         if(amountToAdd > 0) {
                             State.addResourceToPlayer('Viande crue', amountToAdd);
                             UI.showFloatingText(`+${amountToAdd} Viande crue`, "gain"); UI.triggerActionFlash('gain');
-                            currentTileForHunt.huntActionsLeft--; // #21
+                            currentTileForHunt.huntActionsLeft--;
                             if (amountToAdd < amount) UI.addChatMessage("Inventaire plein, une partie de la chasse a été laissée.", "system");
                         } else {
                             UI.addChatMessage("Inventaire plein, impossible de ramener la viande.", "system");
@@ -551,8 +563,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             const toolRequiredArray = costs.toolRequired;
             delete costs.toolRequired;
 
-            if (player.status === 'Drogué') { UI.addChatMessage("Vous ne pouvez pas construire sous l'effet de la drogue.", "system"); return; } // #41
-
+            if (player.status === 'Drogué') { UI.addChatMessage("Vous ne pouvez pas construire sous l'effet de la drogue.", "system"); return; }
 
             if (!State.hasResources(costs).success) {
                 UI.addChatMessage("Ressources insuffisantes pour construire.", "system");
@@ -565,11 +576,9 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 if (player.equipment.weapon && toolRequiredArray.includes(player.equipment.weapon.name)) {
                     hasRequiredToolForBuild = true;
                     actualToolUsed = player.equipment.weapon;
+                } else {
+                    UI.addChatMessage(`Outil requis non équipé : ${toolRequiredArray.join(' ou ')}.`, "system"); return;
                 }
-            }
-
-            if (!hasRequiredToolForBuild) {
-                 UI.addChatMessage(`Outil requis non équipé : ${toolRequiredArray.join(' ou ')}.`, "system"); return;
             }
 
             if (tile.buildings.length >= CONFIG.MAX_BUILDINGS_PER_TILE) { UI.addChatMessage("Nombre maximum de bâtiments atteint sur cette tuile.", "system"); return; }
@@ -587,19 +596,19 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     State.applyResourceDeduction(costs);
                     for (const item in costs) UI.showFloatingText(`-${costs[item]} ${item}`, 'cost');
 
-                    if (actualToolUsed && actualToolUsed.isFireStarter && structureKey === 'CAMPFIRE') {
-                        if (actualToolUsed.hasOwnProperty('currentDurability')) {
+                    if (actualToolUsed) {
+                        if (actualToolUsed.hasOwnProperty('currentDurability') && typeof actualToolUsed.currentDurability === 'number') {
                             actualToolUsed.currentDurability--;
                             if (actualToolUsed.currentDurability <= 0) {
-                                UI.addChatMessage(`${actualToolUsed.name} s'est épuisé !`, 'system_warning');
+                                UI.addChatMessage(`${actualToolUsed.name} s'est cassé en construisant !`, 'system_warning');
                                 State.unequipItem('weapon');
                             }
-                        }
-                    } else if (actualToolUsed && (structureKey === 'PETIT_PUIT' || structureKey === 'PUIT_PROFOND')) { // #3
-                        if (actualToolUsed.hasOwnProperty('currentDurability')) {
-                            actualToolUsed.currentDurability--;
-                            if (actualToolUsed.currentDurability <= 0) {
-                                UI.addChatMessage(`${actualToolUsed.name} s'est cassé en construisant le puit!`, 'system_warning');
+                        } else if (actualToolUsed.hasOwnProperty('uses') && typeof actualToolUsed.uses === 'number' && actualToolUsed.isFireStarter && structureKey === 'CAMPFIRE') {
+                            // Fire starters with 'uses'
+                            if (typeof actualToolUsed.currentUses === 'undefined') actualToolUsed.currentUses = actualToolUsed.uses;
+                            actualToolUsed.currentUses--;
+                             if (actualToolUsed.currentUses <= 0) {
+                                UI.addChatMessage(`${actualToolUsed.name} s'est épuisé !`, 'system_warning');
                                 State.unequipItem('weapon');
                             }
                         }
@@ -678,49 +687,56 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks);
             break;
         }
-        case 'cook': {
-            const campfire = findBuildingOnTile(tile, 'CAMPFIRE');
-            if (!campfire) { UI.addChatMessage("Vous avez besoin d'un feu de camp pour cuisiner.", "system"); return; }
-            if (campfire.durability <= 0) { UI.addChatMessage("Le feu de camp est éteint et inutilisable.", "system"); return;}
+        case 'cook': { // This is a generic cook action handler
+            const { raw, buildingKeyForDamage } = data; // Expect raw material and building key in data
+            const building = findBuildingOnTile(tile, buildingKeyForDamage);
+            if (!building) { UI.addChatMessage("Bâtiment de cuisson introuvable.", "system"); return; }
+            if (building.durability <= 0) { UI.addChatMessage("Le bâtiment de cuisson est inutilisable.", "system"); return; }
 
             const cookable = { 'Poisson cru': 'Poisson cuit', 'Viande crue': 'Viande cuite', 'Oeuf cru': 'Oeuf cuit' };
-            const rawMaterial = data.raw; const cookedItem = cookable[rawMaterial];
-            if (!rawMaterial || !cookedItem) { UI.addChatMessage("Ingrédient de cuisine invalide.", "system"); return; }
-            if (!player.inventory[rawMaterial] || player.inventory[rawMaterial] < 1) {
-                UI.addChatMessage(`Vous n'avez pas de ${rawMaterial} à cuisiner.`, "system"); return;
+            const cookedItem = cookable[raw];
+            if (!raw || !cookedItem) { UI.addChatMessage("Ingrédient de cuisine invalide.", "system"); return; }
+            if (!player.inventory[raw] || player.inventory[raw] < 1) {
+                UI.addChatMessage(`Vous n'avez pas de ${raw} à cuisiner.`, "system"); return;
             }
-            if (!State.hasResources({ 'Bois': 1 }).success) {
+            if (buildingKeyForDamage === 'CAMPFIRE' && !State.hasResources({ 'Bois': 1 }).success) {
                 UI.addChatMessage(`Il faut du Bois pour alimenter le feu.`, "system");
                 if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl); return;
             }
-            performTimedAction(player, ACTION_DURATIONS.CRAFT,
-                () => UI.addChatMessage(`Cuisson de ${rawMaterial}...`, "system"),
+            performTimedAction(player, ACTION_DURATIONS.COOK,
+                () => UI.addChatMessage(`Cuisson de ${raw}...`, "system"),
                 () => {
-                    State.applyResourceDeduction({ [rawMaterial]: 1, 'Bois': 1 });
+                    State.applyResourceDeduction({ [raw]: 1 });
+                    if (buildingKeyForDamage === 'CAMPFIRE') State.applyResourceDeduction({'Bois': 1});
+
                     State.addResourceToPlayer(cookedItem, 1);
                     UI.showFloatingText(`+1 ${cookedItem}`, "gain"); UI.triggerActionFlash('gain');
-                    const bldIndex = getBuildingIndexOnTile(tile, 'CAMPFIRE');
+                    const bldIndex = getBuildingIndexOnTile(tile, buildingKeyForDamage);
                     if(bldIndex !== -1) {
                          const damageResult = State.damageBuilding(player.x, player.y, bldIndex, 1);
-                         UI.addChatMessage(`Feu de Camp perd 1 durabilité.`, "system_event");
+                         UI.addChatMessage(`${TILE_TYPES[buildingKeyForDamage].name} perd 1 durabilité.`, "system_event");
                         if (damageResult.destroyed) UI.addChatMessage(`${damageResult.name} s'est éteint et effondré !`, "system_event");
                     }
                 }, updateUICallbacks );
             break;
         }
         case 'search_zone': {
+            let canSearch = false;
             if (tile.type.name === TILE_TYPES.PLAGE.name) {
-                 if (!tile.actionsLeft || tile.actionsLeft.search_zone <= 0) {
-                    UI.addChatMessage("Vous avez déjà fouillé cette plage.", "system"); return;
-                }
-            } else if ( (tile.type.name === TILE_TYPES.FOREST.name || tile.type.name === TILE_TYPES.PLAINS.name) && tile.searchActionsLeft <= 0) { // #23
-                 UI.addChatMessage("Vous avez déjà fouillé cette zone.", "system"); return;
+                 if (tile.actionsLeft && tile.actionsLeft.search_zone > 0) canSearch = true;
+                 else UI.addChatMessage("Vous avez déjà fouillé cette plage.", "system");
+            } else if ( (tile.type.name === TILE_TYPES.FOREST.name || tile.type.name === TILE_TYPES.PLAINS.name) && tile.searchActionsLeft > 0) {
+                 canSearch = true;
+            } else {
+                 UI.addChatMessage("Vous avez déjà fouillé cette zone.", "system");
             }
+            if (!canSearch) return;
 
             const tileName = tile.type.name;
-            let tileKeyForSearch = null;
-            for (const key in TILE_TYPES) if (TILE_TYPES[key].name === tileName) { tileKeyForSearch = key; break; }
-            const searchConfig = tileKeyForSearch ? SEARCH_ZONE_CONFIG[tileKeyForSearch] : null;
+            let tileKeyForSearchConfig = null;
+            for (const key in TILE_TYPES) if (TILE_TYPES[key].name === tileName) { tileKeyForSearchConfig = key; break; }
+            const searchConfig = tileKeyForSearchConfig ? SEARCH_ZONE_CONFIG[tileKeyForSearchConfig] : null;
+
             if (!searchConfig) { UI.addChatMessage("Vous ne pouvez pas fouiller cette zone en détail.", "system"); return; }
 
             performTimedAction(player, ACTION_DURATIONS.SEARCH,
@@ -728,27 +744,14 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 () => {
                     if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsLeft) {
                         tile.actionsLeft.search_zone--;
-                    } else if ((tile.type.name === TILE_TYPES.FOREST.name || tile.type.name === TILE_TYPES.PLAINS.name) && typeof tile.searchActionsLeft !== 'undefined') { // #23
+                    } else if ((tile.type.name === TILE_TYPES.FOREST.name || tile.type.name === TILE_TYPES.PLAINS.name) && typeof tile.searchActionsLeft !== 'undefined') {
                         tile.searchActionsLeft--;
                     }
+
                     const rand = Math.random();
-                    if (rand < searchConfig.combatChance) { // This chance is now 0.0 #32
-                        UI.addChatMessage("Quelque chose surgit des ombres !", "system_event");
-                        const enemyTemplate = ENEMY_TYPES[searchConfig.enemyType];
-                        if (enemyTemplate) {
-                            const encounterEnemy = {
-                                id: `enemy_search_${Date.now()}_${Math.random()}`,
-                                ...JSON.parse(JSON.stringify(enemyTemplate)),
-                                x: player.x, y: player.y,
-                                currentHealth: enemyTemplate.health,
-                                isSearchEncounter: true
-                            };
-                            State.startCombat(player, encounterEnemy);
-                            UI.showCombatModal(State.state.combatState);
-                        } else UI.addChatMessage("...mais ce n'était rien d'alarmant.", "system_event");
-                    } else if (rand < searchConfig.combatChance + searchConfig.noLootChance) {
+                    if (rand < searchConfig.noLootChance) { // NoLootChance applied first
                         UI.addChatMessage("Cette recherche n'a pas été fructueuse.", "system");
-                    } else {
+                    } else { // Proceed to loot tiers
                         const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                         if (availableSpace <= 0) {
                             UI.addChatMessage("Vous apercevez quelque chose, mais votre inventaire est plein !", "system");
@@ -773,7 +776,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                                 } break;
                             }
                         }
-                        if (!foundItem && tierRand >= cumulativeChance) {
+                        if (!foundItem && tierRand >= cumulativeChance) { // Fallback to general pool if no tier hit but passed noLootChance
                              const nonParcheminFallbacks = ALL_SEARCHABLE_ITEMS.filter(item => {
                                  const itemDef = ITEM_TYPES[item];
                                  if (itemDef && itemDef.teachesRecipe && itemDef.unique) {
@@ -849,8 +852,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 UI.addChatMessage("Ce bâtiment est inutilisable ou détruit.", "system"); return;
             }
             const buildingDef = TILE_TYPES[buildingKey];
-            
-            // Correction pour trouver actionDef
+
             let actionDef = null;
             if (buildingDef.action && buildingDef.action.id === specificActionId) {
                 actionDef = buildingDef.action;
@@ -858,45 +860,94 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 actionDef = buildingDef.actions.find(a => a.id === specificActionId);
             }
 
+            // Handle special cases opening modals first
             if (buildingInstance.key === 'ATELIER' && specificActionId === 'use_atelier') {
-                 UI.showWorkshopModal(State.state);
-                 return; // Sortir pour ne pas exécuter le performTimedAction générique ci-dessous
+                 UI.showWorkshopModal(State.state); return;
             }
-             // #17, #19 Arroser / Abreuver
-            if ((buildingDef.actions?.some(a => a.id === 'water_plantation') && specificActionId === 'water_plantation') ||
-                (buildingDef.actions?.some(a => a.id === 'abreuver_animaux') && specificActionId === 'abreuver_animaux')) {
-                if (!player.inventory[actionDef.costItem] || player.inventory[actionDef.costItem] < 1) {
-                     UI.addChatMessage(`Vous n'avez pas de ${actionDef.costItem} pour cette action.`, "system"); return;
-                }
-                State.applyResourceDeduction({ [actionDef.costItem]: 1 });
-                buildingInstance.harvestsAvailable = Math.min(buildingInstance.maxHarvestsPerCycle, (buildingInstance.harvestsAvailable || 0) + 3);
-                UI.addChatMessage(`${buildingDef.name} a été entretenu. Récoltes possibles augmentées. (${buildingInstance.harvestsAvailable || 0}/${buildingInstance.maxHarvestsPerCycle || 0})`, "gain");
-                return; // Action gérée, pas besoin de timed action générique
+            if (buildingInstance.key === 'ETABLI' && specificActionId === 'use_etabli') {
+                 UI.showWorkshopModal(State.state); return; // Etabli also uses workshop modal
             }
-            // Si on arrive ici, c'est une autre action de bâtiment, pas l'ouverture de l'atelier
-            if (!actionDef) {
-                UI.addChatMessage("Définition d'action de bâtiment introuvable ou action spécifique à l'atelier non gérée ici.", "system"); return;
+             if (buildingInstance.key === 'FORGE' && specificActionId === 'use_forge') {
+                 UI.showWorkshopModal(State.state); return; // Forge also uses workshop modal
             }
 
-            if (actionDef.costItem && (!player.inventory[actionDef.costItem] || player.inventory[actionDef.costItem] < 1)) {
-                UI.addChatMessage(`Vous n'avez pas de ${actionDef.costItem} pour cette action.`, "system"); return;
+
+            // For actions that need a specific tool (like mining ore from MINE_TERRAIN or MINE building)
+            if (specificActionId === 'search_ore_tile' || specificActionId === 'search_ore_building') {
+                if (!player.equipment.weapon || player.equipment.weapon.name !== 'Pioche') {
+                    UI.addChatMessage("Vous avez besoin d'une Pioche équipée pour extraire du minerai.", "system");
+                    return;
+                }
+                performToolAction(player, 'weapon', 'mine_ore', (power, toolUsed) => {
+                    if (actionDef && actionDef.results) {
+                        let foundOre = false;
+                        for (const oreResult of actionDef.results) {
+                            if (Math.random() < oreResult.chance) {
+                                const amount = Math.ceil(Math.random() * 2); // 1 or 2 ore
+                                if (getTotalResources(player.inventory) + amount <= player.maxInventory) {
+                                    State.addResourceToPlayer(oreResult.item, amount);
+                                    UI.showFloatingText(`+${amount} ${oreResult.item}`, "gain");
+                                    foundOre = true;
+                                } else { UI.addChatMessage(`Inventaire plein, impossible de récupérer ${oreResult.item}.`, "system"); break; }
+                            }
+                        }
+                        if (foundOre) UI.triggerActionFlash('gain');
+                        else UI.addChatMessage("Vous n'avez trouvé aucun minerai cette fois.", "system");
+
+                        if (buildingKey) { // If it's a MINE building, damage it
+                            const bldIdx = getBuildingIndexOnTile(tile, buildingKey);
+                            if (bldIdx !== -1) {
+                                const damageResult = State.damageBuilding(player.x, player.y, bldIdx, 1);
+                                if (damageResult.destroyed) UI.addChatMessage(`${buildingDef.name} s'est effondré !`, "system_event");
+                                else UI.addChatMessage(`${buildingDef.name} perd 1 durabilité.`, "system_event");
+                            }
+                        }
+                    }
+                }, updateUICallbacks, {}, 'Pioche');
+                return; // Action handled
             }
-            // #18: For harvest actions on buildings (Bananeraie, etc.)
+
+
+            if (!actionDef) {
+                UI.addChatMessage("Définition d'action de bâtiment introuvable.", "system"); return;
+            }
+
+            // Check for required item costs (like water for plantations)
+            if (actionDef.costItem && actionDef.costAmount) {
+                if (!player.inventory[actionDef.costItem] || player.inventory[actionDef.costItem] < actionDef.costAmount) {
+                    UI.addChatMessage(`Vous n'avez pas assez de ${actionDef.costItem} (${actionDef.costAmount} requis).`, "system"); return;
+                }
+            }
+            // Check for multiple cost items (e.g. Laboratoire)
+            if (actionDef.costItems) {
+                 if (!State.hasResources(actionDef.costItems).success) {
+                    UI.addChatMessage("Ressources manquantes pour cette action.", "system"); return;
+                }
+            }
+
+            // Harvests for plantations/animal pens
             if (['harvest_bananeraie', 'harvest_sucrerie', 'harvest_cocoteraie', 'harvest_poulailler', 'harvest_enclos_cochons'].includes(specificActionId)) {
                 if (!buildingInstance.harvestsAvailable || buildingInstance.harvestsAvailable <= 0) {
                     UI.addChatMessage("Rien à récolter pour le moment. Essayez d'arroser/abreuver.", "system");
                     return;
                 }
             }
+            // Building durability consumption
+            let duration = ACTION_DURATIONS.USE_BUILDING_ACTION;
+            if (specificActionId === 'generate_plan') duration = ACTION_DURATIONS.GENERATE_PLAN;
+            else if (specificActionId === 'observe_weather') duration = ACTION_DURATIONS.OBSERVE_WEATHER;
+            else if (specificActionId.startsWith('draw_water_')) duration = ACTION_DURATIONS.PUMP_WATER;
 
-            performTimedAction(player, ACTION_DURATIONS.USE_BUILDING_ACTION,
+
+            performTimedAction(player, duration,
                 () => UI.addChatMessage(`${actionDef.name}...`, "system"),
                 () => {
                     let actionSuccess = true;
-                    if (actionDef.costItem) State.applyResourceDeduction({ [actionDef.costItem]: 1 });
+                    if (actionDef.costItem && actionDef.costAmount) State.applyResourceDeduction({ [actionDef.costItem]: actionDef.costAmount });
+                    if (actionDef.costItems) State.applyResourceDeduction(actionDef.costItems);
+
                     if (actionDef.result) {
                         for (const item in actionDef.result) {
-                            // #18 Decrement harvestsAvailable for building harvest actions
                             if (['harvest_bananeraie', 'harvest_sucrerie', 'harvest_cocoteraie', 'harvest_poulailler', 'harvest_enclos_cochons'].includes(specificActionId)) {
                                 if (buildingInstance.harvestsAvailable > 0) buildingInstance.harvestsAvailable--;
                             }
@@ -912,38 +963,9 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         }
                     }
                     if (actionDef.durabilityGain) buildingInstance.durability = Math.min(buildingInstance.maxDurability, buildingInstance.durability + actionDef.durabilityGain);
-
-                    if (specificActionId === 'use_laboratoire' && data.craftItem === 'Antiseptique') {
-                        // #9, #16 Kit de Secours au lieu de kit de soin
-                        const costs = { 'Kit de Secours': 2, 'Recette médicinale': 1 };
-                        if (!State.hasResources(costs).success) {
-                            UI.addChatMessage("Ressources manquantes pour fabriquer l'Antiseptique.", "system"); actionSuccess = false;
-                         } else {
-                            State.applyResourceDeduction(costs);
-                            State.addResourceToPlayer('Antiseptique', 1);
-                            UI.showFloatingText(`+1 Antiseptique`, "gain");
-                         }
-                    } else if (specificActionId === 'boil_stagnant_water_campfire') {
-                        if (!player.inventory['Eau croupie'] || player.inventory['Eau croupie'] < 1) {
-                            UI.addChatMessage("Vous n'avez pas d'Eau croupie à faire bouillir.", "system"); actionSuccess = false;
-                        } else if (!State.hasResources({ 'Bois': 1 }).success) {
-                             UI.addChatMessage("Il faut du Bois pour alimenter le feu.", "system"); actionSuccess = false;
-                        } else {
-                            State.applyResourceDeduction({ 'Eau croupie': 1, 'Bois': 1 });
-                            State.addResourceToPlayer('Eau pure', 1);
-                            UI.showFloatingText(`+1 Eau pure`, "gain");
-                        }
-                    } else if (specificActionId === 'boil_salt_water_campfire') {
-                        if (!player.inventory['Eau salée'] || player.inventory['Eau salée'] < 1) {
-                            UI.addChatMessage("Vous n'avez pas d'Eau salée à faire bouillir.", "system"); actionSuccess = false;
-                        } else if (!State.hasResources({ 'Bois': 1 }).success) {
-                             UI.addChatMessage("Il faut du Bois pour alimenter le feu.", "system"); actionSuccess = false;
-                        } else {
-                            State.applyResourceDeduction({ 'Eau salée': 1, 'Bois': 1 });
-                            State.addResourceToPlayer('Sel', 1);
-                            UI.showFloatingText(`+1 Sel`, "gain");
-                        }
-                    }
+                    // Special cases like observe_weather or generate_plan
+                    if (specificActionId === 'observe_weather') UI.addChatMessage("Le ciel est clair pour l'instant...", "system_event"); // Placeholder
+                    if (specificActionId === 'generate_plan') UI.addChatMessage("Vous avez passé du temps à chercher, mais n'avez pas encore trouvé de plan clair.", "system_info"); // Placeholder, real plan gain is in config
 
                     if (actionSuccess) UI.triggerActionFlash('gain');
 
@@ -958,8 +980,6 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
         case 'craft_item_workshop': {
             const { recipeName, costs, yields, quantity } = data;
-            // player est déjà défini au début de handlePlayerAction
-
             let hasEnoughResources = true;
             for (const itemName in costs) {
                 if ((player.inventory[itemName] || 0) < costs[itemName] * quantity) {
@@ -973,7 +993,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
                 return;
             }
-            
+
             performTimedAction(player, ACTION_DURATIONS.CRAFT * quantity,
                 () => UI.addChatMessage(`Fabrication de ${quantity}x ${recipeName}...`, "system"),
                 () => {
@@ -988,13 +1008,20 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     UI.triggerActionFlash('gain');
                     UI.addChatMessage(`${quantity}x ${recipeName} fabriqué(s) !`, 'gain');
 
-                    const atelierTile = map[player.y][player.x]; // Utiliser map au lieu de State.state.map
-                    const atelierBuildingIndex = atelierTile.buildings.findIndex(b => b.key === 'ATELIER');
-                    if (atelierBuildingIndex !== -1) {
-                        const damageResult = State.damageBuilding(player.x, player.y, atelierBuildingIndex, 1 * quantity);
-                        if (damageResult.destroyed) {
-                             UI.addChatMessage("L'Atelier s'est effondré en cours de fabrication !", "system_event");
-                             UI.hideWorkshopModal();
+                    // Atelier, Etabli, Forge durability loss
+                    let workshopBuildingKey = null;
+                    if (findBuildingOnTile(tile, 'ATELIER')) workshopBuildingKey = 'ATELIER';
+                    else if (findBuildingOnTile(tile, 'ETABLI')) workshopBuildingKey = 'ETABLI';
+                    else if (findBuildingOnTile(tile, 'FORGE')) workshopBuildingKey = 'FORGE';
+
+                    if (workshopBuildingKey) {
+                        const workshopBuildingIndex = tile.buildings.findIndex(b => b.key === workshopBuildingKey);
+                        if (workshopBuildingIndex !== -1) {
+                            const damageResult = State.damageBuilding(player.x, player.y, workshopBuildingIndex, 1 * quantity);
+                            if (damageResult.destroyed) {
+                                 UI.addChatMessage(`${TILE_TYPES[workshopBuildingKey].name} s'est effondré en cours de fabrication !`, "system_event");
+                                 UI.hideWorkshopModal();
+                            }
                         }
                     }
                     if (DOM.workshopModal && !DOM.workshopModal.classList.contains('hidden')) {
@@ -1026,17 +1053,17 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks);
             break;
         }
-        case 'open_all_parchemins': { // #6
+        case 'open_all_parchemins': {
             let parcheminsUsed = 0;
             let newRecipesLearned = 0;
-            const tempInventoryCopy = {...player.inventory}; // Iterate over a copy
+            const tempInventoryCopy = {...player.inventory};
 
             for (const itemName in tempInventoryCopy) {
                 const itemDef = ITEM_TYPES[itemName];
                 if (itemDef && itemDef.teachesRecipe && player.inventory[itemName] > 0) {
                     const count = player.inventory[itemName];
                     for (let i = 0; i < count; i++) {
-                        const result = State.consumeItem(itemName); // consumeItem handles knownRecipes and foundUniqueParchemins
+                        const result = State.consumeItem(itemName);
                         if (result.success) {
                             parcheminsUsed++;
                             if (result.message.includes("Vous avez appris")) newRecipesLearned++;
@@ -1052,6 +1079,92 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             break;
         }
+        // --- NOUVELLES ACTIONS ---
+        case 'fire_distress_gun': {
+            performToolAction(player, 'weapon', 'fire_distress_gun', (power, toolUsed) => {
+                 UI.addChatMessage("Vous tirez une fusée de détresse avec le pistolet ! Le ciel s'illumine.", 'system_event');
+                 // Future logic: attract rescue, NPCs, or enemies.
+            }, updateUICallbacks, {}, 'Pistolet de détresse');
+            break;
+        }
+        case 'fire_distress_flare': {
+            const result = State.consumeItem('Fusée de détresse'); // Usable, one time
+            UI.addChatMessage(result.message, result.success ? 'system_event' : 'system_error');
+            if (result.success) {
+                UI.addChatMessage("Vous allumez une fusée de détresse ! Une lueur rouge intense s'élève.", 'system_event');
+                // Future logic
+            }
+            break;
+        }
+        case 'place_solar_panel_fixed': {
+            const result = State.consumeItem('Panneau solaire fixe'); // Consumes item to place
+            UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+            if (result.success) {
+                // In a real game, this would place a "building" or "object" on the tile.
+                UI.addChatMessage("Vous installez le panneau solaire fixe. Il commence à capter l'énergie.", 'system_event');
+            }
+            break;
+        }
+        case 'charge_battery_portable_solar': {
+             performToolAction(player, 'weapon', 'charge_battery_portable_solar', (power, toolUsed) => {
+                if (player.inventory['Batterie déchargée'] > 0) {
+                    State.applyResourceDeduction({'Batterie déchargée': 1});
+                    State.addResourceToPlayer('Batterie chargée', 1);
+                    UI.addChatMessage("Vous chargez une batterie avec le panneau solaire portable.", 'gain');
+                } else {
+                    UI.addChatMessage("Vous n'avez pas de batterie déchargée à charger.", 'system');
+                }
+            }, updateUICallbacks, {}, 'Panneau solaire portable');
+            break;
+        }
+        case 'place_trap': {
+            const result = State.consumeItem('Piège');
+            UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+            if (result.success) {
+                 // Could place a "trap object" on the tile, which might catch small game over time.
+                UI.addChatMessage("Vous posez un piège. Avec un peu de chance...", 'system_event');
+            }
+            break;
+        }
+        case 'attract_npc_attention': {
+             performToolAction(player, 'weapon', 'attract_npc_attention', (power, toolUsed) => {
+                UI.addChatMessage("Vous utilisez le sifflet. Un son strident retentit !", 'system_event');
+                // Future: NPCs nearby might react or move towards player.
+            }, updateUICallbacks, {}, 'Sifflet');
+            break;
+        }
+        case 'find_mine_compass': {
+            performToolAction(player, 'weapon', 'find_mine_compass', (power, toolUsed) => {
+                UI.addChatMessage("La boussole semble pointer vers une concentration de minerais...", 'system_event');
+                // Future: Reveal nearest MINE_TERRAIN or MINE building on minimap.
+            }, updateUICallbacks, {}, 'Boussole');
+            break;
+        }
+        case 'repair_building': { // Action pour Kit de réparation
+            const buildingIndexToRepair = data.buildingIndex;
+            if (buildingIndexToRepair === undefined || !tile.buildings[buildingIndexToRepair]) {
+                UI.addChatMessage("Aucun bâtiment sélectionné à réparer.", "system"); return;
+            }
+            const buildingToRepair = tile.buildings[buildingIndexToRepair];
+            const buildingDefToRepair = TILE_TYPES[buildingToRepair.key];
+
+            if (buildingToRepair.durability >= buildingToRepair.maxDurability) {
+                UI.addChatMessage(`${buildingDefToRepair.name} n'a pas besoin de réparation.`, "system"); return;
+            }
+
+            performToolAction(player, 'weapon', 'repair_building', (power, toolUsed) => {
+                if (toolUsed && toolUsed.name === 'Kit de réparation') {
+                    const repairAmount = 20; // ou une valeur plus dynamique
+                    buildingToRepair.durability = Math.min(buildingToRepair.maxDurability, buildingToRepair.durability + repairAmount);
+                    UI.addChatMessage(`${buildingDefToRepair.name} réparé de ${repairAmount} points. Durabilité: ${buildingToRepair.durability}/${buildingToRepair.maxDurability}`, 'gain');
+                } else {
+                     UI.addChatMessage("Vous avez besoin d'un Kit de réparation équipé.", "system");
+                }
+            }, updateUICallbacks, {}, 'Kit de réparation');
+            break;
+        }
+
+
         case 'open_large_map': { UI.showLargeMap(State.state); break; }
         case 'talk_to_npc': { if (data.npcId) npcInteractionHandler(data.npcId); break; }
         case 'open_building_inventory': { UI.showInventoryModal(State.state); break; }
