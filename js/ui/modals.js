@@ -355,7 +355,13 @@ export function populateBuildModal(gameState) { // Rendre exportable si besoin
 
         const hasEnoughResources = State.hasResources(costs).success;
         const canBuildHere = tile.type.buildable || (bKey === 'MINE' || bKey === 'CAMPFIRE' || bKey === 'PETIT_PUIT');
-        const canBuild = hasEnoughResources && hasRequiredToolForThisBuilding && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE && canBuildHere;
+        
+        let isDisabledByStatus = false; // #41
+        if (player.status === 'Drogué') {
+            isDisabledByStatus = true;
+        }
+        const canBuild = hasEnoughResources && hasRequiredToolForThisBuilding && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE && canBuildHere && !isDisabledByStatus;
+
 
         buildButton.disabled = !canBuild || player.isBusy;
         if (!canBuild) {
@@ -363,6 +369,7 @@ export function populateBuildModal(gameState) { // Rendre exportable si besoin
             else if (!canBuildHere) buildButton.title = "Ne peut pas être construit sur ce type de terrain.";
             else if (!hasEnoughResources) buildButton.title = "Ressources manquantes";
             else if (!hasRequiredToolForThisBuilding) buildButton.title = "Outil requis manquant";
+            else if (isDisabledByStatus) buildButton.title = "Impossible de construire sous l'effet de la drogue."; // #41
         }
 
         buildButton.onclick = () => {
@@ -582,11 +589,12 @@ function renderWorkshopRecipes(player) {
                     recipeName: recipe.name,
                     costs: recipe.costs,
                     yields: { [recipe.name]: recipe.yield },
-                    quantity: currentQuantityToCraft
+                    quantity: currentQuantityToCraft,
+                    sourceParchemin: recipe.sourceParchemin // Pourrait être utile pour logique future
                 });
             }
             // Re-peupler pour mettre à jour l'état après le craft
-            populateWorkshopModal(State.state);
+            populateWorkshopModal(State.state); // Doit être ModalsModule.populateWorkshopModal
             if (window.UI && window.UI.updateInventory) window.UI.updateInventory(player);
             if (window.UI && window.UI.updateAllButtonsState) window.UI.updateAllButtonsState(State.state);
         };

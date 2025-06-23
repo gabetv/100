@@ -93,6 +93,11 @@ body {
 }
 
 .ui-panel h3 { font-weight: 600; margin-bottom: 10px; border-bottom: 1px solid #ffffff20; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;}
+#right-panel #tile-info h3 { /* #53 specific selector for tile info header */
+    border-bottom: none;
+    padding-bottom: 0;
+    margin-bottom: 5px; /* Reduced margin for tighter look */
+}
 .ui-panel section { background-color: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
 .stat { margin-bottom: 12px; } .stat-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; } .stat-icon { font-size: 1.1em; text-align: center; width: 20px; } .stat span:not(.stat-icon) { font-size: 0.9em; flex-grow: 1; }
 .stat-bar-container-squares { width: 100%; height: 20px; display: flex; gap: 4px; align-items: center; transition: filter 0.3s; }
@@ -131,6 +136,7 @@ body {
 .tile-detail { font-size: 0.85em; color: var(--text-secondary); background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; margin-top: 10px; text-align: center;}
 .coords-display { font-size: 0.8em; font-weight: 400; color: var(--text-secondary); background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 6px; }
 .capacity-display { font-size: 0.8em; font-weight: 400; color: var(--text-secondary); }
+.day-display-tileinfo-class { font-size: 0.8em; font-weight: 600; color: var(--text-light); background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 6px; margin-left: 5px;} /* #52 */
 
 #actions { display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 5px;} /* Ajout max-height et overflow */
 #actions button { width: 100%; padding: 12px; background-color: var(--action-color); color: var(--text-light); font-weight: 600; font-family: 'Poppins', sans-serif; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; border-bottom: 3px solid #2f5a7a; }
@@ -150,7 +156,7 @@ body {
 #minimap-canvas { width: 100%; height: 100%; image-rendering: pixelated; }
 
 #hud-overlay { position: absolute; top: 15px; right: 15px; z-index: 50; pointer-events: none; }
-#day-display { background-color: rgba(0, 0, 0, 0.4); border-radius: 8px; padding: 8px 12px; color: var(--text-light); font-size: 0.9em; font-weight: 600; backdrop-filter: blur(3px); border: 1px solid rgba(255, 255, 255, 0.1); }
+/* #day-display style rule has been moved or removed due to #52 */
 #main-view-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 40; }
 #navigation-edge-panel { position: relative; width: 100%; height: 100%; pointer-events: none; }
 .nav-button-overlay { position: absolute; background-color: rgba(29, 53, 87, 0.5); color: rgba(241, 250, 238, 0.8); border: 1px solid rgba(241, 250, 238, 0.2); width: 50px; height: 50px; font-size: 1.5em; border-radius: 50%; cursor: pointer; transition: all 0.2s ease; backdrop-filter: blur(3px); display: flex; justify-content: center; align-items: center; padding-bottom: 3px; pointer-events: auto; }
@@ -391,7 +397,7 @@ body {
 
 /* MODALE DE CONSTRUCTION */
 #build-modal-content {
-    max-width: 1200px;
+    max-width: 1200px; /* #41 Drogué status restriction handled in JS */
     min-height: 600px;
     max-height: 90vh;
     display: flex;
@@ -708,7 +714,7 @@ body {
 }
 .workshop-recipe-costs li {
     display: flex;
-    justify-content: space-between;
+    justify-content: space-between; /* #9, #16 Labo recipe: Kit de Secours handled in config/interactions */
     padding: 3px 0;
 }
 .workshop-recipe-costs .cost-name .item-icon { /* Icône pour les coûts */

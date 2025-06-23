@@ -51,7 +51,7 @@ export function generateMap(config) {
                 // Pour les terres non côtières, choisir entre Forêt et Plaine
                 map[y][x] = { type: (Math.random() < 0.6) ? TILE_TYPES.FOREST : TILE_TYPES.PLAINS };
             }
-        }
+        } // Fin boucle x
     }
 
     // Placement des éléments spéciaux
@@ -113,40 +113,40 @@ export function generateMap(config) {
     }
 
 
-    // Placer les Gisements de Pierre
-    const possibleStoneLocations = [];
+    // Placer les Mines (Terrain) - anciennement Gisements de Pierre #29
+    const possibleMineTerrainLocations = [];
     for (let y = 1; y < MAP_HEIGHT - 1; y++) { // Parcourir les tuiles intérieures
         for (let x = 1; x < MAP_WIDTH - 1; x++) {
             if (map[y] && map[y][x] && map[y][x].type.accessible &&
                 !specialLocations.some(loc => loc.x === x && loc.y === y)) { // Non déjà utilisé
-                possibleStoneLocations.push({ x, y });
+                possibleMineTerrainLocations.push({ x, y });
             }
         }
     }
 
-    let stonePlacedCount = 0;
-    const maxStones = 2; // Nombre de gisements de pierre à placer
-    const placedStoneCoords = []; // Pour éviter que les gisements soient adjacents
+    let mineTerrainPlacedCount = 0;
+    const maxMineTerrains = 2; // Nombre de terrains de mine à placer
+    const placedMineTerrainCoords = []; // Pour éviter que les gisements soient adjacents
     // Mélanger les emplacements possibles pour un placement aléatoire
-    for (let i = possibleStoneLocations.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [possibleStoneLocations[i], possibleStoneLocations[j]] = [possibleStoneLocations[j], possibleStoneLocations[i]]; }
+    for (let i = possibleMineTerrainLocations.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [possibleMineTerrainLocations[i], possibleMineTerrainLocations[j]] = [possibleMineTerrainLocations[j], possibleMineTerrainLocations[i]]; }
 
-    for (const loc of possibleStoneLocations) {
-        if (stonePlacedCount >= maxStones) break;
+    for (const loc of possibleMineTerrainLocations) {
+        if (mineTerrainPlacedCount >= maxMineTerrains) break;
         // Vérifier si adjacent à un autre gisement déjà placé (optionnel, pour espacer)
-        let isAdjacentToOtherStone = false;
-        for (const placedLoc of placedStoneCoords) {
+        let isAdjacentToOtherMineTerrain = false;
+        for (const placedLoc of placedMineTerrainCoords) {
             const dx = Math.abs(loc.x - placedLoc.x);
             const dy = Math.abs(loc.y - placedLoc.y);
-            if (dx <= 1 && dy <= 1) { isAdjacentToOtherStone = true; break; } // Si adjacent (y compris diagonale)
+            if (dx <= 1 && dy <= 1) { isAdjacentToOtherMineTerrain = true; break; } // Si adjacent (y compris diagonale)
         }
-        if (!isAdjacentToOtherStone && map[loc.y] && map[loc.y][loc.x]) { // Si non adjacent et la tuile existe
-            map[loc.y][loc.x].type = TILE_TYPES.STONE_DEPOSIT;
-            placedStoneCoords.push(loc); // Ajouter aux coordonnées des pierres placées
+        if (!isAdjacentToOtherMineTerrain && map[loc.y] && map[loc.y][loc.x]) { // Si non adjacent et la tuile existe
+            map[loc.y][loc.x].type = TILE_TYPES.MINE_TERRAIN; // #29
+            placedMineTerrainCoords.push(loc); // Ajouter aux coordonnées des pierres placées
             specialLocations.push(loc);  // Marquer comme emplacement spécial
-            stonePlacedCount++;
+            mineTerrainPlacedCount++;
         }
     }
-    console.log(`Map generation: Placed ${stonePlacedCount} stones.`);
+    console.log(`Map generation: Placed ${mineTerrainPlacedCount} Mine Terrains.`);
 
 
     // Finaliser chaque tuile
@@ -192,6 +192,11 @@ export function generateMap(config) {
                 groundItems: {}, // Pour les objets au sol
                 buildings: [], // Sera rempli par les constructions
                 actionsLeft: type.name === TILE_TYPES.PLAGE.name ? { ...TILE_TYPES.PLAGE.actionsAvailable } : undefined, // Point 1
+                // #21, #23, #24: Initialize action counts for specific terrains
+                woodActionsLeft: type.name === TILE_TYPES.FOREST.name ? TILE_TYPES.FOREST.woodActionsLeft : undefined,
+                huntActionsLeft: (type.name === TILE_TYPES.FOREST.name || type.name === TILE_TYPES.PLAINS.name) ? type.huntActionsLeft : undefined,
+                searchActionsLeft: (type.name === TILE_TYPES.FOREST.name || type.name === TILE_TYPES.PLAINS.name) ? type.searchActionsLeft : undefined,
+
             };
 
             // Si le type de tuile est un bâtiment par défaut (ex: trésor), l'ajouter

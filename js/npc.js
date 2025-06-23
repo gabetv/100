@@ -38,7 +38,7 @@ export function initNpcs(config, map) { // Assurez-vous que 'export' est présen
             activeQuest: null,
             dialogueLines: [
                 "J'espère qu'on va s'en sortir...",
-                "Il faut rester vigilant.",
+                "Il faut rester vigilant. Le statut 'Gravement malade' n'est plus, mais restons prudents.", // #36 (NPC awareness, flavor)
                 "Travaillons ensemble pour survivre !",
                 "Chaque jour est un nouveau défi.",
                 "Gardons espoir."
@@ -198,18 +198,34 @@ export function updateNpcs(gameState, deltaTime) {
             }
         } else if (npc.goal === 'harvesting' || npc.goal === 'gathering_build_materials') {
             let canHarvestHere = false;
-            if (currentTile.type.resource && currentTile.harvestsLeft > 0) {
+            // Check for wood actions
+            if (currentTile.type.name === TILE_TYPES.FOREST.name && currentTile.woodActionsLeft > 0) {
+                 if (npc.goal === 'harvesting' || (npc.goal === 'gathering_build_materials' && 'Bois' === npc.targetResource)) {
+                    canHarvestHere = true;
+                }
+            } 
+            // Check for generic resource on tile (like MINE_TERRAIN for stone)
+            else if (currentTile.type.resource && currentTile.harvestsLeft > 0) {
                 if (npc.goal === 'harvesting' || (npc.goal === 'gathering_build_materials' && currentTile.type.resource.type === npc.targetResource)) {
                     canHarvestHere = true;
                 }
             }
 
-            if (canHarvestHere) {
-                const resourceType = currentTile.type.resource.type;
-                const yieldAmount = currentTile.type.resource.yield || 1;
 
+            if (canHarvestHere) {
+                let resourceType;
+                let yieldAmount;
+                if (currentTile.type.name === TILE_TYPES.FOREST.name) {
+                    resourceType = 'Bois';
+                    yieldAmount = TILE_TYPES.FOREST.resource.yield || 1;
+                    currentTile.woodActionsLeft--;
+                } else {
+                    resourceType = currentTile.type.resource.type;
+                    yieldAmount = currentTile.type.resource.yield || 1;
+                    if(currentTile.harvestsLeft !== Infinity) currentTile.harvestsLeft--;
+                }
                 npc.inventory[resourceType] = (npc.inventory[resourceType] || 0) + yieldAmount;
-                if(currentTile.harvestsLeft !== Infinity) currentTile.harvestsLeft--;
+
 
             } else {
                 let bestTile = null;
@@ -218,13 +234,22 @@ export function updateNpcs(gameState, deltaTime) {
                 for (let y_scan = 0; y_scan < CONFIG.MAP_HEIGHT; y_scan++) {
                     for (let x_scan = 0; x_scan < CONFIG.MAP_WIDTH; x_scan++) {
                         const scanTile = map[y_scan][x_scan];
-                        if (scanTile.type.accessible && scanTile.type.resource && scanTile.harvestsLeft > 0) {
-                            if (npc.goal === 'harvesting' || (npc.goal === 'gathering_build_materials' && scanTile.type.resource.type === npc.targetResource)) {
-                                const pathDist = Math.abs(npc.x - x_scan) + Math.abs(npc.y - y_scan);
-                                if (pathDist < minPathDistance) {
-                                    minPathDistance = pathDist;
-                                    bestTile = { x: x_scan, y: y_scan };
-                                }
+                        let isTargetResourceAvailable = false;
+                        if (scanTile.type.name === TILE_TYPES.FOREST.name && scanTile.woodActionsLeft > 0) {
+                            if (npc.goal === 'harvesting' || (npc.goal === 'gathering_build_materials' && 'Bois' === npc.targetResource)) {
+                                isTargetResourceAvailable = true;
+                            }
+                        } else if (scanTile.type.accessible && scanTile.type.resource && scanTile.harvestsLeft > 0) {
+                             if (npc.goal === 'harvesting' || (npc.goal === 'gathering_build_materials' && scanTile.type.resource.type === npc.targetResource)) {
+                                isTargetResourceAvailable = true;
+                            }
+                        }
+
+                        if (isTargetResourceAvailable) {
+                            const pathDist = Math.abs(npc.x - x_scan) + Math.abs(npc.y - y_scan);
+                            if (pathDist < minPathDistance) {
+                                minPathDistance = pathDist;
+                                bestTile = { x: x_scan, y: y_scan };
                             }
                         }
                     }
@@ -330,7 +355,9 @@ export function npcChatter(npcs) {
         messages.push(`L'abri a besoin de ${npc.targetResource.toLowerCase()}, j'en cherche.`);
     } else if (npc.goal === 'harvesting') {
         const currentTile = window.gameState.map[npc.y][npc.x];
-        if (currentTile && currentTile.type.resource) {
+        if (currentTile && currentTile.type.name === TILE_TYPES.FOREST.name) {
+             messages.push(`Je crois qu'il y a du bois par ici.`);
+        } else if (currentTile && currentTile.type.resource) {
              messages.push(`Je crois qu'il y a du ${currentTile.type.resource.type.toLowerCase()} par ici.`);
         } else {
             messages.push("En quête de ressources utiles...");

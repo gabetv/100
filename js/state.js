@@ -16,7 +16,7 @@ const gameState = {
     shelterLocation: null,
     isGameOver: false,
     combatState: null,
-    config: null,
+    config: { ...CONFIG, VICTORY_DAY: 200 }, // #43
     knownRecipes: {}, // Recettes apprises par le joueur
     mapTileGlobalVisitCounts: new Map(),
     globallyRevealedTiles: new Set(),
@@ -27,7 +27,7 @@ export const state = gameState;
 
 export function initializeGameState(config) {
     console.log("State.initializeGameState appelée avec config:", config);
-    gameState.config = config;
+    gameState.config = { ...config, VICTORY_DAY: 200 }; // #43 ensure victory day is set
     gameState.map = generateMap(config); // map.js génère la carte avec les actionsLeft pour les plages
 
     gameState.player = initPlayer(config, 'player1');
@@ -92,6 +92,13 @@ export function initializeGameState(config) {
     if (existingShelterTile) {
         gameState.shelterLocation = { x: existingShelterTile.x, y: existingShelterTile.y };
     }
+
+    // #42: Reveal all WATER_LAGOON tiles globally
+    gameState.map.flat().forEach(tile => {
+        if (tile.type.name === TILE_TYPES.WATER_LAGOON.name) {
+            gameState.globallyRevealedTiles.add(`${tile.x},${tile.y}`);
+        }
+    });
     console.log("GameState initialisé:", gameState);
 }
 
@@ -203,7 +210,8 @@ export function addEnemy(enemy) {
 
 export function equipItem(itemName) {
     const player = gameState.player;
-    const itemDef = ITEM_TYPES[itemName];
+    const itemDef = JSON.parse(JSON.stringify(ITEM_TYPES[itemName])); // Get a clean copy of the item definition
+
     if (!itemDef || !player.inventory[itemName]) return { success: false, message: "Objet introuvable." };
     const slot = itemDef.slot;
     if (!slot || !player.equipment.hasOwnProperty(slot)) return { success: false, message: "Vous ne pouvez pas équiper ceci." };
@@ -215,12 +223,13 @@ export function equipItem(itemName) {
 
     player.inventory[itemName]--;
     if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
-
-    const newEquip = { name: itemName, ...itemDef }; // Copier les propriétés de itemDef
-    // S'assurer que currentDurability est initialisée si l'objet a de la durabilité
-    if (newEquip.hasOwnProperty('durability')) newEquip.currentDurability = newEquip.durability;
-
-    player.equipment[slot] = newEquip;
+    
+    // Create a new instance for equipment, setting currentDurability to max from definition
+    const newEquipInstance = { name: itemName, ...itemDef };
+    if (newEquipInstance.hasOwnProperty('durability') && typeof newEquipInstance.currentDurability === 'undefined') {
+        newEquipInstance.currentDurability = newEquipInstance.durability;
+    }
+    player.equipment[slot] = newEquipInstance;
 
     // Appliquer les stats de l'équipement
     if (itemDef.stats) {
@@ -291,8 +300,15 @@ export function addBuildingToTile(x, y, buildingKey) {
         return { success: false, message: "Vous ne pouvez pas construire sur ce type de terrain." };
     }
 
+    // For plantation/animal buildings, initialize harvestsAvailable and maxHarvestsPerCycle
+    const buildingData = { key: buildingKey, durability: buildingType.durability, maxDurability: buildingType.durability };
+    if (buildingType.maxHarvestsPerCycle) { // #18
+        buildingData.harvestsAvailable = 0; // Start with 0, requires watering/feeding
+        buildingData.maxHarvestsPerCycle = buildingType.maxHarvestsPerCycle;
+    }
 
-    tile.buildings.push({ key: buildingKey, durability: buildingType.durability, maxDurability: buildingType.durability });
+
+    tile.buildings.push(buildingData);
     if (buildingType.inventory && !tile.inventory) tile.inventory = JSON.parse(JSON.stringify(buildingType.inventory));
     if (buildingKey === 'SHELTER_COLLECTIVE') gameState.shelterLocation = { x, y };
 
@@ -387,6 +403,14 @@ export function updateTileType(x, y, newTerrainTypeKey) {
 
     if (newTerrainTypeKey === 'FOREST') {
         tile.type.buildable = false;
+        tile.woodActionsLeft = newTerrainType.woodActionsLeft; // Re-initialize action counts
+        tile.huntActionsLeft = newTerrainType.huntActionsLeft;
+        tile.searchActionsLeft = newTerrainType.searchActionsLeft;
+    } else if (newTerrainTypeKey === 'PLAINS') {
+        tile.huntActionsLeft = newTerrainType.huntActionsLeft;
+        tile.searchActionsLeft = newTerrainType.searchActionsLeft;
+    } else if (newTerrainTypeKey === 'MINE_TERRAIN') {
+        tile.harvestsLeft = newTerrainType.harvests; // For stone
     }
     // Point 1: Si la tuile devient Plage, initialiser les actions disponibles
     if (newTerrainTypeKey === 'PLAGE') {
@@ -433,7 +457,7 @@ export function consumeItem(itemName) {
     if (itemName === 'Carte' && itemDef?.uses) {
         // La logique d'ouverture de la carte est dans interactions.js
         // Décrémenter les "uses" ici
-        if (player.inventory[itemName] > 0) { // S'assurer que l'item est toujours là
+        if (player.inventory[itemName] > 0) {
             const carteItem = ITEM_TYPES[itemName]; // Accéder à la définition pour les uses
             if (!player.inventoryUses) player.inventoryUses = {};
             if (!player.inventoryUses[itemName]) player.inventoryUses[itemName] = carteItem.uses;
@@ -467,25 +491,18 @@ export function consumeItem(itemName) {
     } else if (itemDef?.effects?.custom) {
         // Logiques custom spécifiques
         if (itemDef.effects.custom === 'porteBonheur') { /* ... */ }
-        else if (itemDef.effects.custom === 'eauSaleeEffect') { // Point 4
+        else if (itemDef.effects.custom === 'eauSaleeEffect') { // #35
             if (player.status === 'Malade') {
-                if(player.health > 0) player.health = Math.max(0, player.health - 1);
-                if (!result.floatingTexts) result.floatingTexts = [];
-                result.floatingTexts.push('-1❤️');
+                // Déjà géré par l'effet health: -1 dans config
             } else {
-                if (Math.random() < 0.5) { // 50% chance de tomber malade
+                if (Math.random() < 0.60) { // 60% chance de tomber malade
                     player.status = 'Malade';
                     if (!result.floatingTexts) result.floatingTexts = [];
                     result.floatingTexts.push('Statut: Malade');
                 }
             }
-        } else if (itemDef.effects.custom === 'eauCroupieEffect') { // Point 26
-            const rand = Math.random();
-            if (rand < 0.10) { // 10% Gravement malade
-                player.status = 'Gravement malade';
-                if (!result.floatingTexts) result.floatingTexts = [];
-                result.floatingTexts.push('Statut: Gravement malade');
-            } else if (rand < 0.10 + 0.50) { // 50% Malade (total 60% chance d'effet négatif)
+        } else if (itemDef.effects.custom === 'eauCroupieEffect') { // #34
+            if (Math.random() < 0.80) { // 80% Malade
                 player.status = 'Malade';
                 if (!result.floatingTexts) result.floatingTexts = [];
                 result.floatingTexts.push('Statut: Malade');
@@ -565,4 +582,18 @@ export function pickUpItemFromGround(itemName, quantity) {
 
     player.inventory[itemName] = (player.inventory[itemName] || 0) + quantity;
     return { success: true, message: `Vous avez ramassé ${quantity} ${itemName}.` };
+}
+
+export function countItemTypeInInventory(itemTypeIdentifier) {
+    let count = 0;
+    for (const itemName in gameState.player.inventory) {
+        const itemDef = ITEM_TYPES[itemName];
+        // Check for 'teachesRecipe' specifically or other identifiers if needed
+        if (itemDef && itemDef.teachesRecipe && (itemTypeIdentifier === 'teachesRecipe' || itemDef.teachesRecipe === itemTypeIdentifier)) {
+            count += gameState.player.inventory[itemName];
+        } else if (itemDef && itemDef[itemTypeIdentifier]) { // Generic identifier check
+             count += gameState.player.inventory[itemName];
+        }
+    }
+    return count;
 }

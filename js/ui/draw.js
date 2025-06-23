@@ -1,4 +1,3 @@
-// js/ui/draw.js
 import { TILE_TYPES, CONFIG } from '../config.js';
 import DOM from './dom.js';
 
@@ -6,8 +5,8 @@ const loadedAssets = {};
 
 const TILE_ICONS = { // Utilisé comme fallback si tile.type.icon n'est pas défini
     'Lagon': '🌊', 'Plage': '🏖️', 'Forêt': '🌲', 'Friche': '🍂',
-    'Plaine': '🌳', 'Gisement de Pierre': '⛰️', 'Feu de Camp': '🔥',
-    'Abri Individuel': '⛺', 'Abri Collectif': '🏠', 'Mine': '⛏️',
+    'Plaine': '🌳', 'Mine': '⛰️', 'Feu de Camp': '🔥', // #29 Gisement de Pierre -> Mine (terrain)
+    'Abri Individuel': '⛺', 'Abri Collectif': '🏠', 'Mine (Bâtiment)': '⛏️🏭', // #29 Renamed Mine building
     // Trésor Caché utilise déjà TILE_TYPES.TREASURE_CHEST.icon
     'default': '❓'
 };
@@ -15,7 +14,7 @@ const TILE_ICONS = { // Utilisé comme fallback si tile.type.icon n'est pas déf
 export function loadAssets(paths) {
     const promises = Object.entries(paths).map(([key, src]) => new Promise((resolve, reject) => {
         const img = new Image();
-        img.src = src;
+        img.src = src + '?v=' + new Date().getTime(); // Cache busting for development
         img.onload = () => {
             loadedAssets[key] = img;
             resolve();
@@ -72,7 +71,7 @@ export function drawMainBackground(gameState) {
         }
     } else {
         // Point 5: Si Bois (Forêt) ou Pierre (Gisement de Pierre) n'ont pas d'image de fond, afficher une couleur
-        // Cette logique est déjà dans config.js pour TILE_TYPES.FOREST.color et TILE_TYPES.STONE_DEPOSIT.color
+        // Cette logique est déjà dans config.js pour TILE_TYPES.FOREST.color et TILE_TYPES.MINE_TERRAIN.color (anciennement STONE_DEPOSIT)
         // On utilise la couleur définie dans TILE_TYPES si backgroundKey est manquant
         let fallbackColor = playerTile.type.color || '#222'; // Couleur par défaut si aucune image et aucune couleur de tuile
         mainViewCtx.fillStyle = fallbackColor;
@@ -328,7 +327,7 @@ export function drawLargeMap(gameState, config) {
             largeMapCtx.textAlign = 'center';
             largeMapCtx.textBaseline = 'middle';
             let iconOffsetY = 0; // Ajustement vertical pour certains emojis
-            if (icon === '💎' || icon === '🌊' || icon === '🏖️' || icon === '🍂' || icon === '🔥' || icon === '⛏️' || icon === '⛺' || icon === '🏠' || icon === '🌲' || icon === '⛰️' || icon === '🌳') {
+            if (icon === '💎' || icon === '🌊' || icon === '🏖️' || icon === '🍂' || icon === '🔥' || icon === '⛏️' || icon === '⛺' || icon === '🏠' || icon === '🌲' || icon === '⛰️' || icon === '🌳' || icon === '⛏️🏭') { // Added Mine Building
                 iconOffsetY = cellSize * 0.05;
             }
             largeMapCtx.fillText(icon, drawX + cellSize / 2, drawY + cellSize / 2 + iconOffsetY);

@@ -18,7 +18,7 @@
                     <h3>Statut</h3>
                     <div class="stat"><div class="stat-header"><span class="stat-icon">❤️</span><span>Santé (<span id="health-status">Normal</span>)</span><button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button></div><div class="stat-bar-container-squares" id="health-bar-squares"></div></div>
                     <div class="stat"><div class="stat-header"><span class="stat-icon">💧</span><span>Soif</span><button class="consume-btn" id="consume-thirst-btn" title="Boire de l'eau">+</button></div><div class="stat-bar-container-squares" id="thirst-bar-squares"></div></div>
-                    <div class="stat"><div class="stat-header"><span class="stat-icon">🍗</span><span>Faim</span><button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button></div><div class="stat-bar-container-squares" id="hunger-bar-squares"></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">🍗</span><span>Faim</span><button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button></div><div class="stat-bar-container-squares" id="hunger-bar-squares"></div></div> <!-- #40 Drogue no longer gives health/thirst -->
                     <div class="stat"><div class="stat-header"><span class="stat-icon">🌙</span><span>Sommeil</span></div><div class="stat-bar-container-squares" id="sleep-bar-squares"></div></div>
                 </section>
                 <section id="minimap-section">
@@ -32,14 +32,19 @@
                 <div id="main-view-container">
                     <div id="survival-vignette"></div><div id="action-flash"></div>
                     <canvas id="main-view-canvas"></canvas><canvas id="characters-canvas"></canvas>
-                    <div id="hud-overlay"><span id="day-display">Jour <span id="day-counter">1</span> / 100</span></div>
+                    <div id="hud-overlay"></div> <!-- #52 Day display moved -->
                     <div id="main-view-overlay"><div id="navigation-edge-panel"><button class="nav-button-overlay" id="nav-north">↑</button><button class="nav-button-overlay" id="nav-west">←</button><button class="nav-button-overlay" id="nav-east">→</button><button class="nav-button-overlay" id="nav-south">↓</button></div></div>
                 </div>
             </div>
 
             <!-- ### PANNEAU DE DROITE ### -->
             <div id="right-panel" class="ui-panel">
-                <section id="tile-info"><h3><span>Lieu: <span id="tile-name">Forêt</span> <span id="hud-coords" class="coords-display">(0,0)</span></span></h3><p id="tile-harvests-info" class="tile-detail"></p></section>
+                <section id="tile-info"> <!-- #52, #53 -->
+                    <h3>
+                        <span id="tile-name">Forêt</span> <span id="hud-coords" class="coords-display">(0,0)</span>
+                        <span id="day-display-tileinfo" class="day-display-tileinfo-class">Jour <span id="day-counter-tileinfo">1</span> / 200</span> <!-- #43, #52 -->
+                    </h3>
+                    <p id="tile-harvests-info" class="tile-detail"></p></section>
                 <section id="interaction-panel"><h3>Actions Possibles</h3><div id="actions"></div></section>
                 <section id="inventory-section"><h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3>
                     <div id="inventory-categories" class="droppable" data-owner="player-inventory">
@@ -150,12 +155,12 @@
                 <div id="equipment-player-view">
                     <div class="player-character-placeholder"><div class="player-head"></div><div class="player-body"></div></div>
                     <div id="equipment-player-stats"><h3>Statistiques de Combat</h3><p>Attaque: <span id="player-stat-attack">1</span></p><p>Défense: <span id="player-stat-defense">0</span></p></div>
-                </div>
+                </div> <!-- #13, #15 equip/unequip handled in JS -->
                 <div id="equipment-slots">
                     <div class="equipment-slot-container"><label>Tête</label><div class="equipment-slot droppable" data-slot-type="head" data-owner="equipment"></div></div>
                     <div class="equipment-slot-container"><label>Arme/Outil</label><div class="equipment-slot droppable" data-slot-type="weapon" data-owner="equipment"></div></div>
                     <div class="equipment-slot-container"><label>Bouclier</label><div class="equipment-slot droppable" data-slot-type="shield" data-owner="equipment"></div></div>
-                    <div class="equipment-slot-container"><label>Habit/Armure</label><div class="equipment-slot droppable" data-slot-type="body" data-owner="equipment"></div></div>
+                    <div class="equipment-slot-container"><label>Habits</label><div class="equipment-slot droppable" data-slot-type="body" data-owner="equipment"></div></div> <!-- #14 -->
                     <div class="equipment-slot-container"><label>Chaussures</label><div class="equipment-slot droppable" data-slot-type="feet" data-owner="equipment"></div></div>
                     <div class="equipment-slot-container"><label>Sac</label><div class="equipment-slot droppable" data-slot-type="bag" data-owner="equipment"></div></div>
                 </div>

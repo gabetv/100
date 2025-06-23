@@ -34,7 +34,7 @@ export function initDOM() {
     DOM.sleepBarSquaresEl = document.getElementById('sleep-bar-squares');
     DOM.healthStatusEl = document.getElementById('health-status');
 
-    DOM.consumeHealthBtn = document.getElementById('consume-health-btn');
+    DOM.consumeHealthBtn = document.getElementById('consume-health-btn'); // #49 (Antiseptique condition is handled in interaction logic, not DOM init)
     DOM.consumeThirstBtn = document.getElementById('consume-thirst-btn');
     DOM.consumeHungerBtn = document.getElementById('consume-hunger-btn');
 
@@ -42,6 +42,8 @@ export function initDOM() {
     DOM.hudCoordsEl = document.getElementById('hud-coords');
     DOM.tileHarvestsInfoEl = document.getElementById('tile-harvests-info');
     DOM.inventoryCapacityEl = document.getElementById('inventory-capacity-display');
+
+    DOM.dayCounterTileInfoEl = document.getElementById('day-counter-tileinfo'); // #52
 
     // --- CARTES ---
     DOM.minimapCanvas = document.getElementById('minimap-canvas');

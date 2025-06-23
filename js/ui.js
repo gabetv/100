@@ -77,7 +77,7 @@ export function updateAllUI(gameState) {
 
     PanelsModule.updateStatsPanel(player);
     PanelsModule.updateInventory(player);
-    PanelsModule.updateDayCounter(day);
+    PanelsModule.updateDayCounter(day); // This now updates the day counter in the tile info panel (#52)
     PanelsModule.updateTileInfoPanel(currentTile);
     PanelsModule.updateQuickSlots(player);
     PanelsModule.updateGroundItemsPanel(currentTile);
@@ -91,6 +91,9 @@ export function updateAllUI(gameState) {
 
     if(DOM.hudCoordsEl) {
         DOM.hudCoordsEl.textContent = `(${player.x}, ${player.y})`;
+    }
+     if(DOM.dayCounterEl && !DOM.dayCounterTileInfoEl) { // Fallback if old day counter still exists and new one doesn't
+        DOM.dayCounterEl.textContent = day;
     }
 }
 

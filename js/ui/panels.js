@@ -26,7 +26,7 @@ export function updateStatsPanel(player) {
     drawSquaresBar(hungerBarSquaresEl, player.hunger, player.maxHunger);
     drawSquaresBar(sleepBarSquaresEl, player.sleep, player.maxSleep);
 
-    if (healthStatusEl) healthStatusEl.textContent = player.status;
+    if (healthStatusEl) healthStatusEl.textContent = player.status || 'Normal'; // #11
 
     if (healthBarSquaresEl) healthBarSquaresEl.classList.toggle('pulsing', player.health <= (player.maxHealth * 0.3));
     if (thirstBarSquaresEl) thirstBarSquaresEl.classList.toggle('pulsing', player.thirst <= (player.maxThirst * 0.2));
@@ -51,7 +51,7 @@ export function updateInventory(player) {
     const categories = {
         consumableAndUtility: [],
         toolAndWeapon: [],
-        shield: [], armor: [], // 'armor' est souvent utilisé pour 'body' avec défense
+        shield: [], habits: [], // #12, #14 (armor/body -> habits)
         body: [], head: [], feet: [], bag: [],
         resource: [],
         key: [],
@@ -68,8 +68,8 @@ export function updateInventory(player) {
                 type = 'consumableAndUtility';
             } else if (itemDef.slot) { // Pour les équipements
                 if (categories[itemDef.slot]) { type = itemDef.slot; }
-                else if (itemDef.type === 'armor' && itemDef.slot === 'body') { type = 'armor'; }
-                else if (itemDef.type === 'shield' && itemDef.slot === 'shield') { type = 'shield'; }
+                else if ((itemDef.type === 'armor' || itemDef.type === 'body') && itemDef.slot === 'body') { type = 'habits'; } // #12
+                // shield, head, feet, bag already handled by categories[itemDef.slot]
             }
 
             if (categories[type]) { categories[type].push(itemName); }
@@ -87,10 +87,10 @@ export function updateInventory(player) {
     }
 
     const categoryOrder = [
+        { key: 'toolAndWeapon', name: 'Outils et Armes' }, // #54
         { key: 'consumableAndUtility', name: 'Consommables et Utilitaires' },
-        { key: 'toolAndWeapon', name: 'Outils et Armes' },
         { key: 'shield', name: 'Boucliers' },
-        { key: 'armor', name: 'Armures (Corps)' },{ key: 'body', name: 'Habits (Corps)' },
+        { key: 'habits', name: 'Habits' }, // #12 (Combined armor and body into habits)
         { key: 'head', name: 'Chapeaux & Casques' }, { key: 'feet', name: 'Chaussures' },
         { key: 'bag', name: 'Sacs' }, { key: 'resource', name: 'Ressources' },
         { key: 'key', name: 'Clés & Uniques' },
@@ -116,7 +116,7 @@ export function updateInventory(player) {
                 const li = document.createElement('li');
                 li.className = 'inventory-item';
 
-                // Déterminer si l'item est cliquable (consommable, enseignable, équipable, utilisable, clé)
+                // Déterminer si l'item est cliquable (consommable, enseignable, équipable, utilisable, clé) - #13, #15
                 if (itemDef.type === 'consumable' || itemDef.teachesRecipe || itemDef.slot || itemName === 'Carte' || itemDef.type === 'usable' || itemDef.type === 'key' || itemName === 'Batterie chargée') {
                     li.classList.add('clickable');
                 }
@@ -137,7 +137,7 @@ export function updateInventory(player) {
 
 
 export function updateDayCounter(day) {
-    if (DOM.dayCounterEl) DOM.dayCounterEl.textContent = day;
+    if (DOM.dayCounterTileInfoEl) DOM.dayCounterTileInfoEl.textContent = day; // #52
 }
 
 export function updateTileInfoPanel(tile) {
@@ -157,16 +157,23 @@ export function updateTileInfoPanel(tile) {
 
     DOM.tileNameEl.textContent = mainDisplayName;
 
-    if (mainDurabilityInfo && DOM.tileHarvestsInfoEl) {
+    // #18, #21, #23, #24: Displaying action counts for tiles/buildings
+    let actionCountInfo = "";
+    if (tile.type.name === TILE_TYPES.FOREST.name) actionCountInfo = `Actions Bois: ${tile.woodActionsLeft || 0}, Chasse: ${tile.huntActionsLeft || 0}, Fouille: ${tile.searchActionsLeft || 0}`;
+    else if (tile.type.name === TILE_TYPES.PLAINS.name) actionCountInfo = `Chasse: ${tile.huntActionsLeft || 0}, Fouille: ${tile.searchActionsLeft || 0}`;
+    else if (tile.type.name === TILE_TYPES.MINE_TERRAIN.name) actionCountInfo = `Pierre: ${tile.harvestsLeft || 0}`;
+    else if (tile.buildings && tile.buildings.length > 0 && TILE_TYPES[tile.buildings[0].key]?.maxHarvestsPerCycle) {
+        const building = tile.buildings[0];
+        actionCountInfo = `Récoltes dispo: ${building.harvestsAvailable || 0}/${building.maxHarvestsPerCycle || 0}`;
+    } else if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsLeft) {
+        actionCountInfo = `Fouilles: ${tile.actionsLeft.search_zone}, Sable: ${tile.actionsLeft.harvest_sand}, Pêche: ${tile.actionsLeft.fish}, Eau salée: ${tile.actionsLeft.harvest_salt_water}`;
+    }
+
+    if (mainDurabilityInfo && DOM.tileHarvestsInfoEl) { // Prioritize building durability
         DOM.tileHarvestsInfoEl.textContent = mainDurabilityInfo;
         DOM.tileHarvestsInfoEl.style.display = 'block';
-    } else if (tile.type.resource && tile.harvestsLeft > 0 && tile.type.harvests !== Infinity && (!tile.buildings || tile.buildings.length === 0) && DOM.tileHarvestsInfoEl) {
-        let harvestsInfoText = `Récoltes (terrain): ${tile.harvestsLeft}`;
-        // Point 1: Afficher les actions restantes pour la plage
-        if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsLeft) {
-            harvestsInfoText = `Fouilles: ${tile.actionsLeft.search_zone}, Sable: ${tile.actionsLeft.harvest_sand}, Pêche: ${tile.actionsLeft.fish}, Eau salée: ${tile.actionsLeft.harvest_salt_water}`;
-        }
-        DOM.tileHarvestsInfoEl.textContent = harvestsInfoText;
+    } else if (actionCountInfo && DOM.tileHarvestsInfoEl) { // Then action counts
+        DOM.tileHarvestsInfoEl.textContent = actionCountInfo;
         DOM.tileHarvestsInfoEl.style.display = 'block';
     } else if (DOM.tileHarvestsInfoEl) {
         DOM.tileHarvestsInfoEl.style.display = 'none';
@@ -211,7 +218,7 @@ export function updateAllButtonsState(gameState) {
         let canHeal = false;
         if ((player.inventory['Kit de Secours'] > 0 && player.status === 'Malade') || // Point 33
             (player.inventory['Médicaments'] > 0 && (player.status === 'Malade' || player.status === 'Gravement malade' || player.status === 'Drogué')) || // Point 34
-            (player.inventory['Antiseptique'] > 0 && (player.status === 'Blessé' || player.status === 'Malade' || player.status === 'Gravement malade')) || // Point 39
+            (player.inventory['Antiseptique'] > 0 && (player.status === 'Blessé' || player.status === 'Malade' /*|| player.status === 'Gravement malade'*/) && player.health < player.maxHealth) || // #39, #49
             (player.inventory['Bandage'] > 0 && player.health < player.maxHealth) || // Point 32
             (player.inventory['Savon'] > 0 && player.health < player.maxHealth) || // Point 37
             (player.inventory['Huile de coco'] > 0 && player.health < player.maxHealth) // Point 43
@@ -219,12 +226,13 @@ export function updateAllButtonsState(gameState) {
             canHeal = true;
         }
         DOM.consumeHealthBtn.disabled = isPlayerBusy || !canHeal || player.health >= player.maxHealth;
-        DOM.consumeHealthBtn.style.visibility = (player.health >= player.maxHealth || !canHeal) ? 'hidden' : 'visible';
+        DOM.consumeHealthBtn.style.visibility = (!canHeal) ? 'hidden' : 'visible'; // Health max check handled by item logic
     }
     if (DOM.consumeThirstBtn) {
         let canDrink = false;
         if ((player.inventory['Eau pure'] > 0 && player.thirst < player.maxThirst) ||
-            (player.inventory['Noix de coco'] > 0 && player.thirst < player.maxThirst)
+            (player.inventory['Noix de coco'] > 0 && player.thirst < player.maxThirst) ||
+            (player.inventory['Alcool'] > 0 && player.thirst < player.maxThirst - 1) // #39
         ) { // Point 25, 40
             canDrink = true;
         }
@@ -307,14 +315,14 @@ export function updateBottomBarEquipmentPanel(player) {
 
     const slotTypesAndLabels = [
         { type: 'head', label: 'Tête' }, { type: 'weapon', label: 'Arme/Outil' },
-        { type: 'shield', label: 'Bouclier' }, { type: 'body', label: 'Habit/Armure' },
+        { type: 'shield', label: 'Bouclier' }, { type: 'body', label: 'Habits' }, // #14
         { type: 'feet', label: 'Chaussures' },
         { type: 'bag', label: 'Sac' }
     ];
 
     slotTypesAndLabels.forEach(slotInfo => {
         const slotContainer = document.createElement('div');
-        slotContainer.className = 'equipment-slot-container-small';
+        slotContainer.className = 'equipment-slot-container-small droppable'; // Make container droppable too
         const label = document.createElement('label');
         label.textContent = slotInfo.label;
         slotContainer.appendChild(label);
