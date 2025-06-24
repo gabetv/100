@@ -330,11 +330,12 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     }
 
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
+                    if (tile.actionsLeft && tile.actionsLeft.harvest_salt_water > 0) tile.actionsLeft.harvest_salt_water--;
+
                     if (availableSpace >= amount) {
                         State.addResourceToPlayer('Eau salée', amount);
                         UI.showFloatingText(`+${amount} Eau salée`, 'gain'); UI.triggerActionFlash('gain');
-                        if (tile.actionsLeft && tile.actionsLeft.harvest_salt_water > 0) tile.actionsLeft.harvest_salt_water--;
-
+                        
                         if (toolUsed && toolUsed.hasOwnProperty('currentDurability')) {
                             toolUsed.currentDurability--;
                             if (toolUsed.currentDurability <= 0) {
@@ -374,12 +375,12 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
 
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                     const amountToHarvest = Math.min(yieldAmount, availableSpace);
+                    if (tile.actionsLeft && tile.actionsLeft.harvest_sand > 0) tile.actionsLeft.harvest_sand--;
 
                     if (amountToHarvest > 0) {
                         State.addResourceToPlayer('Sable', amountToHarvest);
                         UI.showFloatingText(`+${amountToHarvest} Sable`, 'gain'); UI.triggerActionFlash('gain');
-                        if (tile.actionsLeft && tile.actionsLeft.harvest_sand > 0) tile.actionsLeft.harvest_sand--;
-
+                        
                         if (toolUsed && toolUsed.hasOwnProperty('currentDurability')) {
                             toolUsed.currentDurability--;
                             if (toolUsed.currentDurability <= 0) {
@@ -416,11 +417,11 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
 
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                     const amountToHarvest = Math.min(finalYield, availableSpace, tile.harvestsLeft === Infinity ? Infinity : tile.harvestsLeft);
-
+                    
+                    if (tile.harvestsLeft !== Infinity && tile.harvestsLeft > 0) tile.harvestsLeft -= 1; // Toujours décrémenter 1 charge
+                    
                     if (amountToHarvest > 0) {
                         State.addResourceToPlayer(resource.type, amountToHarvest);
-                        if (tile.harvestsLeft !== Infinity && tile.harvestsLeft > 0) tile.harvestsLeft -= amountToHarvest;
-
                         UI.showFloatingText(`+${amountToHarvest} ${resource.type}`, 'gain'); UI.triggerActionFlash('gain');
                         if (amountToHarvest < finalYield && availableSpace === 0) UI.addChatMessage("Inventaire plein, récolte partielle.", "system");
 
@@ -431,12 +432,12 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                                 State.unequipItem('weapon');
                             }
                         }
-                        if (tile.harvestsLeft <= 0 && tile.harvestsLeft !== Infinity) {
-                            UI.addChatMessage("Ce filon de pierre est épuisé.", "system");
-                        }
                     } else {
-                        UI.addChatMessage(availableSpace <=0 ? "Votre inventaire est plein !" : (tile.harvestsLeft <=0 && tile.type.harvests !== Infinity ? "Plus rien à récolter ici." : "Impossible de récolter."), "system");
+                        UI.addChatMessage(availableSpace <=0 ? "Votre inventaire est plein !" : "Impossible de récolter.", "system");
                         if (availableSpace <=0 && DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
+                    }
+                    if (tile.harvestsLeft <= 0 && tile.harvestsLeft !== Infinity) {
+                        UI.addChatMessage("Ce filon de pierre est épuisé.", "system");
                     }
                 }, updateUICallbacks );
             break;
@@ -461,23 +462,23 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         if (toolUsed && toolUsed.name === 'Scie') { woodYield = 5; toolUsedNameForMessage = toolUsed.name; }
                         else { UI.addChatMessage("Vous avez besoin d'une Scie équipée.", "system"); return; }
                     }
-
+                    
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                     const amountToHarvest = Math.min(woodYield, availableSpace);
+                    if (forestTileRef.woodActionsLeft > 0) forestTileRef.woodActionsLeft--;
 
                     if (amountToHarvest > 0) {
                         State.addResourceToPlayer('Bois', amountToHarvest);
-                        if (forestTileRef.woodActionsLeft > 0) forestTileRef.woodActionsLeft--;
                         UI.showFloatingText(`+${amountToHarvest} Bois`, 'gain'); UI.triggerActionFlash('gain');
                         UI.addChatMessage(`Vous obtenez ${amountToHarvest} Bois avec ${toolUsedNameForMessage}.`, 'system');
                         if (amountToHarvest < woodYield && availableSpace === 0) UI.addChatMessage("Inventaire plein, récolte partielle de bois.", "system");
 
-                        if (forestTileRef.woodActionsLeft <= 0) {
-                            UI.addChatMessage("Cette partie de la forêt est épuisée pour le bois.", "system");
-                        }
                     } else {
                          UI.addChatMessage(availableSpace <=0 ? "Votre inventaire est plein !" : "Impossible de récolter du bois.", "system");
                          if (availableSpace <=0 && DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
+                    }
+                     if (forestTileRef.woodActionsLeft <= 0) {
+                        UI.addChatMessage("Cette partie de la forêt est épuisée pour le bois.", "system");
                     }
                 },
                 updateUICallbacks, {}, requiredToolName);
@@ -491,6 +492,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 UI.addChatMessage("Vous ne pouvez plus pêcher ici pour le moment.", "system"); return;
             }
             performToolAction(player, 'weapon', 'fish', (power, toolUsed) => {
+                if (tile.actionsLeft && tile.actionsLeft.fish > 0) tile.actionsLeft.fish--;
                 if (toolUsed && toolUsed.name === 'Canne à pêche') {
                     const fishCaught = Math.ceil(Math.random() * (toolUsed.power || 1));
                     if (fishCaught > 0) {
@@ -499,7 +501,6 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         if (amountToAdd > 0) {
                             State.addResourceToPlayer('Poisson cru', amountToAdd);
                             UI.showFloatingText(`+${amountToAdd} Poisson cru`, 'gain'); UI.triggerActionFlash('gain');
-                            if (tile.actionsLeft && tile.actionsLeft.fish > 0) tile.actionsLeft.fish--;
                             if (amountToAdd < fishCaught) UI.addChatMessage("Inventaire plein, une partie du poisson a été relâchée.", "system");
                         } else {
                             UI.addChatMessage("Inventaire plein, impossible de garder le poisson.", "system");
@@ -548,6 +549,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
              performTimedAction(player, ACTION_DURATIONS.SEARCH, 
                 () => UI.addChatMessage(`Vous chassez avec ${weapon.name}...`, "system"),
                 () => {
+                    if (currentTileForHunt.huntActionsLeft > 0) currentTileForHunt.huntActionsLeft--;
                     if (Math.random() < 0.6) { 
                         const baseAmount = (weapon.stats?.damage || 1);
                         const amount = baseAmount * (Math.floor(Math.random() * 2) + 1); 
@@ -556,7 +558,6 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         if(amountToAdd > 0) {
                             State.addResourceToPlayer('Viande crue', amountToAdd);
                             UI.showFloatingText(`+${amountToAdd} Viande crue`, "gain"); UI.triggerActionFlash('gain');
-                            if (currentTileForHunt.huntActionsLeft > 0) currentTileForHunt.huntActionsLeft--;
                             if (amountToAdd < amount) UI.addChatMessage("Inventaire plein, une partie de la chasse a été laissée.", "system");
                         } else {
                             UI.addChatMessage("Inventaire plein, impossible de ramener la viande.", "system");
@@ -744,11 +745,16 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
         case 'search_zone': {
             let canSearch = false;
+            let actionCounterToDecrement = null;
+
             if (tile.type.name === TILE_TYPES.PLAGE.name) {
-                 if (tile.actionsLeft && tile.actionsLeft.search_zone > 0) canSearch = true;
-                 else UI.addChatMessage("Vous avez déjà fouillé cette plage.", "system");
+                 if (tile.actionsLeft && tile.actionsLeft.search_zone > 0) {
+                     canSearch = true;
+                     actionCounterToDecrement = () => tile.actionsLeft.search_zone--;
+                 } else UI.addChatMessage("Vous avez déjà fouillé cette plage.", "system");
             } else if ( (tile.type.name === TILE_TYPES.FOREST.name || tile.type.name === TILE_TYPES.PLAINS.name) && tile.searchActionsLeft > 0) {
                  canSearch = true;
+                 actionCounterToDecrement = () => tile.searchActionsLeft--;
             } else {
                  UI.addChatMessage("Vous avez déjà fouillé cette zone.", "system");
             }
@@ -764,11 +770,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             performTimedAction(player, ACTION_DURATIONS.SEARCH,
                 () => UI.addChatMessage("Vous fouillez attentivement les environs...", "system"),
                 () => {
-                    if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsLeft) {
-                        tile.actionsLeft.search_zone--;
-                    } else if ((tile.type.name === TILE_TYPES.FOREST.name || tile.type.name === TILE_TYPES.PLAINS.name) && typeof tile.searchActionsLeft === 'number' && tile.searchActionsLeft > 0) {
-                        tile.searchActionsLeft--;
-                    }
+                    if(actionCounterToDecrement) actionCounterToDecrement(); // Décrémente le compteur, peu importe le résultat
 
                     const rand = Math.random();
                     if (rand < searchConfig.noLootChance) { 
@@ -965,6 +967,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             if (specificActionId === 'generate_plan') duration = ACTION_DURATIONS.GENERATE_PLAN;
             else if (specificActionId === 'observe_weather') duration = ACTION_DURATIONS.OBSERVE_WEATHER;
             else if (specificActionId.startsWith('draw_water_')) duration = ACTION_DURATIONS.PUMP_WATER;
+            else if (specificActionId.startsWith('boil_')) duration = ACTION_DURATIONS.BOIL_WATER;
 
 
             performTimedAction(player, duration,
@@ -973,6 +976,8 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     let actionSuccess = true;
                     if (actionDef.costItem && actionDef.costAmount) State.applyResourceDeduction({ [actionDef.costItem]: actionDef.costAmount });
                     if (actionDef.costItems) State.applyResourceDeduction(actionDef.costItems);
+                    if (actionDef.costWood) State.applyResourceDeduction({ 'Bois': actionDef.costWood });
+
 
                     if (actionDef.result) {
                         for (const item in actionDef.result) {
@@ -1234,7 +1239,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 UI.addChatMessage("Aucun cadenas à retirer ou bâtiment incorrect.", "system"); return;
             }
             const invSpace = player.maxInventory - getTotalResources(player.inventory);
-            if (invSpace < 1 && !player.inventory['Cadenas']) { 
+            if (invSpace < 1 && (!player.inventory['Cadenas'] || player.inventory['Cadenas'] === 0) ) { 
                  UI.addChatMessage("Inventaire plein, impossible de récupérer le cadenas.", "system"); return;
             }
 

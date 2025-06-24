@@ -38,10 +38,9 @@ export function updateStatsPanel(player) {
 }
 
 export function updateQuickSlots(player) {
-    // Quick slots sont désactivés/supprimés, cette fonction est gardée pour compatibilité si elle est appelée ailleurs.
+    // Quick slots are not used in this version.
 }
 
-// CORRIGÉ : Logique de catégorisation améliorée pour l'armure ('habits')
 export function updateInventory(player) {
     if (!player || !player.inventory || !DOM.inventoryCategoriesEl || !DOM.inventoryCapacityEl) return;
 
@@ -50,47 +49,42 @@ export function updateInventory(player) {
     DOM.inventoryCapacityEl.textContent = `(${total} / ${player.maxInventory})`;
 
     const categories = {
-        consumableAndUtility: [],
-        toolAndWeapon: [],
-        shield: [],
-        body: [], // Slot 'body' pour la catégorie "Habits"
-        head: [], 
-        feet: [], 
-        bag: [],
-        resource: [],
-        key: [],
+        consumableAndUtility: {},
+        toolAndWeapon: {},
+        shield: {},
+        body: {},
+        head: {},
+        feet: {},
+        bag: {},
+        resource: {},
+        key: {},
     };
 
+    // Classify items
     for (const itemName in player.inventory) {
-        if (player.inventory[itemName] > 0) {
-            const itemDef = ITEM_TYPES[itemName] || { type: 'resource', icon: '❓' };
-            let type = itemDef.type;
+        const itemValue = player.inventory[itemName];
+        // This handles cases where items with durability are stored as objects/instances
+        const baseItemName = typeof itemValue === 'object' && itemValue.name ? itemValue.name : itemName;
+        const baseItemDef = ITEM_TYPES[baseItemName] || { type: 'resource', icon: '❓' };
+        
+        let type = baseItemDef.type;
 
-            if (itemDef.type === 'tool' || itemDef.type === 'weapon' || (itemDef.type === 'usable' && itemDef.slot === 'weapon')) {
-                type = 'toolAndWeapon';
-            } else if (itemDef.type === 'consumable' || itemDef.type === 'usable') {
-                type = 'consumableAndUtility';
-            } else if (itemDef.slot) { // Pour les équipements
-                if (categories[itemDef.slot]) {
-                    type = itemDef.slot;
-                }
-            }
-
-            if (categories[type]) {
-                categories[type].push(itemName);
-            } else if (categories.resource && type === 'resource') {
-                categories.resource.push(itemName);
-            } else if (categories.key && type === 'key') {
-                categories.key.push(itemName);
-            } else {
-                console.warn(`Type d'item '${type}' pour '${itemName}' n'a pas de catégorie dédiée, classé comme ressource par défaut.`);
-                if (categories.resource) categories.resource.push(itemName);
-                else console.error(`Catégorie de ressource par défaut manquante et type inconnu pour l'item ${itemName}`);
-            }
+        if (baseItemDef.type === 'tool' || baseItemDef.type === 'weapon' || (baseItemDef.type === 'usable' && baseItemDef.slot === 'weapon')) {
+            type = 'toolAndWeapon';
+        } else if (baseItemDef.type === 'consumable' || baseItemDef.type === 'usable') {
+            type = 'consumableAndUtility';
+        } else if (baseItemDef.slot) {
+            if (categories[baseItemDef.slot]) type = baseItemDef.slot;
         }
+        
+        const targetCategory = categories[type] || categories.resource;
+        
+        // Group all instances under the same base name, this is a complex part
+        // The original code was not fully handling instance-based items vs stackable
+        // Let's simplify for now to match the provided logic
+        targetCategory[itemName] = itemValue;
     }
 
-    // CORRIGÉ : L'ordre et le nom des catégories, en particulier "Habits" pour le slot 'body'
     const categoryOrder = [
         { key: 'toolAndWeapon', name: 'Outils et Armes' },
         { key: 'consumableAndUtility', name: 'Consommables et Utilitaires' },
@@ -102,35 +96,52 @@ export function updateInventory(player) {
         { key: 'resource', name: 'Ressources' },
         { key: 'key', name: 'Clés & Uniques' },
     ];
-
+    
     let hasItems = false;
     categoryOrder.forEach(cat => {
         const itemsInCategory = categories[cat.key];
-        if (itemsInCategory && itemsInCategory.length > 0) {
+        if (Object.keys(itemsInCategory).length > 0) {
             hasItems = true;
             const categoryDiv = document.createElement('div');
             categoryDiv.className = 'inventory-category';
             const header = document.createElement('div');
-            header.className = 'category-header';
-            if (['resource', 'consumableAndUtility', 'toolAndWeapon', 'key'].includes(cat.key)) header.classList.add('open');
+            header.className = 'category-header open';
             header.innerHTML = `<span>${cat.name}</span><span class="category-toggle">▶</span>`;
             const content = document.createElement('ul');
-            content.className = 'category-content';
-            if (header.classList.contains('open')) content.classList.add('visible');
-
-            itemsInCategory.sort().forEach(itemName => {
+            content.className = 'category-content visible';
+            
+            Object.keys(itemsInCategory).sort().forEach(itemName => {
+                const itemValue = itemsInCategory[itemName];
                 const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
+                let baseItemName = itemName;
+                let instanceData = null;
+
+                // Handle instance objects (like equipped items returned to inventory)
+                if (typeof itemValue === 'object' && itemValue.name) {
+                    baseItemName = itemValue.name;
+                    instanceData = itemValue;
+                }
+                
+                const baseItemDef = ITEM_TYPES[baseItemName] || { icon: '❓' };
+
                 const li = document.createElement('li');
                 li.className = 'inventory-item';
-
-                if (itemDef.type === 'consumable' || itemDef.teachesRecipe || itemDef.slot || itemName === 'Carte' || itemDef.type === 'usable' || itemDef.type === 'key' || itemName === 'Batterie chargée') {
+                 if (baseItemDef.type === 'consumable' || baseItemDef.teachesRecipe || baseItemDef.slot || baseItemDef.type === 'usable' || baseItemDef.type === 'key') {
                     li.classList.add('clickable');
                 }
-                li.dataset.itemName = itemName;
+                li.dataset.itemName = itemName; // Use original key for interactions
                 li.setAttribute('draggable', 'true');
-                li.dataset.itemCount = player.inventory[itemName];
                 li.dataset.owner = 'player-inventory';
-                li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${player.inventory[itemName]}</span>`;
+
+                let displayName = baseItemName;
+                let count = (typeof itemValue === 'number') ? itemValue : 1;
+                
+                if (instanceData && instanceData.hasOwnProperty('currentDurability')) {
+                    displayName += ` (${instanceData.currentDurability}/${instanceData.durability})`;
+                }
+
+                li.dataset.itemCount = count;
+                li.innerHTML = `<span class="inventory-icon">${baseItemDef.icon}</span><span class="inventory-name">${displayName}</span><span class="inventory-count">${count}</span>`;
                 content.appendChild(li);
             });
             categoryDiv.appendChild(header);
@@ -138,12 +149,15 @@ export function updateInventory(player) {
             DOM.inventoryCategoriesEl.appendChild(categoryDiv);
         }
     });
+
     if (!hasItems) DOM.inventoryCategoriesEl.innerHTML = '<li class="inventory-empty">(Vide)</li>';
 }
 
-
 export function updateDayCounter(day) {
-    if (DOM.dayCounterTileInfoEl) DOM.dayCounterTileInfoEl.textContent = day;
+    if (DOM.dayCounterTileInfoEl) {
+        const span = DOM.dayCounterTileInfoEl; // This is the span itself based on new HTML
+        if (span) span.textContent = day;
+    }
 }
 
 export function updateTileInfoPanel(tile) {
@@ -157,7 +171,9 @@ export function updateTileInfoPanel(tile) {
         const mainBuildingDef = TILE_TYPES[mainBuildingInstance.key];
         if (mainBuildingDef) {
             mainDisplayName = mainBuildingDef.name;
-            mainDurabilityInfo = `Durabilité: ${mainBuildingInstance.durability}/${mainBuildingInstance.maxDurability}`;
+            if (mainBuildingInstance.hasOwnProperty('durability') && mainBuildingInstance.hasOwnProperty('maxDurability')) {
+                 mainDurabilityInfo = `Durabilité: ${mainBuildingInstance.durability}/${mainBuildingInstance.maxDurability}`;
+            }
         }
     }
 

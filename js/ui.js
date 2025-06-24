@@ -1,11 +1,12 @@
-import DOM from './ui/dom.js'; // Assurez-vous que DOM est bien importé ici
+// js/ui.js
+import DOM from './ui/dom.js'; // Correction du chemin
 
 // Importer les modules en entier (namespace import)
-import * as PanelsModule from './ui/panels.js';
-import * as DrawModule from './ui/draw.js';
-import * as EffectsModule from './ui/effects.js';
-import * as ModalsModule from './ui/modals.js';
-import * as TutorialModule from './ui/tutorial.js';
+import * as PanelsModule from './ui/panels.js'; // Correction du chemin
+import * as DrawModule from './ui/draw.js'; // Correction du chemin
+import * as EffectsModule from './ui/effects.js'; // Correction du chemin
+import * as ModalsModule from './ui/modals.js'; // Correction du chemin
+import * as TutorialModule from './ui/tutorial.js'; // Correction du chemin
 
 // --- Ré-exporter explicitement les fonctions que main.js (ou d'autres modules externes) utilisera via UI.fonction ---
 
@@ -125,7 +126,6 @@ export function renderScene(gameState) {
  * Vérifie si la modale de quantité est actuellement ouverte.
  * @returns {boolean} True si la modale est ouverte, false sinon.
  */
-// AJOUTÉ : Fonction manquante pour les gestionnaires d'événements
 export function isQuantityModalOpen() {
     return DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden');
 }

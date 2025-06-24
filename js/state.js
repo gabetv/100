@@ -1,4 +1,4 @@
-// js/state.js
+//js/state.js
 import { generateMap } from './map.js';
 import { initPlayer, getTotalResources, consumeItem as playerConsumeItemLogic, transferItems, movePlayer as playerMoveLogic } from './player.js';
 import { initNpcs } from './npc.js';
@@ -251,15 +251,24 @@ export function equipItem(itemName) {
         const unequipResult = unequipItem(slot);
         if (!unequipResult.success) return unequipResult;
     }
-
-    const newEquipInstance = { name: itemName, ...itemDef };
-    if (newEquipInstance.hasOwnProperty('durability') && typeof newEquipInstance.currentDurability === 'undefined') {
-        newEquipInstance.currentDurability = newEquipInstance.durability;
+    
+    // Si l'objet dans l'inventaire est une instance (avec durabilité), on l'utilise
+    // Sinon, on en crée une nouvelle (pour les objets qui n'ont pas de durabilité/usages)
+    const inventoryItem = player.inventory[itemName];
+    let itemInstanceToEquip;
+    if (typeof inventoryItem === 'object' && inventoryItem.name) {
+        itemInstanceToEquip = inventoryItem;
+    } else {
+        itemInstanceToEquip = { name: itemName, ...itemDef };
+        if (itemInstanceToEquip.hasOwnProperty('durability')) {
+            itemInstanceToEquip.currentDurability = itemInstanceToEquip.durability;
+        }
+        if (itemInstanceToEquip.hasOwnProperty('uses')) {
+            itemInstanceToEquip.currentUses = itemInstanceToEquip.uses;
+        }
     }
-    if (newEquipInstance.hasOwnProperty('uses') && typeof newEquipInstance.currentUses === 'undefined') {
-        newEquipInstance.currentUses = newEquipInstance.uses;
-    }
-    player.equipment[slot] = newEquipInstance;
+    
+    player.equipment[slot] = itemInstanceToEquip;
 
     if (itemDef.stats) {
         for (const stat in itemDef.stats) {
@@ -275,7 +284,9 @@ export function equipItem(itemName) {
         }
     }
 
-    if (!itemDef.uses) {
+    if (typeof inventoryItem === 'object') {
+        delete player.inventory[itemName]; // Supprimer l'instance de l'inventaire
+    } else if (player.inventory[itemName] > 0) {
         player.inventory[itemName]--;
         if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
     }
@@ -287,18 +298,23 @@ export function unequipItem(slot) {
     const player = gameState.player;
     const itemInstance = player.equipment[slot];
     if (!itemInstance) return { success: false, message: "Aucun objet dans cet emplacement." };
-
-    const itemDef = ITEM_TYPES[itemInstance.name];
-
-    if (!itemDef.uses && (!itemInstance.hasOwnProperty('currentDurability') || itemInstance.currentDurability > 0)) {
-        if (getTotalResources(player.inventory) >= player.maxInventory && (!player.inventory[itemInstance.name] || player.inventory[itemInstance.name] === 0) ) {
+    
+    const hasState = itemInstance.hasOwnProperty('currentDurability') || itemInstance.hasOwnProperty('currentUses');
+    
+    // Vérifier l'espace dans l'inventaire avant de déséquiper
+    if (getTotalResources(player.inventory) >= player.maxInventory) {
+        // Si l'inventaire est plein, on ne peut pas déséquiper un nouvel objet
+        if (!player.inventory[itemInstance.name] || player.inventory[itemInstance.name] === 0) {
             return { success: false, message: "Inventaire plein." };
         }
-        addResourceToPlayer(itemInstance.name, 1);
+        // Si c'est un objet avec état et qu'on n'a pas de pile de cet objet, on ne peut pas non plus
+        if (hasState && !player.inventory[itemInstance.name]) {
+             return { success: false, message: "Inventaire plein." };
+        }
     }
 
     player.equipment[slot] = null;
-
+    
     if (itemInstance.stats) {
         for (const stat in itemInstance.stats) {
             if (stat.startsWith('max') && player.hasOwnProperty(stat)) {
@@ -312,8 +328,23 @@ export function unequipItem(slot) {
             }
         }
     }
+
+    // Remettre l'objet dans l'inventaire en préservant son état
+    if (hasState) {
+        // Pour les objets avec état, on ne peut pas les empiler. On doit les stocker comme des instances uniques.
+        // C'est un changement majeur de la structure de l'inventaire.
+        // Pour une solution simple, on ajoute juste l'objet tel quel.
+        // Le nom de la clé sera unique pour éviter les collisions.
+        const uniqueKey = `${itemInstance.name}_${Date.now()}`;
+        player.inventory[uniqueKey] = itemInstance;
+    } else {
+        // Pour les objets sans état, on incrémente juste le compteur.
+        addResourceToPlayer(itemInstance.name, 1);
+    }
+    
     return { success: true, message: `${itemInstance.name} déséquipé.` };
 }
+
 
 export function addResourceToPlayer(resourceType, amount) {
     const player = gameState.player;

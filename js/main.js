@@ -1,18 +1,18 @@
 // js/main.js
 import * as UI from './ui.js';
-import { initDOM } from './ui/dom.js';
-import DOM from './ui/dom.js';
+import { initDOM } from './ui/dom.js'; // Correction du chemin
+import DOM from './ui/dom.js'; // Correction du chemin
 import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES, SEARCH_ZONE_CONFIG } from './config.js';
 import * as State from './state.js';
 import { decayStats, getTotalResources } from './player.js';
 import { updateNpcs, npcChatter } from './npc.js';
 import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js';
-import * as Interactions from './interactions.js'; // Import all exports from interactions
+import * as Interactions from './interactions.js';
 import { initAdminControls } from './admin.js';
 
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
-let draggedItemInfo = null; // Garder cette variable globale, mais l'utiliser avec prudence
+let draggedItemInfo = null;
 
 function updatePossibleActions() {
     if (!DOM.actionsEl) return;
@@ -165,7 +165,9 @@ function updatePossibleActions() {
                     createButton(`🪚 Scier Bois (Scie) (${tile.woodActionsLeft || 0})`, 'harvest_wood_scie', {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
                 }
             }
-            if (!equippedWeapon || (equippedWeapon.name !== 'Hache' && equippedWeapon.name !== 'Scie')) createButton(`✋ Ramasser Bois (${tile.woodActionsLeft || 0})`, 'harvest_wood_mains', {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
+            if (!equippedWeapon) {
+                createButton(`✋ Ramasser Bois (${tile.woodActionsLeft || 0})`, 'harvest_wood_mains', {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
+            }
         } else if (tileType.name === TILE_TYPES.MINE_TERRAIN.name) {
             const canHarvestStone = tile.harvestsLeft > 0;
             const resourceIcon = ITEM_TYPES[tileType.resource.type]?.icon || '';
@@ -334,12 +336,12 @@ function handleEvents() {
             activeEvent.duration = 1;
             UI.addChatMessage("Une tempête approche ! Il sera plus difficile de survivre.", "system_event");
         } else {
-            const abundantResourceList = ['Bois', 'Poisson cru', 'Pierre', 'Feuilles'];
+            const abundantResourceList = ['Poisson cru', 'Pierre', 'Feuilles'];
             const abundantResource = abundantResourceList[Math.floor(Math.random() * abundantResourceList.length)];
             activeEvent.type = 'Abondance';
             activeEvent.duration = 2;
             activeEvent.data = { resource: abundantResource };
-            UI.addChatMessage(`Les ${abundantResource.toLowerCase()}s sont étrangement abondants !`, "system_event");
+            // Message "les ... sont abondants" supprimé
         }
     }
 }
@@ -533,6 +535,19 @@ function handleConsumeClick(itemName) {
     if (player.isBusy || player.animationState) { UI.addChatMessage("Vous êtes occupé.", "system"); return; }
 
     const itemDef = ITEM_TYPES[itemName];
+    const isInstance = typeof player.inventory[itemName] === 'object';
+    
+    // Si c'est une instance (objet avec durabilité), on ne peut pas le "consommer" comme ça
+    if (isInstance) {
+        if (itemDef && itemDef.slot) { // Tentative d'équipement
+            const equipResult = State.equipItem(itemName);
+            UI.addChatMessage(equipResult.message, equipResult.success ? 'system' : 'system_error');
+            if (equipResult.success) fullUIUpdate();
+        } else {
+             UI.addChatMessage(`"${itemName}" ne peut pas être utilisé directement comme ça.`, "system");
+        }
+        return;
+    }
 
     if (itemDef && itemDef.effects) {
         if ((itemName === 'Eau pure' || itemName === 'Eau salée' || itemName === 'Eau croupie' || itemName === 'Noix de coco') && player.thirst >= player.maxThirst) {
@@ -770,8 +785,6 @@ function handleDragLeave(e) {
 function handleDragEnd() {
     if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) { return; }
     if (draggedItemInfo && draggedItemInfo.element) draggedItemInfo.element.classList.remove('dragging');
-    // Ne pas réinitialiser draggedItemInfo ici si une modale de quantité pourrait s'ouvrir.
-    // La réinitialisation se fera dans handleDrop ou après le callback de la modale.
     document.querySelectorAll('.droppable.drag-over').forEach(el => el.classList.remove('drag-over'));
 }
 
@@ -780,11 +793,11 @@ function handleDrop(e) {
     e.preventDefault();
     const dropZone = e.target.closest('.droppable');
     
-    if (!draggedItemInfo) { // Si rien n'est glissé, ne rien faire.
+    if (!draggedItemInfo) {
         if (dropZone) dropZone.classList.remove('drag-over');
         return;
     }
-    if (!dropZone) { // Si on ne lâche pas sur une zone valide
+    if (!dropZone) {
         if (draggedItemInfo.element) draggedItemInfo.element.classList.remove('dragging');
         draggedItemInfo = null;
         return;
@@ -798,7 +811,7 @@ function handleDrop(e) {
     const sourceOwner = draggedItemInfo.sourceOwner;
     const sourceSlotType = draggedItemInfo.sourceSlotType;
     
-    let transferActionInitiated = false; // Pour savoir si une modale de quantité va s'ouvrir
+    let transferActionInitiated = false;
 
     if (destOwner === 'equipment') {
         const itemDef = ITEM_TYPES[itemName];
@@ -865,11 +878,11 @@ function handleDrop(e) {
         }
     }
 
-    if (!transferActionInitiated) { // Si aucune modale de quantité n'a été ouverte, on peut nettoyer.
+    if (!transferActionInitiated) {
         draggedItemInfo = null;
     }
     
-    window.fullUIUpdate(); // Mettre à jour l'UI dans tous les cas après un drop
+    window.fullUIUpdate();
     if (dropZone) dropZone.classList.remove('drag-over');
 }
 
@@ -937,7 +950,7 @@ function setupEventListeners() {
             if (itemEl && itemEl.dataset.itemName) {
                 const itemName = itemEl.dataset.itemName;
                 const itemDef = ITEM_TYPES[itemName];
-                if (itemDef && itemDef.slot && ['bag', 'shield', 'body', 'feet'].includes(itemDef.slot)) {
+                if (itemDef && itemDef.slot && ['bag', 'shield', 'body', 'feet', 'head', 'weapon'].includes(itemDef.slot)) {
                     const equipResult = State.equipItem(itemName);
                     UI.addChatMessage(equipResult.message, equipResult.success ? 'system' : 'system_error');
                     if (equipResult.success) window.fullUIUpdate();
@@ -982,7 +995,7 @@ function setupEventListeners() {
         setupDragAndDropForContainer(DOM.bottomBarEquipmentSlotsEl);
         DOM.bottomBarEquipmentSlotsEl.addEventListener('click', e => {
             if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return;
-            const slotEl = e.target.closest('.equipment-slot-small.droppable, .equipment-slot-container-small.droppable');
+            const slotEl = e.target.closest('.equipment-slot-small.droppable, .equipment-slot-container-small');
             if (slotEl && slotEl.dataset.slotType) {
                 const itemContent = slotEl.querySelector('.inventory-item');
                 if (itemContent && itemContent.closest('.equipment-slot-small')) {
@@ -1026,8 +1039,7 @@ function setupEventListeners() {
             else if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) UI.hideLargeMap();
             else if (DOM.combatModal && !DOM.combatModal.classList.contains('hidden')) UI.hideCombatModal();
             else if (UI.isQuantityModalOpen()) UI.hideQuantityModal();
-            // AJOUTÉ : Gérer la modale admin
-            else if (DOM.adminModal && !DOM.adminModal.classList.contains('hidden')) UI.hideAdminModal();
+            else if (DOM.adminModal && !DOM.adminModal.classList.contains('hidden')) document.getElementById('admin-modal').classList.add('hidden');
             return;
         }
 
@@ -1048,10 +1060,9 @@ function setupEventListeners() {
             return;
         }
 
-        // CORRIGÉ : Ajout de vérifications pour les modales qui bloquent les actions
         if (document.activeElement === DOM.chatInputEl ||
             UI.isQuantityModalOpen() ||
-            (DOM.adminModal && !DOM.adminModal.classList.contains('hidden')) || // AJOUTÉ
+            (DOM.adminModal && !DOM.adminModal.classList.contains('hidden')) ||
             (DOM.workshopSearchInputEl && document.activeElement === DOM.workshopSearchInputEl) ||
             (DOM.workshopRecipesContainerEl && DOM.workshopRecipesContainerEl.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') ||
             (DOM.lockModal && !DOM.lockModal.classList.contains('hidden')) ||
@@ -1115,8 +1126,7 @@ function endGame(isVictory) {
     const reloadButton = document.createElement('button');
     reloadButton.textContent = "Recommencer";
     reloadButton.style.cssText = `padding: 15px 30px; font-size: 0.8em; margin-top: 30px; background-color: var(--action-color); color: var(--text-light); border: none; border-radius: 8px; cursor: pointer;`;
-    // CORRIGÉ : Ne pas supprimer la sauvegarde du tutoriel à la fin du jeu
-    reloadButton.onclick = () => { /* localStorage.removeItem('tutorialCompleted'); */ window.location.reload(); };
+    reloadButton.onclick = () => { window.location.reload(); };
 
     endModal.appendChild(messageEl);
     endModal.appendChild(reloadButton);

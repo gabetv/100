@@ -1,4 +1,4 @@
-// js/config.js
+//js/config.js
 
 export const CONFIG = {
     MAP_WIDTH: 20, MAP_HEIGHT: 20, TILE_SIZE: 192, MINIMAP_DOT_SIZE: 8,
@@ -347,7 +347,7 @@ export const TILE_TYPES = {
                      { id: 'cook_meat_campfire', name: 'Cuisiner Viande', costItem: 'Viande crue', costWood: 1, result: { 'Viande cuite': 1 } },
                      { id: 'cook_egg_campfire', name: 'Cuisiner Oeuf', costItem: 'Oeuf cru', costWood: 1, result: { 'Oeuf cuit': 1 } },
                      { id: 'boil_stagnant_water_campfire', name: 'Bouillir Eau Croupie', costItem: 'Eau croupie', costWood: 1, result: { 'Eau pure': 1 } },
-                     { id: 'boil_salt_water_campfire', name: 'Bouillir Eau Salée', costItem: 'Eau salée', costWood: 1, result: { 'Sel': 1 } }, // Sel comme résultat
+                     { id: 'boil_salt_water_campfire', name: 'Bouillir Eau Salée', costItem: 'Eau salée', costWood: 1, result: { 'Sel': 1 } },
                      { id: 'sleep_by_campfire', name: 'Dormir près du feu (1h)'}
                  ]
                 },
