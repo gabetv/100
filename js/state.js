@@ -17,10 +17,17 @@ const gameState = {
     isGameOver: false,
     combatState: null,
     config: { ...CONFIG },
-    knownRecipes: {}, // Recettes apprises par le joueur
+    knownRecipes: {},
     mapTileGlobalVisitCounts: new Map(),
     globallyRevealedTiles: new Set(),
-    foundUniqueParchemins: new Set(), // Point 23: Pour suivre les parchemins uniques déjà trouvés
+    foundUniqueParchemins: new Set(),
+    tutorialState: {
+        step: 0,
+        active: false,
+        completed: false,
+        welcomeMessageShown: false,
+        isTemporarilyHidden: false, // AJOUTÉ/MODIFIÉ
+    },
 };
 
 export const state = gameState;
@@ -28,7 +35,7 @@ export const state = gameState;
 export function initializeGameState(config) {
     console.log("State.initializeGameState appelée avec config:", config);
     gameState.config = { ...config };
-    gameState.map = generateMap(config); // map.js génère la carte avec les actionsLeft pour les plages
+    gameState.map = generateMap(config);
 
     gameState.player = initPlayer(config, 'player1');
 
@@ -45,7 +52,7 @@ export function initializeGameState(config) {
             if (fallbackBeach) {
                 startX = fallbackBeach.x;
                 startY = fallbackBeach.y;
-            } else { // Fallback si aucune plage n'est trouvée (ne devrait pas arriver)
+            } else {
                 startX = Math.floor(config.MAP_WIDTH / 2);
                 startY = Math.floor(config.MAP_HEIGHT / 2);
             }
@@ -54,7 +61,7 @@ export function initializeGameState(config) {
     } while (
         !gameState.map[startY] ||
         !gameState.map[startY][startX] ||
-        gameState.map[startY][startX].type.name !== TILE_TYPES.PLAGE.name || // Assurez-vous que PLAGE est accessible
+        gameState.map[startY][startX].type.name !== TILE_TYPES.PLAGE.name ||
         !gameState.map[startY][startX].type.accessible ||
         occupiedStarts.has(`${startX},${startY}`)
     );
@@ -76,16 +83,15 @@ export function initializeGameState(config) {
     gameState.npcs = initNpcs(config, gameState.map);
     gameState.enemies = initEnemies(config, gameState.map);
 
-    // Initialiser foundUniqueParchemins si des parchemins sont donnés au départ
     for (const itemName in gameState.player.inventory) {
         if (ITEM_TYPES[itemName]?.teachesRecipe && ITEM_TYPES[itemName]?.unique) {
             gameState.foundUniqueParchemins.add(itemName);
-            gameState.knownRecipes[ITEM_TYPES[itemName].teachesRecipe] = true; // Marquer comme connu si donné au départ
+            gameState.knownRecipes[ITEM_TYPES[itemName].teachesRecipe] = true;
         }
     }
 
 
-    gameState.shelterLocation = null; // Sera défini si un abri collectif est construit
+    gameState.shelterLocation = null;
     const existingShelterTile = gameState.map.flat().find(tile =>
         tile.buildings && tile.buildings.some(b => b.key === 'SHELTER_COLLECTIVE')
     );
@@ -93,34 +99,47 @@ export function initializeGameState(config) {
         gameState.shelterLocation = { x: existingShelterTile.x, y: existingShelterTile.y };
     }
 
-    // #42: Reveal all WATER_LAGOON tiles globally
     gameState.map.flat().forEach(tile => {
         if (tile.type.name === TILE_TYPES.WATER_LAGOON.name) {
             gameState.globallyRevealedTiles.add(`${tile.x},${tile.y}`);
         }
     });
-    console.log("GameState initialisé:", gameState);
+
+    if (localStorage.getItem('tutorialCompleted') === 'true') {
+        gameState.tutorialState.completed = true;
+        gameState.tutorialState.active = false;
+        gameState.tutorialState.welcomeMessageShown = true;
+        gameState.tutorialState.isTemporarilyHidden = false; // Assurer réinitialisation
+    } else {
+        gameState.tutorialState.completed = false;
+        gameState.tutorialState.active = false;
+        gameState.tutorialState.step = 0;
+        gameState.tutorialState.welcomeMessageShown = false;
+        gameState.tutorialState.isTemporarilyHidden = false; // Assurer réinitialisation
+    }
+
+    console.log("GameState initialisé DANS initializeGameState (fin):", JSON.parse(JSON.stringify(gameState)));
+    console.log("tutorialState DANS initializeGameState (fin):", gameState.tutorialState);
 }
 
 export function applyPlayerMove(direction) {
     const { x, y } = gameState.player;
-    const moveResult = playerMoveLogic(direction, { x, y }); // Use player.js logic
+    const moveResult = playerMoveLogic(direction, { x, y });
 
-    if (!moveResult) return; // Should not happen if pre-checks are done
+    if (!moveResult) return;
 
     const newX = moveResult.newX;
     const newY = moveResult.newY;
 
-    // Boundary and accessibility checks should be done BEFORE calling this or in playerMoveLogic
     if (newX < 0 || newX >= gameState.config.MAP_WIDTH || newY < 0 || newY >= gameState.config.MAP_HEIGHT ||
         !gameState.map[newY] || !gameState.map[newY][newX] || !gameState.map[newY][newX].type.accessible) {
         console.warn("Invalid move attempted in applyPlayerMove - should be caught earlier.");
         return;
     }
 
-    gameState.player.x = newX; // Update player object in state directly
+    gameState.player.x = newX;
     gameState.player.y = newY;
-    gameState.player.visitedTiles.add(`${newX},${newY}`); // Keep this part
+    gameState.player.visitedTiles.add(`${newX},${newY}`);
     const tileKey = `${newX},${newY}`;
     if (!gameState.mapTileGlobalVisitCounts.has(tileKey)) {
         gameState.mapTileGlobalVisitCounts.set(tileKey, new Set());
@@ -141,18 +160,18 @@ export function applyBulkInventoryTransfer(itemName, amount, transferType) {
     let targetCapacity = Infinity;
 
     if (tile.buildings && tile.buildings.length > 0) {
-        buildingWithInventory = tile.buildings.find(b => 
+        buildingWithInventory = tile.buildings.find(b =>
             (TILE_TYPES[b.key]?.inventory || TILE_TYPES[b.key]?.maxInventory) &&
-            (b.key === 'SHELTER_INDIVIDUAL' || b.key === 'SHELTER_COLLECTIVE' || TILE_TYPES[b.key]?.name.toLowerCase().includes("coffre")) // Extend to other chest-like buildings
+            (b.key === 'SHELTER_INDIVIDUAL' || b.key === 'SHELTER_COLLECTIVE' || TILE_TYPES[b.key]?.name.toLowerCase().includes("coffre"))
         );
     }
 
     if (buildingWithInventory) {
-        if (!buildingWithInventory.inventory) buildingWithInventory.inventory = {}; // Initialize if not present on instance
+        if (!buildingWithInventory.inventory) buildingWithInventory.inventory = {};
         targetInventory = buildingWithInventory.inventory;
         targetCapacity = TILE_TYPES[buildingWithInventory.key].maxInventory || Infinity;
-    } else if (tile.type.inventory && !buildingWithInventory) { // Fallback to tile's own inventory if no building has one
-        const buildingDef = tile.type; // Use tile type as the definition source
+    } else if (tile.type.inventory && !buildingWithInventory) {
+        const buildingDef = tile.type;
         if (!tile.inventory) tile.inventory = JSON.parse(JSON.stringify(buildingDef.inventory || {}));
         targetInventory = tile.inventory;
         targetCapacity = buildingDef.maxInventory || Infinity;
@@ -183,10 +202,10 @@ export function applyBulkInventoryTransfer(itemName, amount, transferType) {
 }
 
 export function startCombat(player, enemy) {
-    if (gameState.combatState) return; // Ne pas démarrer un nouveau combat si déjà en cours
+    if (gameState.combatState) return;
     player.isBusy = true;
     gameState.combatState = {
-        enemy: enemy, // L'objet ennemi complet
+        enemy: enemy,
         isPlayerTurn: true,
         log: [`Un ${enemy.name} vous attaque !`],
     };
@@ -197,21 +216,19 @@ export function endCombat(victory) {
     const { combatState, player } = gameState;
     if (!combatState) return;
 
-    const enemyDefeated = combatState.enemy; // Récupérer l'ennemi du combatState
+    const enemyDefeated = combatState.enemy;
 
     if (victory) {
-        // Si l'ennemi n'est pas une rencontre de fouille (isSearchEncounter), le retirer de la liste globale
         if (!enemyDefeated.isSearchEncounter) {
             gameState.enemies = gameState.enemies.filter(e => e.id !== enemyDefeated.id);
             console.log(`Regular enemy ${enemyDefeated.name} (ID: ${enemyDefeated.id}) removed from global list.`);
         } else {
             console.log(`Search encounter enemy ${enemyDefeated.name} (ID: ${enemyDefeated.id}) was defeated.`);
-            // Les ennemis de fouille ne sont pas dans gameState.enemies, donc pas besoin de les retirer.
         }
     }
 
-    player.isBusy = false; // Le joueur n'est plus occupé par le combat
-    gameState.combatState = null; // Réinitialiser l'état du combat
+    player.isBusy = false;
+    gameState.combatState = null;
     console.log("Combat ended.");
 }
 
@@ -224,45 +241,41 @@ export function addEnemy(enemy) {
 
 export function equipItem(itemName) {
     const player = gameState.player;
-    const itemDef = JSON.parse(JSON.stringify(ITEM_TYPES[itemName])); // Get a clean copy of the item definition
+    const itemDef = JSON.parse(JSON.stringify(ITEM_TYPES[itemName]));
 
     if (!itemDef || !player.inventory[itemName]) return { success: false, message: "Objet introuvable." };
     const slot = itemDef.slot;
     if (!slot || !player.equipment.hasOwnProperty(slot)) return { success: false, message: "Vous ne pouvez pas équiper ceci." };
 
-    if (player.equipment[slot]) { // Si un objet est déjà équipé dans ce slot
-        const unequipResult = unequipItem(slot); // Déséquiper d'abord
-        if (!unequipResult.success) return unequipResult; // Si le déséquipement échoue (ex: inventaire plein)
-    }    
-    
-    // Create a new instance for equipment, setting currentDurability to max from definition
+    if (player.equipment[slot]) {
+        const unequipResult = unequipItem(slot);
+        if (!unequipResult.success) return unequipResult;
+    }
+
     const newEquipInstance = { name: itemName, ...itemDef };
-    // If item was previously in equipment (e.g. moved from another slot, unlikely now) and had currentDurability, preserve it.
-    // For items from inventory, they are considered "fresh" or uses are tracked separately.
-    // The player.js inventory doesn't store individual item states like currentDurability for stacked items.
     if (newEquipInstance.hasOwnProperty('durability') && typeof newEquipInstance.currentDurability === 'undefined') {
         newEquipInstance.currentDurability = newEquipInstance.durability;
     }
+    if (newEquipInstance.hasOwnProperty('uses') && typeof newEquipInstance.currentUses === 'undefined') {
+        newEquipInstance.currentUses = newEquipInstance.uses;
+    }
     player.equipment[slot] = newEquipInstance;
 
-    // Appliquer les stats de l'équipement
     if (itemDef.stats) {
         for (const stat in itemDef.stats) {
             if (stat.startsWith('max') && player.hasOwnProperty(stat)) {
                  player[stat] += itemDef.stats[stat];
-                 // Si maxHealth augmente, la santé actuelle ne doit pas dépasser la nouvelle maxHealth
-                 const currentStatName = stat.substring(3).toLowerCase(); // ex: maxHealth -> health
+                 const currentStatName = stat.substring(3).toLowerCase();
                  if (player.hasOwnProperty(currentStatName)) {
                      player[currentStatName] = Math.min(player[currentStatName], player[stat]);
                  }
-            } else if (player.hasOwnProperty(stat)) { // Pour les stats non-max (rare mais possible)
+            } else if (player.hasOwnProperty(stat)) {
                 player[stat] += itemDef.stats[stat];
             }
         }
     }
 
-    // Only remove from inventory if it's not a "uses" based item whose count is handled differently or an item that is not consumed on equip
-    if (!itemDef.uses) { // Standard items are consumed from inventory
+    if (!itemDef.uses) {
         player.inventory[itemName]--;
         if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
     }
@@ -275,21 +288,22 @@ export function unequipItem(slot) {
     const itemInstance = player.equipment[slot];
     if (!itemInstance) return { success: false, message: "Aucun objet dans cet emplacement." };
 
-    // Only add back to inventory if it has durability left OR it's an item without durability defined OR it's a "uses" item
     const itemDef = ITEM_TYPES[itemInstance.name];
+
     if (!itemDef.uses && (!itemInstance.hasOwnProperty('currentDurability') || itemInstance.currentDurability > 0)) {
-        if (getTotalResources(player.inventory) >= player.maxInventory) return { success: false, message: "Inventaire plein." };
+        if (getTotalResources(player.inventory) >= player.maxInventory && (!player.inventory[itemInstance.name] || player.inventory[itemInstance.name] === 0) ) {
+            return { success: false, message: "Inventaire plein." };
+        }
         addResourceToPlayer(itemInstance.name, 1);
     }
+
     player.equipment[slot] = null;
 
-    // Retirer les stats de l'équipement
     if (itemInstance.stats) {
         for (const stat in itemInstance.stats) {
             if (stat.startsWith('max') && player.hasOwnProperty(stat)) {
                 player[stat] -= itemInstance.stats[stat];
-                // Ajuster la stat actuelle si elle dépasse la nouvelle max
-                const currentStatName = stat.substring(3).toLowerCase(); // ex: maxHealth -> health
+                const currentStatName = stat.substring(3).toLowerCase();
                 if (player.hasOwnProperty(currentStatName)) {
                     player[currentStatName] = Math.min(player[currentStatName], player[stat]);
                 }
@@ -312,35 +326,33 @@ export function addBuildingToTile(x, y, buildingKey) {
     if (!tile || !buildingType || !buildingType.isBuilding) return { success: false, message: "Type de bâtiment invalide ou tuile introuvable." };
     if (tile.buildings.length >= CONFIG.MAX_BUILDINGS_PER_TILE) return { success: false, message: "Nombre maximum de bâtiments atteint sur cette tuile." };
 
-    // La condition de construction sur Plaine (sauf exceptions)
-    if (tile.type.name !== TILE_TYPES.PLAINS.name &&
-        buildingKey !== 'MINE' &&
-        buildingKey !== 'CAMPFIRE' &&
-        buildingKey !== 'PETIT_PUIT' // PETIT_PUIT est une exception ici
-    ) {
-        // return { success: false, message: "Ce bâtiment ne peut être construit que sur une Plaine."}; // Allow building on other buildable tiles too
-    }
-    // Pour les bâtiments qui ne sont PAS des exceptions, s'assurer que la tuile est buildable
     if (!tile.type.buildable && buildingKey !== 'MINE' && buildingKey !== 'CAMPFIRE' && buildingKey !== 'PETIT_PUIT') {
         return { success: false, message: "Vous ne pouvez pas construire sur ce type de terrain." };
     }
 
-    // For plantation/animal buildings, initialize harvestsAvailable and maxHarvestsPerCycle
-    const buildingData = { key: buildingKey, durability: buildingType.durability, maxDurability: buildingType.durability };
-    if (buildingType.maxHarvestsPerCycle) { // #18
+    const buildingData = {
+        key: buildingKey,
+        durability: buildingType.durability,
+        maxDurability: buildingType.durability
+    };
+    if (buildingType.maxHarvestsPerCycle) {
         buildingData.maxHarvestsPerCycle = buildingType.maxHarvestsPerCycle;
-        buildingData.harvestsAvailable = buildingType.maxHarvestsPerCycle; // Start at max
+        buildingData.harvestsAvailable = buildingType.maxHarvestsPerCycle;
+    }
+    if (buildingKey === 'SHELTER_INDIVIDUAL' || buildingKey === 'SHELTER_COLLECTIVE') {
+        buildingData.isLocked = false;
+        buildingData.lockCode = null;
+        if (!buildingType.inventory) buildingData.inventory = {};
+        else buildingData.inventory = JSON.parse(JSON.stringify(buildingType.inventory));
     }
 
-
     tile.buildings.push(buildingData);
-    if (buildingType.inventory && !tile.inventory) tile.inventory = JSON.parse(JSON.stringify(buildingType.inventory));
+
     if (buildingKey === 'SHELTER_COLLECTIVE') gameState.shelterLocation = { x, y };
 
     return { success: true, message: `${buildingType.name} construit.` };
 }
 
-// Point 14: Nouvelle fonction pour démanteler
 export function dismantleBuildingOnTile(tileX, tileY, buildingIndex) {
     const tile = gameState.map[tileY][tileX];
     if (!tile || !tile.buildings[buildingIndex]) return { success: false, message: "Bâtiment introuvable." };
@@ -353,11 +365,11 @@ export function dismantleBuildingOnTile(tileX, tileY, buildingIndex) {
     let anythingRecovered = false;
 
     const costsToConsider = { ...buildingDef.cost };
-    delete costsToConsider.toolRequired; // Ne pas récupérer les outils requis pour la construction
+    delete costsToConsider.toolRequired;
 
     for (const resourceName in costsToConsider) {
         const costAmount = costsToConsider[resourceName];
-        const recoveredAmount = Math.floor(costAmount * 0.25); // 25% arrondi à l'inférieur
+        const recoveredAmount = Math.floor(costAmount * 0.25);
         if (recoveredAmount > 0) {
             addResourceToPlayer(resourceName, recoveredAmount);
             recoveredResourcesMessage += `${recoveredAmount} ${resourceName}, `;
@@ -365,26 +377,22 @@ export function dismantleBuildingOnTile(tileX, tileY, buildingIndex) {
         }
     }
     if (!anythingRecovered) recoveredResourcesMessage = "Aucune ressource substantielle n'a pu être récupérée.";
-    else recoveredResourcesMessage = recoveredResourcesMessage.slice(0, -2) + "."; // Enlever la dernière virgule et espace
+    else recoveredResourcesMessage = recoveredResourcesMessage.slice(0, -2) + ".";
 
 
-    tile.buildings.splice(buildingIndex, 1); // Supprimer le bâtiment du tableau
-    // Gérer la perte du shelterLocation si c'était un abri collectif
+    tile.buildings.splice(buildingIndex, 1);
     if (buildingInstance.key === 'SHELTER_COLLECTIVE' && gameState.shelterLocation && gameState.shelterLocation.x === tileX && gameState.shelterLocation.y === tileY) {
         const anotherShelter = gameState.map.flat().find(t => t.buildings.some(b => b.key === 'SHELTER_COLLECTIVE'));
         gameState.shelterLocation = anotherShelter ? { x: anotherShelter.x, y: anotherShelter.y } : null;
     }
-    // Gérer l'inventaire du bâtiment détruit
-    if (buildingDef.inventory || buildingDef.maxInventory) { // Check if building type could have an inventory
-        const buildingInventory = buildingInstance.inventory; // Assuming inventory is stored on instance
+    if (buildingDef.inventory || buildingDef.maxInventory) {
+        const buildingInventory = buildingInstance.inventory;
         if (buildingInventory) {
             for (const item in buildingInventory) {
                 if (buildingInventory[item] > 0) dropItemOnGround(item, buildingInventory[item]);
             }
         }
-        delete tile.inventory; // Supprime l'inventaire de la tuile
     }
-
 
     return { success: true, message: `${buildingDef.name} démantelé. ${recoveredResourcesMessage}` };
 }
@@ -399,7 +407,6 @@ export function damageBuilding(tileX, tileY, buildingIndexInTileArray, damageAmo
         const buildingName = TILE_TYPES[building.key].name;
         const buildingKeyDestroyed = building.key;
         tile.buildings.splice(buildingIndexInTileArray, 1);
-        // Gérer la perte du shelterLocation si c'était un abri collectif
         if (buildingKeyDestroyed === 'SHELTER_COLLECTIVE' && gameState.shelterLocation && gameState.shelterLocation.x === tileX && gameState.shelterLocation.y === tileY) {
             const anotherShelter = gameState.map.flat().find(t => t.buildings.some(b => b.key === 'SHELTER_COLLECTIVE'));
             gameState.shelterLocation = anotherShelter ? { x: anotherShelter.x, y: anotherShelter.y } : null;
@@ -430,24 +437,23 @@ export function updateTileType(x, y, newTerrainTypeKey) {
 
     if (newTerrainTypeKey === 'FOREST') {
         tile.type.buildable = false;
-        tile.woodActionsLeft = newTerrainType.woodActionsLeft; // Re-initialize action counts
+        tile.woodActionsLeft = newTerrainType.woodActionsLeft;
         tile.huntActionsLeft = newTerrainType.huntActionsLeft;
         tile.searchActionsLeft = newTerrainType.searchActionsLeft;
     } else if (newTerrainTypeKey === 'PLAINS') {
         tile.huntActionsLeft = newTerrainType.huntActionsLeft;
         tile.searchActionsLeft = newTerrainType.searchActionsLeft;
     } else if (newTerrainTypeKey === 'MINE_TERRAIN') {
-        tile.harvestsLeft = newTerrainType.harvests; // For stone
+        tile.harvestsLeft = newTerrainType.harvests;
     }
-    // Point 1: Si la tuile devient Plage, initialiser les actions disponibles
     if (newTerrainTypeKey === 'PLAGE') {
-        tile.actionsLeft = { ...TILE_TYPES.PLAGE.actionsAvailable }; // Copie profonde
+        tile.actionsLeft = { ...TILE_TYPES.PLAGE.actionsAvailable };
     } else {
-        delete tile.actionsLeft; // Supprimer si ce n'est plus une plage
+        delete tile.actionsLeft;
     }
 }
 
-export function hasResources(costs) { // Vérifie uniquement l'inventaire du joueur
+export function hasResources(costs) {
     const player = gameState.player;
     for (const resource in costs) {
         const playerAmount = player.inventory[resource] || 0;
@@ -456,7 +462,7 @@ export function hasResources(costs) { // Vérifie uniquement l'inventaire du jou
     return { success: true };
 }
 
-export function applyResourceDeduction(costs) { // Déduit uniquement de l'inventaire du joueur
+export function applyResourceDeduction(costs) {
     const player = gameState.player;
     for (const resource in costs) {
         let needed = costs[resource];
@@ -473,27 +479,23 @@ export function applyResourceDeduction(costs) { // Déduit uniquement de l'inven
 export function consumeItem(itemName) {
     const player = gameState.player;
     const itemDef = ITEM_TYPES[itemName];
-    let result = playerConsumeItemLogic(itemName, player); // Appelle la logique de base de player.js
+    let result = playerConsumeItemLogic(itemName, player);
 
-    // Si la logique de base a échoué (ex: pas d'item, conditions de stats non remplies), retourner ce résultat
     if (!result.success && !itemDef?.teachesRecipe && !(itemName === 'Carte' && itemDef?.uses) && !(itemName === 'Batterie chargée')) {
         return result;
     }
-    
-    // Cas spécial pour la carte qui a des "uses"
+
     if (itemName === 'Carte' && itemDef?.uses) {
-        // La logique d'ouverture de la carte est dans interactions.js
-        // Décrémenter les "uses" ici
         if (player.inventory[itemName] > 0) {
-            const carteItem = ITEM_TYPES[itemName]; // Accéder à la définition pour les uses
+            const carteItem = ITEM_TYPES[itemName];
             if (!player.inventoryUses) player.inventoryUses = {};
             if (!player.inventoryUses[itemName]) player.inventoryUses[itemName] = carteItem.uses;
 
             player.inventoryUses[itemName]--;
             result.message = `Vous consultez la carte (${player.inventoryUses[itemName]} utilisations restantes).`;
             if (player.inventoryUses[itemName] <= 0) {
-                delete player.inventory[itemName]; // Supprimer de l'inventaire principal
-                delete player.inventoryUses[itemName]; // Supprimer le compteur d'usages
+                delete player.inventory[itemName];
+                delete player.inventoryUses[itemName];
                 result.message = "La carte s'est désintégrée après sa dernière utilisation.";
             }
         }
@@ -503,26 +505,25 @@ export function consumeItem(itemName) {
     if (itemDef?.teachesRecipe) {
         if (gameState.knownRecipes[itemDef.teachesRecipe] && !itemDef.isBuildingRecipe) {
             result.message = `Vous relisez le parchemin de ${itemDef.teachesRecipe}. Vous connaissez déjà cette recette.`;
-            // Ne pas consommer le parchemin s'il est déjà connu et n'est pas une recette de bâtiment (pourrait être réutilisable pour rappel)
         } else {
             gameState.knownRecipes[itemDef.teachesRecipe] = true;
-            gameState.foundUniqueParchemins.add(itemName); // Marquer comme trouvé si unique
+            if (itemDef.unique) gameState.foundUniqueParchemins.add(itemName);
             result.message = `Vous avez appris la recette : ${itemDef.teachesRecipe} !`;
-            // Consommer le parchemin
             if (player.inventory[itemName] > 0) {
                 player.inventory[itemName]--;
                 if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
             } else { return { success: false, message: "Erreur: Parchemin non trouvé pour apprendre la recette."}; }
         }
-        result.success = true; // Assurer que success est true
+        result.success = true;
     } else if (itemDef?.effects?.custom) {
-        // Logiques custom spécifiques
         if (itemDef.effects.custom === 'porteBonheur') { /* ... */ }
         else if (itemDef.effects.custom === 'breuvageEtrangeEffect') {
-            player.inventory[itemName]--; // Consume first
-            if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
-            if (!result.floatingTexts) result.floatingTexts = [];
+            if (player.inventory[itemName] > 0) {
+                player.inventory[itemName]--;
+                if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
+            } else { return { success: false, message: "Vous n'avez plus de Breuvage étrange."}; }
 
+            if (!result.floatingTexts) result.floatingTexts = [];
 
             const randEffect = Math.random() * 100;
             let cumulative = 0;
@@ -530,7 +531,7 @@ export function consumeItem(itemName) {
             const effects = [
                 { chance: 6, action: () => { player.inventory = {}; result.message = "Breuvage étrange: Votre inventaire s'est volatilisé !"; result.floatingTexts.push({text:"Inventaire Vide!", type:'cost'}); }},
                 { chance: 6, action: () => {
-                    const toolAndWeaponSlots = ['weapon', 'shield']; // Add other slots if they can hold tools/weapons
+                    const toolAndWeaponSlots = ['weapon', 'shield'];
                     toolAndWeaponSlots.forEach(slot => { if(player.equipment[slot]) unequipItem(slot); });
                     for (const item in player.inventory) {
                         if (ITEM_TYPES[item]?.type === 'tool' || ITEM_TYPES[item]?.type === 'weapon') delete player.inventory[item];
@@ -563,17 +564,16 @@ export function consumeItem(itemName) {
                     break;
                 }
             }
-            if (!effectTriggered) { // Fallback if somehow no effect (e.g. sum of chances < 100)
+            if (!effectTriggered) {
                 result.message = "Breuvage étrange: Rien ne se passe... pour l'instant.";
             }
-            result.success = true; // Mark as success because item was consumed
-            return result; // Return immediately after breuvage
+            result.success = true;
+            return result;
         }
-        else if (itemDef.effects.custom === 'eauSaleeEffect') { // #35
+        else if (itemDef.effects.custom === 'eauSaleeEffect') {
             if (player.status.includes('Malade')) {
-                // Déjà géré par l'effet health: -1 dans config
             } else {
-                if (Math.random() < 0.60) { // 60% chance de tomber malade
+                if (Math.random() < 0.60) {
                     if (!player.status.includes('Malade')) {
                         player.status = player.status.filter(s => s !== 'normale');
                         player.status.push('Malade');
@@ -582,8 +582,8 @@ export function consumeItem(itemName) {
                     result.floatingTexts.push('Statut: Malade (Nouveau)');
                 }
             }
-        } else if (itemDef.effects.custom === 'eauCroupieEffect') { // #34
-            if (Math.random() < 0.80) { // 80% Malade
+        } else if (itemDef.effects.custom === 'eauCroupieEffect') {
+            if (Math.random() < 0.80) {
                 if (!player.status.includes('Malade')) {
                     player.status = player.status.filter(s => s !== 'normale');
                     player.status.push('Malade');
@@ -591,14 +591,14 @@ export function consumeItem(itemName) {
                 if (!result.floatingTexts) result.floatingTexts = [];
                 result.floatingTexts.push('Statut: Malade (Nouveau)');
             }
-        } else if (itemDef.effects.custom === 'drogueEffect') { // Point 35
+        } else if (itemDef.effects.custom === 'drogueEffect') {
             if (!player.status.includes('Drogué')) {
                 player.status = player.status.filter(s => s !== 'normale');
                 player.status.push('Drogué');
             }
             if (!result.floatingTexts) result.floatingTexts = [];
             result.floatingTexts.push('Statut: Drogué (Nouveau)');
-        } else if (itemDef.effects.custom === 'chargeDevice') { // Point 15
+        } else if (itemDef.effects.custom === 'chargeDevice') {
             if (player.equipment.weapon) {
                 const equippedWeaponName = player.equipment.weapon.name;
                 let chargedItemName = null;
@@ -607,14 +607,11 @@ export function consumeItem(itemName) {
                 else if (equippedWeaponName === 'Guitare déchargé') chargedItemName = 'Guitare';
 
                 if (chargedItemName) {
-                    const unequipSuccess = unequipItem('weapon'); // Déséquipe la version déchargée
+                    const unequipSuccess = unequipItem('weapon');
                     if (unequipSuccess.success) {
-                        // Add the charged item to inventory, then equip it immediately if possible
-                        const previousInventoryCount = player.inventory[chargedItemName] || 0;
                         addResourceToPlayer(chargedItemName, 1);
-                        const equipResult = equipItem(chargedItemName); // Attempt to equip the new charged item
+                        const equipResult = equipItem(chargedItemName);
 
-                        // Retirer la batterie chargée de l'inventaire
                         if (player.inventory['Batterie chargée'] > 0) {
                             player.inventory['Batterie chargée']--;
                             if (player.inventory['Batterie chargée'] <= 0) delete player.inventory['Batterie chargée'];
@@ -680,10 +677,9 @@ export function countItemTypeInInventory(itemTypeIdentifier) {
     let count = 0;
     for (const itemName in gameState.player.inventory) {
         const itemDef = ITEM_TYPES[itemName];
-        // Check for 'teachesRecipe' specifically or other identifiers if needed
         if (itemDef && itemDef.teachesRecipe && (itemTypeIdentifier === 'teachesRecipe' || itemDef.teachesRecipe === itemTypeIdentifier)) {
             count += gameState.player.inventory[itemName];
-        } else if (itemDef && itemDef[itemTypeIdentifier]) { // Generic identifier check
+        } else if (itemDef && itemDef[itemTypeIdentifier]) {
              count += gameState.player.inventory[itemName];
         }
     }
@@ -694,14 +690,14 @@ export function getRandomPlanByRarity(rarity) {
     const plansOfRarity = [];
     for (const itemName in ITEM_TYPES) {
         const itemDef = ITEM_TYPES[itemName];
-        if (itemDef.teachesRecipe && itemDef.rarity === rarity && !gameState.knownRecipes[itemDef.teachesRecipe] && !itemDef.unique) { // Only unknown, non-unique plans
+        if (itemDef.teachesRecipe && itemDef.rarity === rarity && !gameState.knownRecipes[itemDef.teachesRecipe] && !itemDef.unique) {
             plansOfRarity.push(itemName);
         }
     }
-    if (plansOfRarity.length === 0) { // Fallback: allow unique if no non-unique found
+    if (plansOfRarity.length === 0) {
          for (const itemName in ITEM_TYPES) {
             const itemDef = ITEM_TYPES[itemName];
-            if (itemDef.teachesRecipe && itemDef.rarity === rarity && !gameState.knownRecipes[itemDef.teachesRecipe]) { // Removed itemDef.unique check here for fallback
+            if (itemDef.teachesRecipe && itemDef.rarity === rarity && !gameState.knownRecipes[itemDef.teachesRecipe]) {
                  plansOfRarity.push(itemName);
             }
         }

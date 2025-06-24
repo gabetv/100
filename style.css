@@ -93,10 +93,10 @@ body {
 }
 
 .ui-panel h3 { font-weight: 600; margin-bottom: 10px; border-bottom: 1px solid #ffffff20; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;}
-#right-panel #tile-info h3 { /* #53 specific selector for tile info header */
+#right-panel #tile-info h3 {
     border-bottom: none;
     padding-bottom: 0;
-    margin-bottom: 5px; /* Reduced margin for tighter look */
+    margin-bottom: 5px;
 }
 .ui-panel section { background-color: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
 .stat { margin-bottom: 12px; } .stat-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; } .stat-icon { font-size: 1.1em; text-align: center; width: 20px; } .stat span:not(.stat-icon) { font-size: 0.9em; flex-grow: 1; }
@@ -108,10 +108,10 @@ body {
 #sleep-bar-squares .stat-square.filled { background-color: #e9c46a; }
 .consume-btn { background-color: var(--action-color); color: var(--text-light); border: none; width: 22px; height: 22px; border-radius: 50%; font-size: 1.2em; line-height: 22px; cursor: pointer; transition: all 0.2s; }
 .consume-btn:hover:not(:disabled) { background-color: #5e9ac4; transform: scale(1.1); } .consume-btn:disabled { background-color: #2f4553; opacity: 0.4; cursor: not-allowed; }
-/* Visibilité gérée par JS */
+
 
 #inventory-section { flex-grow: 1; display: flex; flex-direction: column; }
-#inventory-categories { flex-grow: 1; overflow-y: auto; padding-right: 10px; /* Pour la scrollbar */ }
+#inventory-categories { flex-grow: 1; overflow-y: auto; padding-right: 10px; }
 .inventory-category { margin-bottom: 15px; }
 .category-header { font-size: 1em; font-weight: 600; color: var(--text-secondary); padding: 8px 5px; cursor: pointer; border-bottom: 1px solid rgba(255, 255, 255, 0.1); transition: background-color 0.2s; user-select: none; display: flex; justify-content: space-between; align-items: center; }
 .category-header:hover { background-color: rgba(255,255,255,0.05); }
@@ -121,7 +121,7 @@ body {
 .category-content.visible { display: flex; }
 .inventory-item { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.1); position: relative; transition: background-color 0.2s; }
 .inventory-item.clickable { cursor: pointer; }
-.inventory-item:not(.clickable) { cursor: pointer; } /* Tous les items sont au moins "grab" */
+.inventory-item:not(.clickable) { cursor: pointer; }
 .inventory-item:hover { background-color: rgba(69, 123, 157, 0.3); }
 .inventory-item[draggable="true"] { cursor: grab; }
 .inventory-item[draggable="true"]:active { cursor: grabbing; }
@@ -136,9 +136,9 @@ body {
 .tile-detail { font-size: 0.85em; color: var(--text-secondary); background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 6px; margin-top: 10px; text-align: center;}
 .coords-display { font-size: 0.8em; font-weight: 400; color: var(--text-secondary); background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 6px; }
 .capacity-display { font-size: 0.8em; font-weight: 400; color: var(--text-secondary); }
-.day-display-tileinfo-class { font-size: 0.8em; font-weight: 600; color: var(--text-light); background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 6px; margin-left: 5px;} /* #52 */
+.day-display-tileinfo-class { font-size: 0.8em; font-weight: 600; color: var(--text-light); background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 6px; margin-left: 5px;}
 
-#actions { display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 5px;} /* Ajout max-height et overflow */
+#actions { display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 5px;}
 #actions button { width: 100%; padding: 12px; background-color: var(--action-color); color: var(--text-light); font-weight: 600; font-family: 'Poppins', sans-serif; border: none; border-radius: 8px; cursor: pointer; transition: all 0.2s; border-bottom: 3px solid #2f5a7a; }
 #actions button:hover:not(:disabled) { background-color: #5e9ac4; transform: translateY(-2px); border-bottom-color: #457b9d; }
 #actions button:disabled { background-color: #2f4553; color: #9ab4c2; cursor: not-allowed; border-bottom-color: #1a2a32; transform: none; }
@@ -156,38 +156,44 @@ body {
 #minimap-canvas { width: 100%; height: 100%; image-rendering: pixelated; }
 
 #hud-overlay { position: absolute; top: 15px; right: 15px; z-index: 50; pointer-events: none; }
-/* #day-display style rule has been moved or removed due to #52 */
+
 #main-view-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 40; }
 #navigation-edge-panel { position: relative; width: 100%; height: 100%; pointer-events: none; }
-.nav-button-overlay { 
-    position: absolute; 
-    background-color: rgba(29, 53, 87, 0.5); 
-    color: rgba(241, 250, 238, 0.8); 
-    border: 1px solid rgba(241, 250, 238, 0.2); 
-    width: 50px; 
-    height: 50px; 
-    font-size: 1.5em; 
-    border-radius: 50%; 
-    cursor: pointer; 
-    transition: all 0.2s ease; 
-    backdrop-filter: blur(3px); 
-    display: flex; /* Changed from none to flex by default, JS will hide if needed */
-    justify-content: center; 
-    align-items: center; 
-    padding-bottom: 3px; 
-    pointer-events: auto; 
-}
-.nav-button-overlay:hover { background-color: rgba(69, 123, 157, 0.8); color: white; transform: scale(1.1); }
-#nav-north { top: 15px; left: 50%; transform: translateX(-50%); } #nav-north:hover { transform: translateX(-50%) scale(1.1); } #nav-south { bottom: 15px; left: 50%; transform: translateX(-50%); } #nav-south:hover { transform: translateX(-50%) scale(1.1); } #nav-west { left: 15px; top: 50%; transform: translateY(-50%); } #nav-west:hover { transform: translateY(-50%) scale(1.1); } #nav-east { right: 15px; top: 50%; transform: translateY(-50%); } #nav-east:hover { transform: translateY(-50%) scale(1.1); }
 
-/* Diagonal Navigation Buttons */
+.nav-button-overlay {
+    position: absolute;
+    background-color: rgba(29, 53, 87, 0.5);
+    color: rgba(241, 250, 238, 0.8);
+    border: 1px solid rgba(241, 250, 238, 0.2);
+    width: 50px;
+    height: 50px;
+    font-size: 1.5em;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(3px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-bottom: 3px;
+    pointer-events: auto;
+    z-index: 10003; /* Au-dessus de l'overlay du tutoriel par défaut */
+}
+.nav-button-overlay:hover:not(:disabled) { background-color: rgba(69, 123, 157, 0.8); color: white; transform: scale(1.1); }
+.nav-button-overlay:disabled { background-color: rgba(29, 53, 87, 0.3); color: rgba(241, 250, 238, 0.4); cursor: not-allowed; }
+.nav-button-overlay:disabled:hover { transform: none; }
+
+#nav-north { top: 15px; left: 50%; transform: translateX(-50%); } #nav-north:hover:not(:disabled) { transform: translateX(-50%) scale(1.1); }
+#nav-south { bottom: 15px; left: 50%; transform: translateX(-50%); } #nav-south:hover:not(:disabled) { transform: translateX(-50%) scale(1.1); }
+#nav-west { left: 15px; top: 50%; transform: translateY(-50%); } #nav-west:hover:not(:disabled) { transform: translateY(-50%) scale(1.1); }
+#nav-east { right: 15px; top: 50%; transform: translateY(-50%); } #nav-east:hover:not(:disabled) { transform: translateY(-50%) scale(1.1); }
+
 #nav-ne { top: 15px; right: 15px; }
 #nav-nw { top: 15px; left: 15px; }
 #nav-se { bottom: 15px; right: 15px; }
 #nav-sw { bottom: 15px; left: 15px; }
-#nav-nw:hover, #nav-ne:hover, #nav-sw:hover, #nav-se:hover {
-    /* Override individual transform for scale to work correctly */
-    transform: scale(1.1); 
+#nav-nw:hover:not(:disabled), #nav-ne:hover:not(:disabled), #nav-sw:hover:not(:disabled), #nav-se:hover:not(:disabled) {
+    transform: scale(1.1);
 }
 
 
@@ -198,7 +204,7 @@ body {
     -webkit-backdrop-filter: blur(10px);
     flex-shrink: 0;
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr; /* Chat plus grand */
+    grid-template-columns: 2fr 1fr 1fr;
     gap: 15px;
     border-radius: var(--border-radius);
     padding: 15px;
@@ -207,14 +213,14 @@ body {
     z-index: 20;
     transition: min-height 0.3s ease-in-out;
     min-height: 200px;
-    max-height: 300px; /* Limite pour éviter qu'elle ne grandisse trop */
+    max-height: 300px;
     overflow: hidden;
 }
 
 .bottom-bar-section {
     display: flex;
     flex-direction: column;
-    overflow-y: auto; /* Permet le défilement interne si le contenu dépasse */
+    overflow-y: auto;
     padding: 10px;
     background-color: rgba(0,0,0,0.15);
     border-radius: 8px;
@@ -229,7 +235,7 @@ body {
     color: var(--text-secondary);
 }
 
-#bottom-bar.chat-enlarged { min-height: 300px; max-height: 40vh; /* ou une valeur fixe plus grande */ }
+#bottom-bar.chat-enlarged { min-height: 300px; max-height: 40vh; }
 
 #chat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.1); } #chat-header h3 { margin: 0; border: none; padding: 0; font-size: 1em; } #toggle-chat-size-btn { background: transparent; border: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary); cursor: pointer; border-radius: 4px; padding: 2px 8px; font-size: 1.1em; transition: all 0.2s; } #toggle-chat-size-btn:hover { background: var(--action-color); color: var(--text-light); }
 #chat-messages {
@@ -239,8 +245,8 @@ body {
     background: rgba(0,0,0,0.2);
     padding: 10px;
     border-radius: 8px;
-    min-height: 60px; /* Hauteur minimale pour le chat */
-    transition: height 0.3s ease-in-out; /* Pour une transition douce si la hauteur change */
+    min-height: 60px;
+    transition: height 0.3s ease-in-out;
 }
 
 .chat-message { margin-bottom: 8px; line-height: 1.4; }
@@ -267,15 +273,15 @@ body {
 #bottom-bar-equipment-slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex-grow: 1; }
 .equipment-slot-container-small { text-align: center; }
 .equipment-slot-container-small label { display: block; font-size: 0.7em; margin-bottom: 2px; color: var(--text-secondary); opacity: 0.8; }
-.equipment-slot-small { width: 100%; height: 40px; background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.2); border-radius: 4px; display: flex; justify-content: center; align-items: center; font-size: 1.3em; color: rgba(255,255,255,0.3); position: relative; } /* Ajout position relative */
-.equipment-slot-small .inventory-item { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; position: relative;} /* Ajout position relative */
+.equipment-slot-small { width: 100%; height: 40px; background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.2); border-radius: 4px; display: flex; justify-content: center; align-items: center; font-size: 1.3em; color: rgba(255,255,255,0.3); position: relative; }
+.equipment-slot-small .inventory-item { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; position: relative;}
 .equipment-slot-small .inventory-icon { font-size: 1em; }
 .equipment-slot-small.droppable.drag-over { background-color: rgba(69, 123, 157, 0.5); border-color: var(--action-color); }
-.item-durability-overlay { /* Point 24 */
+.item-durability-overlay {
     position: absolute;
     bottom: 2px;
     right: 2px;
-    font-size: 0.5em; /* Très petit pour ne pas gêner */
+    font-size: 0.5em;
     color: white;
     background-color: rgba(0,0,0,0.7);
     padding: 1px 2px;
@@ -309,7 +315,7 @@ body {
 #large-map-legend h3 { margin: 0 0 10px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.2); text-align: center; font-size: 1.2em; }
 .legend-item { display: flex; align-items: center; gap: 12px; font-size: 0.95em; }
 .legend-color-box { width: 24px; height: 24px; border-radius: 4px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.2); }
-.legend-item .legend-character-icon { display: flex; justify-content: center; align-items: center; font-size: 1.5em; background-color: transparent !important; border: none !important;} /* Assurer que les icônes de perso n'ont pas de fond carré */
+.legend-item .legend-character-icon { display: flex; justify-content: center; align-items: center; font-size: 1.5em; background-color: transparent !important; border: none !important;}
 
 @media (max-width: 1200px) {
     #main-area { grid-template-columns: 250px 1fr 320px; }
@@ -342,10 +348,10 @@ body {
 #close-inventory-modal-btn, #close-equipment-modal-btn, #close-build-modal-btn, #close-workshop-modal-btn { position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: var(--text-secondary); font-size: 2em; cursor: pointer; line-height: 1; transition: color 0.2s, transform 0.2s; }
 #close-inventory-modal-btn:hover, #close-equipment-modal-btn:hover, #close-build-modal-btn:hover, #close-workshop-modal-btn:hover { color: var(--accent-color); transform: scale(1.1); }
 #inventory-modal h2, #equipment-modal h2, #build-modal h2, #workshop-modal h2 { text-align: center; margin-bottom: 25px; color: var(--text-light); }
-#inventory-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; flex-grow: 1; overflow: hidden; } /* Ajout overflow: hidden */
-.inventory-container { display: flex; flex-direction: column; overflow: hidden;} /* Ajout overflow: hidden */
+#inventory-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; flex-grow: 1; overflow: hidden;}
+.inventory-container { display: flex; flex-direction: column; overflow: hidden;}
 .inventory-container h3 { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-#inventory-modal .inventory-list { background-color: rgba(0,0,0,0.25); border-radius: 8px; padding: 15px; min-height: 250px; /* Hauteur minimale pour les listes */ display: flex; flex-direction: column; gap: 10px; transition: background-color 0.2s ease; overflow-y: auto; /* Permettre le défilement */ flex-grow: 1; } /* Ajout flex-grow et overflow-y */
+#inventory-modal .inventory-list { background-color: rgba(0,0,0,0.25); border-radius: 8px; padding: 15px; min-height: 250px; display: flex; flex-direction: column; gap: 10px; transition: background-color 0.2s ease; overflow-y: auto;  flex-grow: 1; }
 
 
 #quantity-modal-content { background: var(--bg-main); border: 1px solid var(--action-color); border-radius: var(--border-radius); padding: 25px; width: 100%; max-width: 400px; box-shadow: 0 5px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 20px; }
@@ -397,12 +403,12 @@ body {
 #equipment-slots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; align-items: start; padding: 10px; }
 .equipment-slot-container { width: 100%; text-align: center; }
 .equipment-slot-container label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-secondary); }
-.equipment-slot { width: 100px; height: 100px; background: rgba(0,0,0,0.4); border: 2px dashed rgba(255,255,255,0.3); border-radius: 8px; margin: 0 auto; display: flex; justify-content: center; align-items: center; transition: all 0.2s; padding: 10px; position: relative; /* Pour la durabilité */ }
+.equipment-slot { width: 100px; height: 100px; background: rgba(0,0,0,0.4); border: 2px dashed rgba(255,255,255,0.3); border-radius: 8px; margin: 0 auto; display: flex; justify-content: center; align-items: center; transition: all 0.2s; padding: 10px; position: relative; }
 .equipment-slot .inventory-item { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 5px; position: relative;}
 .equipment-slot .inventory-item .inventory-icon { font-size: 2.5em; }
 .equipment-slot .inventory-item .inventory-name { font-size: 0.8em; text-align: center; word-break: break-word; margin-top: 5px; line-height: 1.1; }
 .equipment-slot .inventory-item .inventory-count { display: none; }
-.equipment-slot .inventory-item .item-durability { /* Point 24 */
+.equipment-slot .inventory-item .item-durability {
     font-size: 0.7em;
     color: white;
     position: absolute;
@@ -425,7 +431,7 @@ body {
 
 /* MODALE DE CONSTRUCTION */
 #build-modal-content {
-    max-width: 1200px; /* #41 Drogué status restriction handled in JS */
+    max-width: 1200px;
     min-height: 600px;
     max-height: 90vh;
     display: flex;
@@ -530,7 +536,7 @@ body {
 #admin-modal {
     position: fixed;
     inset: 0;
-    z-index: 10001;
+    z-index: 10001; /* Doit être au-dessus de l'overlay du tutoriel pour être accessible */
     background-color: rgba(10, 20, 30, 0.85);
     backdrop-filter: blur(6px);
     display: flex;
@@ -600,7 +606,7 @@ body {
 #workshop-modal {
     position: fixed;
     inset: 0;
-    z-index: 3500; /* Au-dessus des autres modales sauf quantité/combat */
+    z-index: 3500;
     background-color: rgba(0, 0, 0, 0.75);
     backdrop-filter: blur(8px);
     display: flex;
@@ -622,13 +628,13 @@ body {
     border-radius: var(--border-radius);
     padding: 25px;
     width: 100%;
-    max-width: 900px; /* Plus large pour afficher plus de recettes */
+    max-width: 900px;
     min-height: 500px;
-    max-height: 85vh; /* Limiter la hauteur */
+    max-height: 85vh;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     position: relative;
     display: flex;
-    flex-direction: column; /* Pour que le container des recettes puisse scroller */
+    flex-direction: column;
 }
 
 #close-workshop-modal-btn {
@@ -673,11 +679,11 @@ body {
 }
 
 #workshop-recipes-container {
-    flex-grow: 1; /* Permet au conteneur de prendre l'espace restant */
-    overflow-y: auto; /* Active le défilement vertical si nécessaire */
-    padding-right: 10px; /* Espace pour la barre de défilement */
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 10px;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* Grille responsive */
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 15px;
 }
 #workshop-recipes-container::-webkit-scrollbar { width: 8px; }
@@ -742,31 +748,25 @@ body {
 }
 .workshop-recipe-costs li {
     display: flex;
-    justify-content: space-between; /* #9, #16 Labo recipe: Kit de Secours handled in config/interactions */
+    justify-content: space-between;
     padding: 3px 0;
 }
-.workshop-recipe-costs .cost-name .item-icon { /* Icône pour les coûts */
+.workshop-recipe-costs .cost-name .item-icon {
     font-size: 0.9em;
     margin-right: 5px;
 }
 .workshop-recipe-costs .cost-amount {
     color: rgba(255,255,255,0.7);
-    /* cursor: pointer; */ /* Retiré car pas de clic direct sur la quantité individuelle pour l'instant */
     padding: 2px 5px;
     border-radius: 3px;
-    /* transition: background-color 0.2s; */ /* Retiré */
 }
-/* .workshop-recipe-costs .cost-amount:hover {
-    background-color: rgba(255,255,255,0.1);
-} */
-.workshop-recipe-costs .cost-amount.insufficient { /* Si pas assez de ressources */
+.workshop-recipe-costs .cost-amount.insufficient {
     color: var(--accent-color);
-    /* text-decoration: line-through; */ /* Optionnel, peut être visuellement chargé */
 }
 
 
 .workshop-recipe-action {
-    margin-top: auto; /* Pousse le bouton en bas de la carte */
+    margin-top: auto;
 }
 .workshop-recipe-action button {
     width: 100%;
@@ -815,7 +815,7 @@ body {
     border-radius: var(--border-radius);
     padding: 25px;
     width: 100%;
-    max-width: 320px; /* Smaller modal for code entry */
+    max-width: 320px;
     box-shadow: 0 5px 25px rgba(0,0,0,0.5);
     display: flex;
     flex-direction: column;
@@ -841,11 +841,10 @@ body {
     color: var(--text-light);
     border-radius: 6px;
 }
-/* Remove spinners from number input */
-#lock-code-inputs input[type=number]::-webkit-inner-spin-button, 
-#lock-code-inputs input[type=number]::-webkit-outer-spin-button { 
-  -webkit-appearance: none; 
-  margin: 0; 
+#lock-code-inputs input[type=number]::-webkit-inner-spin-button,
+#lock-code-inputs input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 #lock-code-inputs input[type=number] {
   -moz-appearance: textfield; /* Firefox */
@@ -869,3 +868,83 @@ body {
 #lock-cancel-btn:hover { background-color: #6b7280; }
 #lock-unlock-btn { background-color: var(--deposit-color); color: var(--text-light); }
 #lock-unlock-btn:hover { background-color: #38b09d; }
+
+
+/* ---- OVERLAY TUTORIEL ---- */
+#tutorial-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+    pointer-events: none; /* MODIFIÉ: Permet aux clics de passer au travers par défaut */
+}
+#tutorial-overlay.hidden {
+    display: none !important;
+}
+
+#tutorial-box {
+    background-color: var(--bg-panel);
+    padding: 30px;
+    border-radius: var(--border-radius);
+    border: 2px solid var(--action-color);
+    box-shadow: 0 0 30px rgba(69, 123, 157, 0.5);
+    max-width: 600px;
+    text-align: center;
+    pointer-events: auto; /* MODIFIÉ: La boîte de dialogue capture les clics */
+    z-index: 10001; /* Au-dessus du fond de l'overlay */
+}
+#tutorial-message {
+    font-size: 1.1em;
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+#tutorial-message b {
+    color: var(--text-secondary);
+    font-weight: 700;
+}
+#tutorial-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+#tutorial-buttons button {
+    padding: 10px 20px;
+    font-size: 1em;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-family: 'Poppins', sans-serif;
+}
+#tutorial-next-btn {
+    background-color: var(--action-color);
+    color: var(--text-light);
+}
+#tutorial-next-btn:hover {
+    background-color: #5e9ac4;
+}
+#tutorial-skip-btn {
+    background-color: #6b7280;
+    color: var(--text-light);
+}
+#tutorial-skip-btn:hover {
+    background-color: #8a939e;
+}
+
+.tutorial-highlight {
+    position: relative; 
+    z-index: 10002 !important; 
+    box-shadow: 0 0 0 6px var(--accent-color), 0 0 25px 12px rgba(230, 57, 70, 0.7) !important;
+    border-radius: 8px !important;
+    transition: box-shadow 0.4s ease-in-out, outline 0.4s ease-in-out;
+    outline: 3px solid var(--accent-color) !important;
+}
+.tutorial-highlight.ui-panel { 
+    overflow-y: auto !important; 
+}

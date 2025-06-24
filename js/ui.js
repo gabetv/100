@@ -6,6 +6,7 @@ import * as PanelsModule from './ui/panels.js';
 import * as DrawModule from './ui/draw.js';
 import * as EffectsModule from './ui/effects.js';
 import * as ModalsModule from './ui/modals.js';
+import * as TutorialModule from './ui/tutorial.js';
 
 // --- Ré-exporter explicitement les fonctions que main.js (ou d'autres modules externes) utilisera via UI.fonction ---
 
@@ -40,13 +41,13 @@ export const hideLargeMap = ModalsModule.hideLargeMap;
 export const showBuildModal = ModalsModule.showBuildModal;
 export const hideBuildModal = ModalsModule.hideBuildModal;
 export const populateBuildModal = ModalsModule.populateBuildModal;
-export const showWorkshopModal = ModalsModule.showWorkshopModal; // AJOUT
-export const hideWorkshopModal = ModalsModule.hideWorkshopModal; // AJOUT
-export const populateWorkshopModal = ModalsModule.populateWorkshopModal; // AJOUT
-export const setupWorkshopModalListeners = ModalsModule.setupWorkshopModalListeners; // AJOUT
-export const showLockModal = ModalsModule.showLockModal; // For Cadenas
-export const hideLockModal = ModalsModule.hideLockModal; // For Cadenas
-export const setupLockModalListeners = ModalsModule.setupLockModalListeners; // For Cadenas
+export const showWorkshopModal = ModalsModule.showWorkshopModal;
+export const hideWorkshopModal = ModalsModule.hideWorkshopModal;
+export const populateWorkshopModal = ModalsModule.populateWorkshopModal;
+export const setupWorkshopModalListeners = ModalsModule.setupWorkshopModalListeners;
+export const showLockModal = ModalsModule.showLockModal;
+export const hideLockModal = ModalsModule.hideLockModal;
+export const setupLockModalListeners = ModalsModule.setupLockModalListeners;
 
 
 // Depuis ./ui/panels.js
@@ -59,6 +60,15 @@ export const updateDayCounter = PanelsModule.updateDayCounter;
 export const updateTileInfoPanel = PanelsModule.updateTileInfoPanel;
 export const updateGroundItemsPanel = PanelsModule.updateGroundItemsPanel;
 export const updateBottomBarEquipmentPanel = PanelsModule.updateBottomBarEquipmentPanel;
+
+// Depuis ./ui/tutorial.js
+export const initTutorial = TutorialModule.initTutorial;
+export const showTutorialStep = TutorialModule.showTutorialStep;
+export const advanceTutorial = TutorialModule.advanceTutorial;
+export const skipTutorial = TutorialModule.skipTutorial;
+export const completeTutorial = TutorialModule.completeTutorial;
+export const playerMovedForTutorial = TutorialModule.playerMovedForTutorial;
+export const highlightElement = TutorialModule.highlightElement; // Exportation de highlightElement
 
 
 /**
@@ -80,16 +90,14 @@ export function updateAllUI(gameState) {
 
     PanelsModule.updateStatsPanel(player);
     PanelsModule.updateInventory(player);
-    PanelsModule.updateDayCounter(day); // This now updates the day counter in the tile info panel (#52)
+    PanelsModule.updateDayCounter(day);
     PanelsModule.updateTileInfoPanel(currentTile);
     PanelsModule.updateQuickSlots(player);
     PanelsModule.updateGroundItemsPanel(currentTile);
     PanelsModule.updateBottomBarEquipmentPanel(player);
 
-    console.log("[ui.js] updateAllUI: About to call drawMinimap. Config exists:", !!gameState.config);
     if (gameState.config) {
        DrawModule.drawMinimap(gameState, gameState.config);
-       console.log("[ui.js] updateAllUI: drawMinimap completed.");
     } else {
         console.warn("[ui.js] updateAllUI: gameState.config manquant pour drawMinimap.");
     }
@@ -97,7 +105,7 @@ export function updateAllUI(gameState) {
     if(DOM.hudCoordsEl) {
         DOM.hudCoordsEl.textContent = `(${player.x}, ${player.y})`;
     }
-     if(DOM.dayCounterEl && !DOM.dayCounterTileInfoEl) { // Fallback if old day counter still exists and new one doesn't
+     if(DOM.dayCounterEl && !DOM.dayCounterTileInfoEl) {
         DOM.dayCounterEl.textContent = day;
     }
 }
@@ -107,7 +115,6 @@ export function updateAllUI(gameState) {
  * @param {object} gameState
  */
 export function renderScene(gameState) {
-    console.log("[ui.js] renderScene called. GameState player:", gameState && gameState.player ? gameState.player.x + ',' + gameState.player.y : "N/A");
     if (!gameState) {
         console.warn("[ui.js] renderScene appelée sans gameState.");
         return;

@@ -20,7 +20,17 @@ function updatePossibleActions() {
     DOM.actionsEl.innerHTML = '';
 
     if (!State.state || !State.state.player) return;
-    const { player, map, combatState, enemies, knownRecipes } = State.state;
+    const { player, map, combatState, enemies, knownRecipes, tutorialState } = State.state;
+
+    if (tutorialState.active && !tutorialState.isTemporarilyHidden && tutorialState.step > 0) {
+        const p = document.createElement('p');
+        p.textContent = "Actions désactivées pendant le tutoriel.";
+        p.style.textAlign = 'center';
+        p.style.padding = '10px';
+        DOM.actionsEl.appendChild(p);
+        DOM.actionsEl.scrollTop = oldScrollTop;
+        return;
+    }
 
     if (!map || !map[player.y] || !map[player.y][player.x]) return;
 
@@ -31,9 +41,10 @@ function updatePossibleActions() {
     const createButton = (text, actionId, data = {}, disabled = false, title = '', parent = DOM.actionsEl) => {
         const button = document.createElement('button');
         button.textContent = text;
-        button.disabled = disabled;
+        button.disabled = disabled || (tutorialState.active && !tutorialState.isTemporarilyHidden && tutorialState.step > 0) || player.isBusy;
         button.title = title;
         button.onclick = (e) => {
+            if ((tutorialState.active && !tutorialState.isTemporarilyHidden && tutorialState.step > 0) || player.isBusy) return;
             handleGlobalPlayerAction(actionId, data);
         };
         parent.appendChild(button);
@@ -41,7 +52,7 @@ function updatePossibleActions() {
     };
 
 
-    if (combatState || player.isBusy) { // Removed player.animationState here, handled by button disabling
+    if (combatState || player.isBusy) {
         const statusDiv = document.createElement('div');
         statusDiv.style.textAlign = 'center';
         statusDiv.style.padding = '12px';
@@ -69,7 +80,6 @@ function updatePossibleActions() {
         return;
     }
 
-    // --- Actions de Terrain ---
     const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
 
     if (tileType.name === TILE_TYPES.PLAGE.name) {
@@ -89,7 +99,7 @@ function updatePossibleActions() {
              createButton(`🎣 Pêcher (Canne) (${tile.actionsLeft?.fish || 0})`, 'fish', {}, !canFishPlage || isInventoryFull,
                 !canFishPlage ? "Plus d'actions de pêche" : (isInventoryFull ? "Inventaire plein" : "Pêcher du poisson"));
         }
-        if (hasNetEquipped && player.equipment.weapon.currentUses > 0) { // Vérifier les uses du filet
+        if (hasNetEquipped && player.equipment.weapon.currentUses > 0) {
             createButton(`🥅 Pêcher (Filet) (${player.equipment.weapon.currentUses || ITEM_TYPES['Filet de pêche'].uses} uses)`, 'net_fish', {}, isInventoryFull,
                 isInventoryFull ? "Inventaire plein" : "Pêcher au filet");
         }
@@ -110,16 +120,16 @@ function updatePossibleActions() {
         let huntDisabledReason = "";
         if (!huntActionsAvailable) huntDisabledReason = "Plus de chasse ici.";
         else if (!canHunt) huntDisabledReason = "Nécessite une arme infligeant des dégâts.";
-        else if (player.status.includes('Drogué')) huntDisabledReason = "Impossible de chasser sous l'effet de la drogue."; // Status check
+        else if (player.status.includes('Drogué')) huntDisabledReason = "Impossible de chasser sous l'effet de la drogue.";
         createButton(`🏹 Chasser (${tile.huntActionsLeft || 0})`, 'hunt', {}, !huntActionsAvailable || !canHunt || player.status.includes('Drogué'), huntDisabledReason);
     }
 
     if (tileType.name === TILE_TYPES.PLAINS.name) {
         const canPlant = State.hasResources({ 'Graine d\'arbre': 5, 'Eau pure': 1 }).success;
-        if (tile.buildings.length === 0) { // Condition 17
+        if (tile.buildings.length === 0) {
             createButton("🌱 Planter Arbre", 'plant_tree', {}, !canPlant, !canPlant ? "Nécessite 5 graines, 1 eau pure" : "Transformer cette plaine en forêt");
         }
-    }    
+    }
     if (tileType.name === TILE_TYPES.WASTELAND.name) {
         const costsRegen = TILE_TYPES.WASTELAND.regeneration.cost;
         const canRegen = State.hasResources(costsRegen).success;
@@ -130,7 +140,7 @@ function updatePossibleActions() {
     if (tile.type === TILE_TYPES.TREASURE_CHEST) {
         if (!tile.isOpened) {
             const hasKey = player.inventory[TILE_TYPES.TREASURE_CHEST.requiresKey] > 0;
-            createButton("💎 Ouvrir le Trésor", 'open_treasure', {}, !hasKey || isInventoryFull, // Disable if inv full too
+            createButton("💎 Ouvrir le Trésor", 'open_treasure', {}, !hasKey || isInventoryFull,
                 !hasKey ? `Nécessite : ${TILE_TYPES.TREASURE_CHEST.requiresKey}` : (isInventoryFull ? "Inventaire plein pour recevoir le contenu" : "Utiliser la clé pour ouvrir"));
         } else {
             const p = document.createElement('p');
@@ -144,7 +154,7 @@ function updatePossibleActions() {
         createButton(`🔑 Prendre ${tile.hiddenItem}`, 'take_hidden_item', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : `Ramasser ${tile.hiddenItem}`);
     }
 
-    if (tileType.resource && (tile.harvestsLeft > 0 || tile.harvestsLeft === Infinity) && !findBuildingOnTile(tile, 'MINE')) { // Don't show terrain harvest if Mine building is present
+    if (tileType.resource && (tile.harvestsLeft > 0 || tile.harvestsLeft === Infinity) && !findEnemyOnTile(player.x, player.y, enemies) && !findBuildingOnTile(tile, 'MINE')) {
         if (tileType.name === TILE_TYPES.FOREST.name) {
             const canHarvestWood = tile.woodActionsLeft > 0;
             const equippedWeapon = player.equipment.weapon;
@@ -155,7 +165,6 @@ function updatePossibleActions() {
                     createButton(`🪚 Scier Bois (Scie) (${tile.woodActionsLeft || 0})`, 'harvest_wood_scie', {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
                 }
             }
-             // Action "Ramasser Bois" (mains)
             if (!equippedWeapon || (equippedWeapon.name !== 'Hache' && equippedWeapon.name !== 'Scie')) createButton(`✋ Ramasser Bois (${tile.woodActionsLeft || 0})`, 'harvest_wood_mains', {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
         } else if (tileType.name === TILE_TYPES.MINE_TERRAIN.name) {
             const canHarvestStone = tile.harvestsLeft > 0;
@@ -189,20 +198,18 @@ function updatePossibleActions() {
         });
     }
 
-    // --- Construction ---
-    // Condition 15: "Construire" action invisible on Plage
     if (tile.type.buildable && tile.buildings.length < CONFIG.MAX_BUILDINGS_PER_TILE && tile.type.name !== TILE_TYPES.PLAGE.name) {
         const mainBuildButton = document.createElement('button');
         mainBuildButton.id = 'main-build-btn';
         mainBuildButton.textContent = "🏗️ Construire...";
+        mainBuildButton.disabled = (tutorialState.active && !tutorialState.isTemporarilyHidden && tutorialState.step > 0) || player.isBusy;
         mainBuildButton.onclick = () => {
+            if ((tutorialState.active && !tutorialState.isTemporarilyHidden && tutorialState.step > 0) || player.isBusy) return;
             UI.showBuildModal(State.state);
         };
         DOM.actionsEl.appendChild(mainBuildButton);
-        
     }
 
-    // --- Actions des Bâtiments ---
     if (tile.buildings && tile.buildings.length > 0) {
         const buildingsHeader = document.createElement('h4');
         buildingsHeader.textContent = "Actions des Bâtiments";
@@ -228,22 +235,18 @@ function updatePossibleActions() {
 
             if (buildingInstance.durability > 0 && player.hunger >= 5 && player.thirst >= 5 && player.sleep >= 5) {
                 createButton(`🔩 Démanteler ${buildingDef.name}`, 'dismantle_building', { buildingKey: buildingInstance.key, buildingIndex: index }, false, "Récupérer une partie des matériaux (-5 Faim/Soif/Sommeil)");
-            } else if (buildingInstance.durability > 0) { // Still show if building is not broken
+            } else if (buildingInstance.durability > 0) {
                  createButton(`🔩 Démanteler ${buildingDef.name}`, 'dismantle_building', { buildingKey: buildingInstance.key, buildingIndex: index }, true, "Trop fatigué pour démanteler (5 Faim/Soif/Sommeil requis)");
             }
 
-            // Cadenas actions
             if ((buildingInstance.key === 'SHELTER_INDIVIDUAL' || buildingInstance.key === 'SHELTER_COLLECTIVE')) {
-                if (buildingInstance.isLocked && tile.playerHasUnlockedThisSession) { // playerHasUnlockedThisSession is a new temp flag on tile instance
+                if (buildingInstance.isLocked && tile.playerHasUnlockedThisSession) {
                     createButton("🔓 Retirer Cadenas", 'remove_lock', { buildingKey: buildingInstance.key, buildingIndex: index });
                 } else if (!buildingInstance.isLocked && player.inventory['Cadenas'] > 0) {
                     createButton("🔒 Poser Cadenas", 'set_lock', { buildingKey: buildingInstance.key, buildingIndex: index });
                 }
             }
 
-
-
-            // Actions spécifiques définies dans TILE_TYPES[key].actions
             if (buildingDef.actions && buildingInstance.durability > 0) {
                 buildingDef.actions.forEach(actionInfo => {
                     let disabledAction = false;
@@ -291,7 +294,6 @@ function updatePossibleActions() {
                 });
             }
 
-            // Actions uniques (non listées dans TILE_TYPES[key].actions)
             if (buildingInstance.key === 'MINE' && buildingInstance.durability > 0 && hasPiocheEquipped) {
                 createButton("⛏️ Chercher Minerais (Bât.)", 'use_building_action', { buildingKey: 'MINE', specificActionId: 'search_ore_building' });
             }
@@ -299,7 +301,6 @@ function updatePossibleActions() {
                  createButton(`🛠️ Utiliser ${buildingDef.name}`, 'use_building_action', { buildingKey: buildingInstance.key, specificActionId: TILE_TYPES[buildingInstance.key].action.id});
             }
 
-            // Bouton Réparer pour Kit de réparation
             const kitReparationEquipped = player.equipment.weapon && player.equipment.weapon.name === 'Kit de réparation';
             if (kitReparationEquipped && buildingInstance.durability < buildingInstance.maxDurability && player.equipment.weapon.currentUses > 0) {
                 createButton(`🛠️ Réparer ${buildingDef.name}`, 'repair_building', { buildingKey: buildingInstance.key, buildingIndex: index }, false, `Utiliser Kit de réparation (${player.equipment.weapon.currentUses || ITEM_TYPES['Kit de réparation'].uses} uses)`);
@@ -308,7 +309,6 @@ function updatePossibleActions() {
 
             if (buildingDef.inventory && buildingInstance.durability > 0) {
                 const openChestButton = createButton( `🧰 Ouvrir le Coffre (${buildingDef.name})`, 'open_building_inventory', { buildingKey: buildingInstance.key, buildingIndex: index });
-                // Click handler for open_building_inventory will be handled in handlePlayerAction to check for lock first
             }
         });
     }
@@ -327,17 +327,17 @@ function handleEvents() {
         }
         return;
     }
-    if (Math.random() > 0.85) { // 15% chance per day
+    if (Math.random() > 0.85) {
         const eventType = Math.random() < 0.5 ? 'Tempête' : 'Abondance';
         if (eventType === 'Tempête') {
             activeEvent.type = 'Tempête';
-            activeEvent.duration = 1; // dure 1 jour
+            activeEvent.duration = 1;
             UI.addChatMessage("Une tempête approche ! Il sera plus difficile de survivre.", "system_event");
         } else {
             const abundantResourceList = ['Bois', 'Poisson cru', 'Pierre', 'Feuilles'];
             const abundantResource = abundantResourceList[Math.floor(Math.random() * abundantResourceList.length)];
             activeEvent.type = 'Abondance';
-            activeEvent.duration = 2; // dure 2 jours
+            activeEvent.duration = 2;
             activeEvent.data = { resource: abundantResource };
             UI.addChatMessage(`Les ${abundantResource.toLowerCase()}s sont étrangement abondants !`, "system_event");
         }
@@ -345,18 +345,16 @@ function handleEvents() {
 }
 
 function gameLoop(currentTime) {
-    console.log("gameLoop tick", currentTime); // Check if gameLoop is running
     if (!State.state || !State.state.player) {
-        console.log("gameLoop: State or player not ready, requesting next frame.");
         requestAnimationFrame(gameLoop);
         return;
     }
-    const { player, isGameOver, combatState } = State.state;
+    const { player, isGameOver, combatState, tutorialState } = State.state;
     const activeNonNormalStatuses = player.status.filter(s => s !== 'normale');
     if (activeNonNormalStatuses.length >= 4) {
-        if(!isGameOver) endGame(false); // Death by too many statuses
+        if(!isGameOver) endGame(false);
         return;
-    }    
+    }
     if (isGameOver) return;
     if (player.health <= 0) {
         if(!isGameOver) endGame(false);
@@ -366,16 +364,19 @@ function gameLoop(currentTime) {
     const deltaTime = currentTime - lastFrameTimestamp;
     lastFrameTimestamp = currentTime;
 
-    if (!combatState) {
-        if (currentTime - lastStatDecayTimestamp > CONFIG.STAT_DECAY_INTERVAL_MS) {
-            const decayResult = decayStats(State.state);
-            if(decayResult && decayResult.message) UI.addChatMessage(decayResult.message, 'system');
-            lastStatDecayTimestamp = currentTime;
-        }
-        if (!player.animationState && !player.isBusy) {
-            updateNpcs(State.state, deltaTime);
+    if (!tutorialState.active || tutorialState.completed) {
+        if (!combatState) {
+            if (currentTime - lastStatDecayTimestamp > CONFIG.STAT_DECAY_INTERVAL_MS) {
+                const decayResult = decayStats(State.state);
+                if(decayResult && decayResult.message) UI.addChatMessage(decayResult.message, 'system');
+                lastStatDecayTimestamp = currentTime;
+            }
+            if (!player.animationState && !player.isBusy) {
+                updateNpcs(State.state, deltaTime);
+            }
         }
     }
+
 
     if (player.animationState) {
         const anim = player.animationState;
@@ -386,6 +387,9 @@ function gameLoop(currentTime) {
             if (anim.type === 'out') {
                 State.applyPlayerMove(anim.direction);
                 UI.renderScene(State.state);
+                if (tutorialState.active && tutorialState.step === 0 && tutorialState.isTemporarilyHidden) {
+                    UI.playerMovedForTutorial();
+                }
                 anim.type = 'in';
                 anim.progress = 0;
             } else {
@@ -396,15 +400,24 @@ function gameLoop(currentTime) {
         }
     }
 
-    console.log("gameLoop: About to call UI.renderScene with state:", JSON.parse(JSON.stringify(State.state.player))); // Log a small part of state
     UI.renderScene(State.state);
-    console.log("gameLoop: UI.renderScene completed.");
     requestAnimationFrame(gameLoop);
 }
 
 function handleNavigation(direction) {
     if (!State.state || !State.state.player) return;
-    const { player, map, enemies, combatState } = State.state;
+    const { player, map, enemies, combatState, tutorialState } = State.state;
+
+    if (tutorialState.active && tutorialState.step > 0 && !tutorialState.isTemporarilyHidden) {
+        UI.addChatMessage("Veuillez suivre les instructions du tutoriel.", "system");
+        return;
+    }
+    if (tutorialState.active && tutorialState.step === 0 && !tutorialState.isTemporarilyHidden) {
+        UI.addChatMessage("Cliquez d'abord sur 'Compris, je vais bouger !' dans le message du tutoriel.", "system");
+        return;
+    }
+
+
     if (player.isBusy || player.animationState || combatState) {
         return;
     }
@@ -438,14 +451,12 @@ function handleNavigation(direction) {
     }
 
     if (!Interactions.applyRandomStatCost(player, 1, "déplacement")) {
-        // Géré dans applyRandomStatCost
     }
 
     player.isBusy = true;
     player.animationState = { type: 'out', direction: direction, progress: 0 };
 
     updatePossibleActions();
-    UI.updateAllButtonsState(State.state);
 }
 
 function handleSpecificConsume(statType) {
@@ -460,7 +471,7 @@ function handleSpecificConsume(statType) {
     let itemToConsume = null;
     const inventory = player.inventory;
     switch (statType) {
-        case 'health': // Status checks now use .includes()
+        case 'health':
             if (inventory['Kit de Secours'] > 0 && player.status.includes('Malade')) itemToConsume = 'Kit de Secours';
             else if (inventory['Médicaments'] > 0 && (player.status.includes('Malade') || player.status.includes('Drogué'))) itemToConsume = 'Médicaments';
             else if (inventory['Antiseptique'] > 0 && (player.status.includes('Blessé') || player.status.includes('Malade')) && player.health < player.maxHealth) itemToConsume = 'Antiseptique';
@@ -500,10 +511,15 @@ function handleSpecificConsume(statType) {
     if (result.success) {
         UI.triggerActionFlash('gain');
         if (result.floatingTexts && result.floatingTexts.length > 0) {
-            result.floatingTexts.forEach(text => {
-                const type = text.startsWith('+') ? 'gain' : (text.startsWith('-') ? 'cost' : 'info');
+            result.floatingTexts.forEach(textObjOrString => {
+                const text = typeof textObjOrString === 'string' ? textObjOrString : textObjOrString.text;
+                const type = typeof textObjOrString === 'string' ? (text.startsWith('+') ? 'gain' : (text.startsWith('-') ? 'cost' : 'info')) : textObjOrString.type;
+
                 if (text.toLowerCase().includes('statut:')) UI.showFloatingText(text, type);
                 else if (itemToConsume === 'Porte bonheur' && text.includes('+1')) UI.showFloatingText(text, type);
+                else if (!text.toLowerCase().includes('statut:') && itemToConsume !== 'Porte bonheur') {
+                    UI.showFloatingText(text, type);
+                }
             });
         }
         fullUIUpdate();
@@ -532,7 +548,7 @@ function handleConsumeClick(itemName) {
         }
         if (itemName === 'Alcool' && player.thirst >= player.maxThirst -1) {
             UI.addChatMessage("Vous n'avez pas assez soif pour boire de l'alcool.", "system"); return;
-        } // Consumption condition checks from user request
+        }
         if (itemName === 'Banane' && player.hunger > player.maxHunger - 2) { UI.addChatMessage("Vous n'avez pas assez faim pour une banane.", "system"); return; }
         if (itemName === 'Canne à sucre' && player.hunger > player.maxHunger - 3) { UI.addChatMessage("Vous n'avez pas assez faim pour de la canne à sucre.", "system"); return; }
         if (itemName === 'Oeuf cru' && player.hunger > player.maxHunger - 2) { UI.addChatMessage("Vous n'avez pas assez faim pour un oeuf cru.", "system"); return; }
@@ -553,7 +569,7 @@ function handleConsumeClick(itemName) {
          handleGlobalPlayerAction('consume_eau_salee', {itemName: 'Eau salée'});
          return;
     }
-    if (itemDef && itemDef.slot && ['weapon', 'shield', 'body', 'head', 'feet', 'bag'].includes(itemDef.slot)) { // Equipping from inventory
+    if (itemDef && itemDef.slot && ['weapon', 'shield', 'body', 'head', 'feet', 'bag'].includes(itemDef.slot)) {
         const equipResult = State.equipItem(itemName);
         UI.addChatMessage(equipResult.message, equipResult.success ? 'system' : 'system_error');
         if (equipResult.success) fullUIUpdate();
@@ -565,7 +581,6 @@ function handleConsumeClick(itemName) {
         if (result.success) fullUIUpdate();
         return;
     }
-     // Gérer les items "usable" qui ont une action spécifique
     if (itemDef && itemDef.type === 'usable' && itemDef.action) {
         handleGlobalPlayerAction(itemDef.action, { itemName: itemName });
         return;
@@ -581,10 +596,10 @@ function handleConsumeClick(itemName) {
     const result = State.consumeItem(itemName);
     UI.addChatMessage(result.message, result.success ? (itemName.startsWith('Parchemin') || itemName === 'Porte bonheur' || itemName === 'Batterie chargée' ? 'system_event' : 'system') : 'system_error');
     if(result.success) {
-        if (itemName !== 'Breuvage étrange' || (result.floatingTexts && result.floatingTexts.some(ft => ft.text.includes('+')))) { // Don't flash gain for breuvage unless it was a net positive stat change
+        if (itemName !== 'Breuvage étrange' || (result.floatingTexts && result.floatingTexts.some(ft => (typeof ft === 'string' ? ft : ft.text).includes('+')))) {
              UI.triggerActionFlash('gain');
         }
-        if (result.floatingTexts && result.floatingTexts.length > 0) { // For Breuvage Etrange, floating texts are handled by its specific effect function
+        if (result.floatingTexts && result.floatingTexts.length > 0) {
             result.floatingTexts.forEach(textObjOrString => {
                 const text = typeof textObjOrString === 'string' ? textObjOrString : textObjOrString.text;
                 const type = typeof textObjOrString === 'string' ? (text.startsWith('+') ? 'gain' : (text.startsWith('-') ? 'cost' : 'info')) : textObjOrString.type;
@@ -600,14 +615,11 @@ window.fullUIUpdate = function() {
         console.warn("fullUIUpdate: State or player not ready.");
         return;
     }
-    console.log("[main.js] Executing fullUIUpdate. Player pos:", State.state.player.x, State.state.player.y);
-    UI.updateAllUI(State.state); // This calls drawMinimap internally
+    UI.updateAllUI(State.state);
     updatePossibleActions();
-    UI.updateAllButtonsState(State.state);
 
-    // Modal updates (if open)
     if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.updateEquipmentModal(State.state);
-    if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.showInventoryModal(State.state); // Re-populate based on current state
+    if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.showInventoryModal(State.state);
     if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) {
         if (State.state && State.state.config) {
             UI.drawLargeMap(State.state, State.state.config);
@@ -618,34 +630,68 @@ window.fullUIUpdate = function() {
         UI.populateBuildModal(State.state);
     }
     if (DOM.workshopModal && !DOM.workshopModal.classList.contains('hidden')) {
-        UI.populateWorkshopModal(State.state); // Removed workshopContext, let populateWorkshopModal handle it
+        UI.populateWorkshopModal(State.state);
     }
     if (DOM.bottomBarEl) {
         UI.updateGroundItemsPanel(State.state.map[State.state.player.y][State.state.player.x]);
     }
-    
-    // Update navigation button visibility
+
     const navDirections = {
         'north': DOM.navNorth, 'south': DOM.navSouth, 'east': DOM.navEast, 'west': DOM.navWest,
         'northeast': DOM.navNE, 'northwest': DOM.navNW, 'southeast': DOM.navSE, 'southwest': DOM.navSW
     };
+
+    const tutorialIsActiveAndNeedsActionBlocking = State.state.tutorialState.active &&
+                                                 !State.state.tutorialState.isTemporarilyHidden &&
+                                                 State.state.tutorialState.step > 0;
+    const playerIsActuallyBusy = State.state.player.isBusy || !!State.state.player.animationState;
 
     for (const dir in navDirections) {
         const btn = navDirections[dir];
         if (btn) {
             const shouldBeVisible = Interactions.canMoveInDirection(State.state.player, dir, State.state.map, CONFIG);
             btn.style.display = shouldBeVisible ? 'flex' : 'none';
+            btn.disabled = tutorialIsActiveAndNeedsActionBlocking || playerIsActuallyBusy;
         }
     }
-    console.log("[main.js] fullUIUpdate completed.");
 };
-// Make State accessible to UI modules if needed for things like lock modals
 window.State = State;
 
 window.updatePossibleActions = updatePossibleActions;
 window.UI = UI;
 
 window.handleGlobalPlayerAction = (actionId, data) => {
+    const { tutorialState } = State.state;
+
+    if (actionId === 'tutorial_hide_and_move') {
+        if (tutorialState.active && tutorialState.step === 0) {
+            tutorialState.isTemporarilyHidden = true;
+            if (DOM.tutorialOverlay) DOM.tutorialOverlay.classList.add('hidden');
+            if (UI.highlightElement) UI.highlightElement(null, true);
+            if (window.fullUIUpdate) window.fullUIUpdate();
+        }
+        return;
+    }
+    if (actionId === 'tutorial_next') {
+        if (tutorialState.active) {
+            UI.advanceTutorial();
+        }
+        return;
+    }
+    if (actionId === 'tutorial_skip') {
+        if (tutorialState.active) {
+            UI.skipTutorial();
+        }
+        return;
+    }
+
+    if (tutorialState.active &&
+        !tutorialState.isTemporarilyHidden &&
+        tutorialState.step > 0) {
+        UI.addChatMessage("Veuillez terminer ou passer le tutoriel pour effectuer d'autres actions.", "system");
+        return;
+    }
+
     Interactions.handlePlayerAction(actionId, data, {
         updateAllUI: window.fullUIUpdate,
         updatePossibleActions: window.updatePossibleActions,
@@ -655,7 +701,8 @@ window.handleGlobalPlayerAction = (actionId, data) => {
 
 
 function dailyUpdate() {
-    if (!State.state || State.state.isGameOver) return;
+    if (!State.state || State.state.isGameOver || (State.state.tutorialState.active && !State.state.tutorialState.completed && !State.state.tutorialState.isTemporarilyHidden)) return;
+
     if (State.state.day >= CONFIG.VICTORY_DAY) { endGame(true); return; }
     State.state.day++;
     handleEvents();
@@ -668,9 +715,8 @@ function dailyUpdate() {
             }
         }
     }
-    // Régénération des actions de tuile (Plage, Forêt, etc.)
     State.state.map.flat().forEach(tile => {
-        if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsAvailable) {
+        if (tile.type.name === TILE_TYPES.PLAGE.name && tile.type.actionsAvailable) {
             tile.actionsLeft = {...TILE_TYPES.PLAGE.actionsAvailable};
         }
         if (tile.type.name === TILE_TYPES.FOREST.name) {
@@ -683,24 +729,19 @@ function dailyUpdate() {
             tile.searchActionsLeft = TILE_TYPES.PLAINS.searchActionsLeft;
         }
         if (tile.type.name === TILE_TYPES.MINE_TERRAIN.name && tile.type.harvests) {
-             tile.harvestsLeft = tile.type.harvests; // Réinitialise les récoltes de pierre du terrain
+             tile.harvestsLeft = tile.type.harvests;
         }
-        // Réinitialisation des récoltes des bâtiments de plantation/élevage
         tile.buildings.forEach(buildingInstance => {
             const buildingDef = TILE_TYPES[buildingInstance.key];
             if (buildingDef && buildingDef.maxHarvestsPerCycle && buildingInstance.harvestsAvailable < buildingDef.maxHarvestsPerCycle) {
-                // Optionnel: ici, on pourrait ajouter une logique de croissance plutôt qu'un reset total
-                // Pour l'instant, la logique de "watering/feeding" augmente harvestsAvailable.
-                // On ne fait rien ici pour la régénération quotidienne, elle est manuelle.
             }
         });
     });
-
-
     window.fullUIUpdate();
 }
 
 function handleDragStart(e) {
+    if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) { e.preventDefault(); return; }
     const itemEl = e.target instanceof Element ? e.target.closest('.inventory-item[draggable="true"]') : null;
     if (!itemEl) return;
     const ownerEl = itemEl.closest('[data-owner], .equipment-slot[data-owner], .equipment-slot-small[data-owner]');
@@ -711,39 +752,42 @@ function handleDragStart(e) {
         itemName: itemEl.dataset.itemName,
         itemCount: parseInt(itemEl.dataset.itemCount || '1', 10),
         sourceOwner: ownerEl.dataset.owner,
-        sourceSlotType: itemEl.dataset.slotType || ownerEl.dataset.slotType // Ensure slotType is captured
+        sourceSlotType: itemEl.dataset.slotType || ownerEl.dataset.slotType
     };
     setTimeout(() => itemEl.classList.add('dragging'), 0);
 }
 function handleDragOver(e) {
+    if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) { return; }
     e.preventDefault();
     const dropZone = e.target.closest('.droppable');
     if (dropZone) dropZone.classList.add('drag-over');
 }
 function handleDragLeave(e) {
+    if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) { return; }
     const dropZone = e.target.closest('.droppable');
     if (dropZone) dropZone.classList.remove('drag-over');
 }
 function handleDragEnd() {
+    if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) { return; }
     if (draggedItemInfo && draggedItemInfo.element) draggedItemInfo.element.classList.remove('dragging');
     draggedItemInfo = null;
     document.querySelectorAll('.droppable.drag-over').forEach(el => el.classList.remove('drag-over'));
 }
 
 function handleDrop(e) {
+    if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) { e.preventDefault(); return; }
     e.preventDefault();
     const dropZone = e.target.closest('.droppable');
     if (!draggedItemInfo || !dropZone) return;
 
     const destOwner = dropZone.dataset.owner;
-    const destSlotType = dropZone.dataset.slotType; // This might be on the slot itself or its container
+    const destSlotType = dropZone.dataset.slotType;
 
     let transferProcessed = false;
 
     if (destOwner === 'equipment') {
         const itemDef = ITEM_TYPES[draggedItemInfo.itemName];
         if (draggedItemInfo.sourceOwner === 'player-inventory') {
-            // Check if the destination slot type (from dropZone.dataset.slotType) matches the item's slot type
             if (itemDef && itemDef.slot === destSlotType) {
                 State.equipItem(draggedItemInfo.itemName);
                 transferProcessed = true;
@@ -770,7 +814,7 @@ function handleDrop(e) {
             }
             transferProcessed = true;
         }
-    } else if (dropZone.closest('#inventory-modal')) { // Shared inventory modal
+    } else if (dropZone.closest('#inventory-modal')) {
         let transferType = '';
         if (draggedItemInfo.sourceOwner === 'player-inventory' && destOwner === 'shared') transferType = 'deposit';
         else if (draggedItemInfo.sourceOwner === 'shared' && destOwner === 'player-inventory') transferType = 'withdraw';
@@ -782,7 +826,7 @@ function handleDrop(e) {
                         const transferResult = State.applyBulkInventoryTransfer(draggedItemInfo.itemName, amount, transferType);
                         UI.addChatMessage(transferResult.message, transferResult.success ? 'system' : 'system_error');
                     }
-                    window.fullUIUpdate(); // Update UI after quantity modal closes
+                    window.fullUIUpdate();
                 });
             } else {
                 const transferResult = State.applyBulkInventoryTransfer(draggedItemInfo.itemName, 1, transferType);
@@ -808,12 +852,10 @@ function handleDrop(e) {
         transferProcessed = true;
     }
 
-    if (transferProcessed) window.fullUIUpdate(); // Ensure UI updates if a transfer was attempted or processed
+    if (transferProcessed) window.fullUIUpdate();
     if (dropZone) dropZone.classList.remove('drag-over');
 
-    // For Breuvage étrange item effect
     if (draggedItemInfo && draggedItemInfo.itemName === 'Breuvage étrange' && destOwner === 'player-inventory') {
-        // The drag to inventory doesn't auto-consume, user must click.
     }
 }
 
@@ -828,6 +870,7 @@ function setupDragAndDropForContainer(containerElement) {
 }
 
 function handleEquipmentSlotClick(slotType) {
+    if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return;
     if (!State.state || !State.state.player) return;
     const { player } = State.state;
     if (player.isBusy || player.animationState) { UI.addChatMessage("Vous êtes occupé.", "system"); return; }
@@ -851,15 +894,15 @@ function setupEventListeners() {
     DOM.navSW.addEventListener('click', () => handleNavigation('southwest'));
 
 
-    if (DOM.consumeHealthBtn) DOM.consumeHealthBtn.addEventListener('click', () => handleSpecificConsume('health'));
-    if (DOM.consumeThirstBtn) DOM.consumeThirstBtn.addEventListener('click', () => handleSpecificConsume('thirst'));
-    if (DOM.consumeHungerBtn) DOM.consumeHungerBtn.addEventListener('click', () => handleSpecificConsume('hunger'));
+    if (DOM.consumeHealthBtn) DOM.consumeHealthBtn.addEventListener('click', () => { if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return; handleSpecificConsume('health'); });
+    if (DOM.consumeThirstBtn) DOM.consumeThirstBtn.addEventListener('click', () => { if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return; handleSpecificConsume('thirst'); });
+    if (DOM.consumeHungerBtn) DOM.consumeHungerBtn.addEventListener('click', () => { if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return; handleSpecificConsume('hunger'); });
 
     if (DOM.closeEquipmentModalBtn) DOM.closeEquipmentModalBtn.addEventListener('click', UI.hideEquipmentModal);
     if (DOM.closeBuildModalBtn) DOM.closeBuildModalBtn.addEventListener('click', UI.hideBuildModal);
     if (DOM.closeWorkshopModalBtn) DOM.closeWorkshopModalBtn.addEventListener('click', UI.hideWorkshopModal);
 
-    if (DOM.enlargeMapBtn) DOM.enlargeMapBtn.addEventListener('click', () => handleGlobalPlayerAction('open_large_map', {}));
+    if (DOM.enlargeMapBtn) DOM.enlargeMapBtn.addEventListener('click', () => {if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return; handleGlobalPlayerAction('open_large_map', {})});
     if (DOM.closeLargeMapBtn) DOM.closeLargeMapBtn.addEventListener('click', UI.hideLargeMap);
 
     if (DOM.toggleChatSizeBtn && DOM.bottomBarChatPanelEl) {
@@ -875,6 +918,7 @@ function setupEventListeners() {
 
     if (DOM.inventoryCategoriesEl) {
         DOM.inventoryCategoriesEl.addEventListener('click', e => {
+            if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return;
             const itemEl = e.target.closest('.inventory-item');
             if (itemEl && itemEl.dataset.itemName) {
                 const itemName = itemEl.dataset.itemName;
@@ -898,6 +942,7 @@ function setupEventListeners() {
 
     if (DOM.bottomBarGroundItemsEl) {
         DOM.bottomBarGroundItemsEl.addEventListener('click', e => {
+            if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return;
             const itemEl = e.target.closest('.inventory-item');
             if (itemEl && itemEl.dataset.itemName) {
                 const itemName = itemEl.dataset.itemName;
@@ -922,6 +967,7 @@ function setupEventListeners() {
     if (DOM.bottomBarEquipmentSlotsEl) {
         setupDragAndDropForContainer(DOM.bottomBarEquipmentSlotsEl);
         DOM.bottomBarEquipmentSlotsEl.addEventListener('click', e => {
+            if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return;
             const slotEl = e.target.closest('.equipment-slot-small.droppable, .equipment-slot-container-small.droppable');
             if (slotEl && slotEl.dataset.slotType) {
                 const itemContent = slotEl.querySelector('.inventory-item');
@@ -933,6 +979,7 @@ function setupEventListeners() {
     }
     if (DOM.equipmentSlotsEl) {
         DOM.equipmentSlotsEl.addEventListener('click', e => {
+            if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return;
             const slotEl = e.target.closest('.equipment-slot.droppable');
             if (slotEl && slotEl.dataset.slotType) {
                 const itemContent = slotEl.querySelector('.inventory-item');
@@ -941,9 +988,23 @@ function setupEventListeners() {
         });
     }
 
+    if (DOM.tutorialNextButton) {
+        DOM.tutorialNextButton.addEventListener('click', () => {
+            const action = DOM.tutorialNextButton.dataset.action || 'tutorial_next';
+            handleGlobalPlayerAction(action, {});
+        });
+    }
+    if (DOM.tutorialSkipButton) {
+        DOM.tutorialSkipButton.addEventListener('click', () => {
+            handleGlobalPlayerAction('tutorial_skip', {});
+        });
+    }
+
+
     window.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
-            if (DOM.lockModal && !DOM.lockModal.classList.contains('hidden')) UI.hideLockModal();
+            if (DOM.tutorialOverlay && !DOM.tutorialOverlay.classList.contains('hidden') && !State.state.tutorialState.isTemporarilyHidden) { /* Ne rien faire si tutoriel actif et visible */ }
+            else if (DOM.lockModal && !DOM.lockModal.classList.contains('hidden')) UI.hideLockModal();
             else if (DOM.workshopModal && !DOM.workshopModal.classList.contains('hidden')) UI.hideWorkshopModal();
             else if (DOM.buildModal && !DOM.buildModal.classList.contains('hidden')) UI.hideBuildModal();
             else if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.hideEquipmentModal();
@@ -955,17 +1016,17 @@ function setupEventListeners() {
         }
 
         if (e.key === 'Enter') {
-            if (document.activeElement === DOM.chatInputEl) {
+            if (DOM.tutorialOverlay && !DOM.tutorialOverlay.classList.contains('hidden') && DOM.tutorialNextButton.style.display !== 'none' && !State.state.tutorialState.isTemporarilyHidden) { DOM.tutorialNextButton.click(); }
+            else if (document.activeElement === DOM.chatInputEl) {
                 if (DOM.chatInputEl.value.trim() !== '') {
                     UI.addChatMessage(DOM.chatInputEl.value.trim(), 'player', State.state.player.name || "Aventurier");
                     DOM.chatInputEl.value = '';
                 }
                 DOM.chatInputEl.blur();
             } else if (DOM.lockModal && !DOM.lockModal.classList.contains('hidden')) {
-                // Trigger confirm on enter in lock modal
                 DOM.lockUnlockButton.click();
             } else {
-                DOM.chatInputEl.focus();
+                if (!State.state.tutorialState.active || State.state.tutorialState.completed || State.state.tutorialState.isTemporarilyHidden) DOM.chatInputEl.focus();
             }
             e.preventDefault();
             return;
@@ -975,7 +1036,8 @@ function setupEventListeners() {
             (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) ||
             (DOM.workshopSearchInputEl && document.activeElement === DOM.workshopSearchInputEl) ||
             (DOM.workshopRecipesContainerEl && DOM.workshopRecipesContainerEl.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') ||
-            (DOM.lockModal && !DOM.lockModal.classList.contains('hidden')) // Prevent nav if lock modal open
+            (DOM.lockModal && !DOM.lockModal.classList.contains('hidden')) ||
+            (DOM.tutorialOverlay && !DOM.tutorialOverlay.classList.contains('hidden') && !State.state.tutorialState.isTemporarilyHidden)
            ) {
             return;
         }
@@ -992,7 +1054,7 @@ function setupEventListeners() {
             const workshopBuilding = tile.buildings.find(b => (b.key === 'ATELIER' || b.key === 'ETABLI' || b.key === 'FORGE') && b.durability > 0);
             if (workshopBuilding) {
                 if (DOM.workshopModal && DOM.workshopModal.classList.contains('hidden')) {
-                     UI.showWorkshopModal(State.state); // populateWorkshopModal will handle context
+                     UI.showWorkshopModal(State.state);
                 } else if (DOM.workshopModal) {
                     UI.hideWorkshopModal();
                 }
@@ -1001,10 +1063,11 @@ function setupEventListeners() {
         else if (e.key.toLowerCase() === 'i') {
             if (DOM.inventoryModal && DOM.inventoryModal.classList.contains('hidden')) {
                 const tile = State.state.map[State.state.player.y][State.state.player.x];
-                const buildingWithInv = tile.buildings.find(b => TILE_TYPES[b.key]?.inventory || TILE_TYPES[b.key]?.maxInventory);
+                let buildingWithInv = tile.buildings.find(b => TILE_TYPES[b.key]?.inventory || TILE_TYPES[b.key]?.maxInventory);
+                 if (!buildingWithInv) buildingWithInv = tile.buildings.find(b => (b.key === 'SHELTER_INDIVIDUAL' || b.key === 'SHELTER_COLLECTIVE'));
+
                 const tileHasInv = tile.type.inventory || tile.type.maxInventory;
                 if(buildingWithInv || tileHasInv) {
-                    // If building has a lock, the open_building_inventory action should handle it
                     handleGlobalPlayerAction('open_building_inventory', { buildingKey: buildingWithInv?.key, buildingIndex: tile.buildings.indexOf(buildingWithInv) });
                 }
             } else if (DOM.inventoryModal) {
@@ -1034,7 +1097,7 @@ function endGame(isVictory) {
     const reloadButton = document.createElement('button');
     reloadButton.textContent = "Recommencer";
     reloadButton.style.cssText = `padding: 15px 30px; font-size: 0.8em; margin-top: 30px; background-color: var(--action-color); color: var(--text-light); border: none; border-radius: 8px; cursor: pointer;`;
-    reloadButton.onclick = () => window.location.reload();
+    reloadButton.onclick = () => { localStorage.removeItem('tutorialCompleted'); window.location.reload(); };
 
     endModal.appendChild(messageEl);
     endModal.appendChild(reloadButton);
@@ -1042,6 +1105,7 @@ function endGame(isVictory) {
 
     document.querySelectorAll('button').forEach(b => { if (b !== reloadButton) b.disabled = true; });
     if (DOM.chatInputEl) DOM.chatInputEl.disabled = true;
+    if (DOM.tutorialOverlay && !DOM.tutorialOverlay.classList.contains('hidden')) { UI.completeTutorial(); }
 }
 
 function fullResizeAndRedraw() {
@@ -1054,55 +1118,43 @@ function fullResizeAndRedraw() {
 async function init() {
     try {
         initDOM();
-        console.log("DOM initialisé.");
 
-        // Load assets first
         await UI.loadAssets(SPRITESHEET_PATHS);
-        console.log("Assets chargés.");
 
-        // THEN initialize game state which depends on some configs that might be related to assets indirectly
         State.initializeGameState(CONFIG);
-        console.log("État du jeu initialisé. Player data:", JSON.parse(JSON.stringify(State.state.player)));
 
-        // Setup event listeners (like resize) that might trigger UI updates
         window.addEventListener('resize', fullResizeAndRedraw);
-        setupEventListeners(); // This includes navigation, modals, etc.
-        console.log("Écouteurs d'événements configurés.");
+        setupEventListeners();
 
         initAdminControls();
 
-        // Perform the first full UI setup *after* everything else is ready
-        // Using requestAnimationFrame to ensure it runs after the browser has had a chance to paint and DOM is fully settled
+        UI.initTutorial();
+
         requestAnimationFrame(() => {
-            console.log("Performing initial fullResizeAndRedraw and UI updates via requestAnimationFrame.");
-            fullResizeAndRedraw(); // This calls UI.renderScene and UI.updateAllUI
-            UI.updateBottomBarEquipmentPanel(State.state.player); // Specifically update this after first draw
-            // The fullUIUpdate inside fullResizeAndRedraw should handle inventory and arrows now
-            console.log("Initial UI updates completed.");
+            fullResizeAndRedraw();
+            UI.updateBottomBarEquipmentPanel(State.state.player);
         });
-        
-        UI.addChatMessage("Bienvenue aventurier, trouve vite d'autres aventuriers pour s'organiser ensemble!", "system_event", "Ancien");
-        
-        // Config checks (can remain here)
-        if (State.state && (!State.state.config || Object.keys(State.state.config).length === 0)) { 
+
+        if (!State.state.tutorialState.active || State.state.tutorialState.completed) {
+            UI.addChatMessage("Bienvenue aventurier, trouve vite d'autres aventuriers pour s'organiser ensemble!", "system_event", "Ancien");
+        }
+
+        if (State.state && (!State.state.config || Object.keys(State.state.config).length === 0)) {
             State.state.config = { ...CONFIG };
-            console.warn("State.state.config a été redéfini dans init de main.js, vérifier initializeGameState.");
         } else if (State.state && !State.state.config.VICTORY_DAY) {
              State.state.config.VICTORY_DAY = CONFIG.VICTORY_DAY || 200;
         }
 
-        // Start the game loop
         requestAnimationFrame(gameLoop);
 
         if (State.state) {
             State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
             State.state.gameIntervals.push(setInterval(() => {
-                if (State.state.npcs && State.state.npcs.length > 0 && !State.state.combatState && (!State.state.player.isBusy && !State.state.player.animationState) ) {
+                if (State.state.npcs && State.state.npcs.length > 0 && !State.state.combatState && (!State.state.player.isBusy && !State.state.player.animationState) && (!State.state.tutorialState.active || State.state.tutorialState.completed || State.state.tutorialState.isTemporarilyHidden) ) {
                     npcChatter(State.state.npcs);
                 }
             }, CONFIG.CHAT_MESSAGE_INTERVAL_MS));
         }
-        console.log("Jeu initialisé et boucles démarrées.");
 
     } catch (error) {
         console.error("ERREUR CRITIQUE lors de l'initialisation :", error);

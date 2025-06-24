@@ -12,11 +12,11 @@ export function initDOM() {
 
     // --- PANNEAUX UI ---
     DOM.tileNameEl = document.getElementById('tile-name');
-    DOM.tileDescriptionEl = document.getElementById('tile-description');
+    DOM.tileDescriptionEl = document.getElementById('tile-description'); // Bien que non utilisé activement, gardé pour référence
     DOM.actionsEl = document.getElementById('actions');
     DOM.chatInputEl = document.getElementById('chat-input-field');
     DOM.toggleChatSizeBtn = document.getElementById('toggle-chat-size-btn');
-    DOM.dayCounterEl = document.getElementById('day-counter');
+    DOM.dayCounterEl = document.getElementById('day-counter'); // Ancien, pourrait être enlevé si plus utilisé
 
     // BOUTONS DE NAVIGATION
     DOM.navNorth = document.getElementById('nav-north');
@@ -36,9 +36,9 @@ export function initDOM() {
     DOM.thirstBarSquaresEl = document.getElementById('thirst-bar-squares');
     DOM.hungerBarSquaresEl = document.getElementById('hunger-bar-squares');
     DOM.sleepBarSquaresEl = document.getElementById('sleep-bar-squares');
-    DOM.healthStatusEl = document.getElementById('health-status'); // #11
+    DOM.healthStatusEl = document.getElementById('health-status');
 
-    DOM.consumeHealthBtn = document.getElementById('consume-health-btn'); // #49 (Antiseptique condition is handled in interaction logic, not DOM init)
+    DOM.consumeHealthBtn = document.getElementById('consume-health-btn');
     DOM.consumeThirstBtn = document.getElementById('consume-thirst-btn');
     DOM.consumeHungerBtn = document.getElementById('consume-hunger-btn');
 
@@ -47,7 +47,7 @@ export function initDOM() {
     DOM.tileHarvestsInfoEl = document.getElementById('tile-harvests-info');
     DOM.inventoryCapacityEl = document.getElementById('inventory-capacity-display');
 
-    DOM.dayCounterTileInfoEl = document.getElementById('day-counter-tileinfo'); // #52
+    DOM.dayCounterTileInfoEl = document.getElementById('day-counter-tileinfo');
 
     // --- CARTES ---
     DOM.minimapCanvas = document.getElementById('minimap-canvas');
@@ -133,4 +133,10 @@ export function initDOM() {
     DOM.lockCodeInput3 = document.getElementById('lock-code-input-3');
     DOM.lockUnlockButton = document.getElementById('lock-unlock-btn');
     DOM.lockCancelButton = document.getElementById('lock-cancel-btn');
+
+    // --- TUTORIEL ---
+    DOM.tutorialOverlay = document.getElementById('tutorial-overlay');
+    DOM.tutorialMessage = document.getElementById('tutorial-message');
+    DOM.tutorialNextButton = document.getElementById('tutorial-next-btn');
+    DOM.tutorialSkipButton = document.getElementById('tutorial-skip-btn');
 }
