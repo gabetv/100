@@ -16,7 +16,7 @@
             <div id="left-panel" class="ui-panel">
                 <section id="player-stats">
                     <h3>Statut</h3>
-                    <div class="stat"><div class="stat-header"><span class="stat-icon">❤️</span><span>Santé (<span id="health-status">Normal</span>)</span><button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button></div><div class="stat-bar-container-squares" id="health-bar-squares"></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">❤️</span><span>Santé (<span id="health-status">normale</span>)</span><button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button></div><div class="stat-bar-container-squares" id="health-bar-squares"></div></div>
                     <div class="stat"><div class="stat-header"><span class="stat-icon">💧</span><span>Soif</span><button class="consume-btn" id="consume-thirst-btn" title="Boire de l'eau">+</button></div><div class="stat-bar-container-squares" id="thirst-bar-squares"></div></div>
                     <div class="stat"><div class="stat-header"><span class="stat-icon">🍗</span><span>Faim</span><button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button></div><div class="stat-bar-container-squares" id="hunger-bar-squares"></div></div> <!-- #40 Drogue no longer gives health/thirst -->
                     <div class="stat"><div class="stat-header"><span class="stat-icon">🌙</span><span>Sommeil</span></div><div class="stat-bar-container-squares" id="sleep-bar-squares"></div></div>
@@ -33,7 +33,15 @@
                     <div id="survival-vignette"></div><div id="action-flash"></div>
                     <canvas id="main-view-canvas"></canvas><canvas id="characters-canvas"></canvas>
                     <div id="hud-overlay"></div> <!-- #52 Day display moved -->
-                    <div id="main-view-overlay"><div id="navigation-edge-panel"><button class="nav-button-overlay" id="nav-north">↑</button><button class="nav-button-overlay" id="nav-west">←</button><button class="nav-button-overlay" id="nav-east">→</button><button class="nav-button-overlay" id="nav-south">↓</button></div></div>
+                    <div id="main-view-overlay">
+                        <div id="navigation-edge-panel">
+                            <button class="nav-button-overlay" id="nav-nw">↖</button><button class="nav-button-overlay" id="nav-north">↑</button><button class="nav-button-overlay" id="nav-ne">↗</button>
+                            <button class="nav-button-overlay" id="nav-west">←</button><button class="nav-button-overlay" id="nav-east">→</button>
+                            <button class="nav-button-overlay" id="nav-sw">↙</button><button class="nav-button-overlay" id="nav-south">↓</button><button class="nav-button-overlay" id="nav-se">↘</button>
+                        </div>
+                    </div>
+
+
                 </div>
             </div>
 
@@ -205,6 +213,22 @@
             </div>
             <div id="workshop-recipes-container">
                 <!-- Les recettes seront générées par JS ici -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE CODE CADENAS -->
+    <div id="lock-modal" class="hidden">
+        <div id="lock-modal-content">
+            <h3 id="lock-modal-title">Définir le code</h3>
+            <div id="lock-code-inputs">
+                <input type="number" id="lock-code-input-1" min="0" max="9" maxlength="1">
+                <input type="number" id="lock-code-input-2" min="0" max="9" maxlength="1">
+                <input type="number" id="lock-code-input-3" min="0" max="9" maxlength="1">
+            </div>
+            <div id="lock-actions">
+                <button id="lock-cancel-btn">Annuler</button>
+                <button id="lock-unlock-btn">Définir</button>
             </div>
         </div>
     </div>

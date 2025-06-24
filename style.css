@@ -159,9 +159,37 @@ body {
 /* #day-display style rule has been moved or removed due to #52 */
 #main-view-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 40; }
 #navigation-edge-panel { position: relative; width: 100%; height: 100%; pointer-events: none; }
-.nav-button-overlay { position: absolute; background-color: rgba(29, 53, 87, 0.5); color: rgba(241, 250, 238, 0.8); border: 1px solid rgba(241, 250, 238, 0.2); width: 50px; height: 50px; font-size: 1.5em; border-radius: 50%; cursor: pointer; transition: all 0.2s ease; backdrop-filter: blur(3px); display: flex; justify-content: center; align-items: center; padding-bottom: 3px; pointer-events: auto; }
+.nav-button-overlay { 
+    position: absolute; 
+    background-color: rgba(29, 53, 87, 0.5); 
+    color: rgba(241, 250, 238, 0.8); 
+    border: 1px solid rgba(241, 250, 238, 0.2); 
+    width: 50px; 
+    height: 50px; 
+    font-size: 1.5em; 
+    border-radius: 50%; 
+    cursor: pointer; 
+    transition: all 0.2s ease; 
+    backdrop-filter: blur(3px); 
+    display: flex; /* Changed from none to flex by default, JS will hide if needed */
+    justify-content: center; 
+    align-items: center; 
+    padding-bottom: 3px; 
+    pointer-events: auto; 
+}
 .nav-button-overlay:hover { background-color: rgba(69, 123, 157, 0.8); color: white; transform: scale(1.1); }
 #nav-north { top: 15px; left: 50%; transform: translateX(-50%); } #nav-north:hover { transform: translateX(-50%) scale(1.1); } #nav-south { bottom: 15px; left: 50%; transform: translateX(-50%); } #nav-south:hover { transform: translateX(-50%) scale(1.1); } #nav-west { left: 15px; top: 50%; transform: translateY(-50%); } #nav-west:hover { transform: translateY(-50%) scale(1.1); } #nav-east { right: 15px; top: 50%; transform: translateY(-50%); } #nav-east:hover { transform: translateY(-50%) scale(1.1); }
+
+/* Diagonal Navigation Buttons */
+#nav-ne { top: 15px; right: 15px; }
+#nav-nw { top: 15px; left: 15px; }
+#nav-se { bottom: 15px; right: 15px; }
+#nav-sw { bottom: 15px; left: 15px; }
+#nav-nw:hover, #nav-ne:hover, #nav-sw:hover, #nav-se:hover {
+    /* Override individual transform for scale to work correctly */
+    transform: scale(1.1); 
+}
+
 
 /* BARRE INFÉRIEURE */
  #bottom-bar {
@@ -303,9 +331,9 @@ body {
 @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
 
 /* === MODALES === */
-#inventory-modal, #quantity-modal, #combat-modal, #equipment-modal, #build-modal, #workshop-modal { position: fixed; inset: 0; display: flex; justify-content: center; align-items: center; padding: 20px; opacity: 1; transition: opacity 0.3s ease; }
-#inventory-modal.hidden, #quantity-modal.hidden, #combat-modal.hidden, #equipment-modal.hidden, #build-modal.hidden, #workshop-modal.hidden { opacity: 0; pointer-events: none; }
-#inventory-modal, #equipment-modal, #build-modal, #workshop-modal { z-index: 3000; background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); }
+#inventory-modal, #quantity-modal, #combat-modal, #equipment-modal, #build-modal, #workshop-modal, #lock-modal { position: fixed; inset: 0; display: flex; justify-content: center; align-items: center; padding: 20px; opacity: 1; transition: opacity 0.3s ease; }
+#inventory-modal.hidden, #quantity-modal.hidden, #combat-modal.hidden, #equipment-modal.hidden, #build-modal.hidden, #workshop-modal.hidden, #lock-modal.hidden { opacity: 0; pointer-events: none; }
+#inventory-modal, #equipment-modal, #build-modal, #workshop-modal, #lock-modal { z-index: 3000; background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); }
 #quantity-modal { z-index: 4000; background-color: rgba(0, 0, 0, 0.5); }
 #combat-modal { z-index: 5000; background-color: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); }
 
@@ -779,3 +807,65 @@ body {
     color: var(--text-light);
     text-align: center;
 }
+
+/* ---- MODALE CODE CADENAS ---- */
+#lock-modal-content {
+    background-color: var(--bg-panel);
+    border: 1px solid var(--action-color);
+    border-radius: var(--border-radius);
+    padding: 25px;
+    width: 100%;
+    max-width: 320px; /* Smaller modal for code entry */
+    box-shadow: 0 5px 25px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+#lock-modal-title {
+    text-align: center;
+    font-size: 1.2em;
+    color: var(--text-light);
+}
+#lock-code-inputs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+#lock-code-inputs input[type="number"] {
+    width: 50px;
+    height: 60px;
+    text-align: center;
+    font-size: 1.8em;
+    background-color: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: var(--text-light);
+    border-radius: 6px;
+}
+/* Remove spinners from number input */
+#lock-code-inputs input[type=number]::-webkit-inner-spin-button, 
+#lock-code-inputs input[type=number]::-webkit-outer-spin-button { 
+  -webkit-appearance: none; 
+  margin: 0; 
+}
+#lock-code-inputs input[type=number] {
+  -moz-appearance: textfield; /* Firefox */
+}
+
+#lock-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+#lock-actions button {
+    padding: 12px;
+    font-size: 1em;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+#lock-cancel-btn { background-color: #4b5563; color: var(--text-light); }
+#lock-cancel-btn:hover { background-color: #6b7280; }
+#lock-unlock-btn { background-color: var(--deposit-color); color: var(--text-light); }
+#lock-unlock-btn:hover { background-color: #38b09d; }

@@ -1,6 +1,6 @@
 // js/state.js
 import { generateMap } from './map.js';
-import { initPlayer, getTotalResources, consumeItem as playerConsumeItemLogic, transferItems } from './player.js';
+import { initPlayer, getTotalResources, consumeItem as playerConsumeItemLogic, transferItems, movePlayer as playerMoveLogic } from './player.js';
 import { initNpcs } from './npc.js';
 import { initEnemies } from './enemy.js';
 import { TILE_TYPES, CONFIG, ITEM_TYPES } from './config.js';
@@ -16,7 +16,7 @@ const gameState = {
     shelterLocation: null,
     isGameOver: false,
     combatState: null,
-    config: { ...CONFIG, VICTORY_DAY: 200 }, // #43
+    config: { ...CONFIG },
     knownRecipes: {}, // Recettes apprises par le joueur
     mapTileGlobalVisitCounts: new Map(),
     globallyRevealedTiles: new Set(),
@@ -27,7 +27,7 @@ export const state = gameState;
 
 export function initializeGameState(config) {
     console.log("State.initializeGameState appelée avec config:", config);
-    gameState.config = { ...config, VICTORY_DAY: 200 }; // #43 ensure victory day is set
+    gameState.config = { ...config };
     gameState.map = generateMap(config); // map.js génère la carte avec les actionsLeft pour les plages
 
     gameState.player = initPlayer(config, 'player1');
@@ -104,16 +104,23 @@ export function initializeGameState(config) {
 
 export function applyPlayerMove(direction) {
     const { x, y } = gameState.player;
-    let newX = x, newY = y;
-    if (direction === 'north') newY--;
-    else if (direction === 'south') newY++;
-    else if (direction === 'west') newX--;
-    else if (direction === 'east') newX++;
+    const moveResult = playerMoveLogic(direction, { x, y }); // Use player.js logic
 
-    gameState.player.x = newX;
+    if (!moveResult) return; // Should not happen if pre-checks are done
+
+    const newX = moveResult.newX;
+    const newY = moveResult.newY;
+
+    // Boundary and accessibility checks should be done BEFORE calling this or in playerMoveLogic
+    if (newX < 0 || newX >= gameState.config.MAP_WIDTH || newY < 0 || newY >= gameState.config.MAP_HEIGHT ||
+        !gameState.map[newY] || !gameState.map[newY][newX] || !gameState.map[newY][newX].type.accessible) {
+        console.warn("Invalid move attempted in applyPlayerMove - should be caught earlier.");
+        return;
+    }
+
+    gameState.player.x = newX; // Update player object in state directly
     gameState.player.y = newY;
-
-    gameState.player.visitedTiles.add(`${newX},${newY}`);
+    gameState.player.visitedTiles.add(`${newX},${newY}`); // Keep this part
     const tileKey = `${newX},${newY}`;
     if (!gameState.mapTileGlobalVisitCounts.has(tileKey)) {
         gameState.mapTileGlobalVisitCounts.set(tileKey, new Set());
@@ -128,20 +135,27 @@ export function applyPlayerMove(direction) {
 export function applyBulkInventoryTransfer(itemName, amount, transferType) {
     const tile = gameState.map[gameState.player.y][gameState.player.x];
     const player = gameState.player;
+    let buildingWithInventory = null;
 
     let targetInventory;
     let targetCapacity = Infinity;
 
-    const buildingWithInventory = tile.buildings.find(b => TILE_TYPES[b.key]?.inventory);
+    if (tile.buildings && tile.buildings.length > 0) {
+        buildingWithInventory = tile.buildings.find(b => 
+            (TILE_TYPES[b.key]?.inventory || TILE_TYPES[b.key]?.maxInventory) &&
+            (b.key === 'SHELTER_INDIVIDUAL' || b.key === 'SHELTER_COLLECTIVE' || TILE_TYPES[b.key]?.name.toLowerCase().includes("coffre")) // Extend to other chest-like buildings
+        );
+    }
 
     if (buildingWithInventory) {
-        if (!tile.inventory) tile.inventory = JSON.parse(JSON.stringify(TILE_TYPES[buildingWithInventory.key].inventory));
-        targetInventory = tile.inventory;
+        if (!buildingWithInventory.inventory) buildingWithInventory.inventory = {}; // Initialize if not present on instance
+        targetInventory = buildingWithInventory.inventory;
         targetCapacity = TILE_TYPES[buildingWithInventory.key].maxInventory || Infinity;
-    } else if (tile.type.inventory) { // Pour les tuiles qui ont un inventaire (ex: ancien trésor)
-        if (!tile.inventory) tile.inventory = JSON.parse(JSON.stringify(tile.type.inventory));
+    } else if (tile.type.inventory && !buildingWithInventory) { // Fallback to tile's own inventory if no building has one
+        const buildingDef = tile.type; // Use tile type as the definition source
+        if (!tile.inventory) tile.inventory = JSON.parse(JSON.stringify(buildingDef.inventory || {}));
         targetInventory = tile.inventory;
-        targetCapacity = tile.type.maxInventory || Infinity;
+        targetCapacity = buildingDef.maxInventory || Infinity;
     } else {
         return { success: false, message: "Ce lieu n'a pas de stockage." };
     }
@@ -219,13 +233,13 @@ export function equipItem(itemName) {
     if (player.equipment[slot]) { // Si un objet est déjà équipé dans ce slot
         const unequipResult = unequipItem(slot); // Déséquiper d'abord
         if (!unequipResult.success) return unequipResult; // Si le déséquipement échoue (ex: inventaire plein)
-    }
-
-    player.inventory[itemName]--;
-    if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
+    }    
     
     // Create a new instance for equipment, setting currentDurability to max from definition
     const newEquipInstance = { name: itemName, ...itemDef };
+    // If item was previously in equipment (e.g. moved from another slot, unlikely now) and had currentDurability, preserve it.
+    // For items from inventory, they are considered "fresh" or uses are tracked separately.
+    // The player.js inventory doesn't store individual item states like currentDurability for stacked items.
     if (newEquipInstance.hasOwnProperty('durability') && typeof newEquipInstance.currentDurability === 'undefined') {
         newEquipInstance.currentDurability = newEquipInstance.durability;
     }
@@ -246,34 +260,45 @@ export function equipItem(itemName) {
             }
         }
     }
+
+    // Only remove from inventory if it's not a "uses" based item whose count is handled differently or an item that is not consumed on equip
+    if (!itemDef.uses) { // Standard items are consumed from inventory
+        player.inventory[itemName]--;
+        if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
+    }
+
     return { success: true, message: `${itemName} équipé.` };
 }
 
 export function unequipItem(slot) {
     const player = gameState.player;
-    const item = player.equipment[slot];
-    if (!item) return { success: false, message: "Aucun objet dans cet emplacement." };
-    if (getTotalResources(player.inventory) >= player.maxInventory) return { success: false, message: "Inventaire plein." };
+    const itemInstance = player.equipment[slot];
+    if (!itemInstance) return { success: false, message: "Aucun objet dans cet emplacement." };
 
-    addResourceToPlayer(item.name, 1); // Remettre l'objet dans l'inventaire
+    // Only add back to inventory if it has durability left OR it's an item without durability defined OR it's a "uses" item
+    const itemDef = ITEM_TYPES[itemInstance.name];
+    if (!itemDef.uses && (!itemInstance.hasOwnProperty('currentDurability') || itemInstance.currentDurability > 0)) {
+        if (getTotalResources(player.inventory) >= player.maxInventory) return { success: false, message: "Inventaire plein." };
+        addResourceToPlayer(itemInstance.name, 1);
+    }
     player.equipment[slot] = null;
 
     // Retirer les stats de l'équipement
-    if (item.stats) {
-        for (const stat in item.stats) {
+    if (itemInstance.stats) {
+        for (const stat in itemInstance.stats) {
             if (stat.startsWith('max') && player.hasOwnProperty(stat)) {
-                player[stat] -= item.stats[stat];
+                player[stat] -= itemInstance.stats[stat];
                 // Ajuster la stat actuelle si elle dépasse la nouvelle max
                 const currentStatName = stat.substring(3).toLowerCase(); // ex: maxHealth -> health
                 if (player.hasOwnProperty(currentStatName)) {
                     player[currentStatName] = Math.min(player[currentStatName], player[stat]);
                 }
             } else if (player.hasOwnProperty(stat)) {
-                player[stat] -= item.stats[stat];
+                player[stat] -= itemInstance.stats[stat];
             }
         }
     }
-    return { success: true, message: `${item.name} déséquipé.` };
+    return { success: true, message: `${itemInstance.name} déséquipé.` };
 }
 
 export function addResourceToPlayer(resourceType, amount) {
@@ -293,7 +318,7 @@ export function addBuildingToTile(x, y, buildingKey) {
         buildingKey !== 'CAMPFIRE' &&
         buildingKey !== 'PETIT_PUIT' // PETIT_PUIT est une exception ici
     ) {
-         return { success: false, message: "Ce bâtiment ne peut être construit que sur une Plaine."};
+        // return { success: false, message: "Ce bâtiment ne peut être construit que sur une Plaine."}; // Allow building on other buildable tiles too
     }
     // Pour les bâtiments qui ne sont PAS des exceptions, s'assurer que la tuile est buildable
     if (!tile.type.buildable && buildingKey !== 'MINE' && buildingKey !== 'CAMPFIRE' && buildingKey !== 'PETIT_PUIT') {
@@ -303,8 +328,8 @@ export function addBuildingToTile(x, y, buildingKey) {
     // For plantation/animal buildings, initialize harvestsAvailable and maxHarvestsPerCycle
     const buildingData = { key: buildingKey, durability: buildingType.durability, maxDurability: buildingType.durability };
     if (buildingType.maxHarvestsPerCycle) { // #18
-        buildingData.harvestsAvailable = 0; // Start with 0, requires watering/feeding
         buildingData.maxHarvestsPerCycle = buildingType.maxHarvestsPerCycle;
+        buildingData.harvestsAvailable = buildingType.maxHarvestsPerCycle; // Start at max
     }
 
 
@@ -349,11 +374,12 @@ export function dismantleBuildingOnTile(tileX, tileY, buildingIndex) {
         const anotherShelter = gameState.map.flat().find(t => t.buildings.some(b => b.key === 'SHELTER_COLLECTIVE'));
         gameState.shelterLocation = anotherShelter ? { x: anotherShelter.x, y: anotherShelter.y } : null;
     }
-    // Optionnel: Gérer l'inventaire du bâtiment détruit (par ex, le déposer au sol)
-     if (buildingDef.inventory && tile.inventory) { // Si le bâtiment avait un inventaire ET la tuile en avait un
-        for (const item in tile.inventory) {
-            if (tile.inventory[item] > 0) {
-                dropItemOnGround(item, tile.inventory[item]); // Dépose les objets au sol
+    // Gérer l'inventaire du bâtiment détruit
+    if (buildingDef.inventory || buildingDef.maxInventory) { // Check if building type could have an inventory
+        const buildingInventory = buildingInstance.inventory; // Assuming inventory is stored on instance
+        if (buildingInventory) {
+            for (const item in buildingInventory) {
+                if (buildingInventory[item] > 0) dropItemOnGround(item, buildingInventory[item]);
             }
         }
         delete tile.inventory; // Supprime l'inventaire de la tuile
@@ -378,12 +404,13 @@ export function damageBuilding(tileX, tileY, buildingIndexInTileArray, damageAmo
             const anotherShelter = gameState.map.flat().find(t => t.buildings.some(b => b.key === 'SHELTER_COLLECTIVE'));
             gameState.shelterLocation = anotherShelter ? { x: anotherShelter.x, y: anotherShelter.y } : null;
         }
-         // Gérer l'inventaire du bâtiment détruit
-        if (TILE_TYPES[buildingKeyDestroyed]?.inventory && tile.inventory && !tile.buildings.some(b => TILE_TYPES[b.key]?.inventory)) {
-            for (const item in tile.inventory) {
-                if (tile.inventory[item] > 0) dropItemOnGround(item, tile.inventory[item]);
+        if (TILE_TYPES[buildingKeyDestroyed]?.inventory || TILE_TYPES[buildingKeyDestroyed]?.maxInventory) {
+            const buildingInventory = building.inventory;
+            if (buildingInventory) {
+                for (const item in buildingInventory) {
+                    if (buildingInventory[item] > 0) dropItemOnGround(item, buildingInventory[item]);
+                }
             }
-            delete tile.inventory;
         }
         return { destroyed: true, name: buildingName };
     }
@@ -452,7 +479,7 @@ export function consumeItem(itemName) {
     if (!result.success && !itemDef?.teachesRecipe && !(itemName === 'Carte' && itemDef?.uses) && !(itemName === 'Batterie chargée')) {
         return result;
     }
-
+    
     // Cas spécial pour la carte qui a des "uses"
     if (itemName === 'Carte' && itemDef?.uses) {
         // La logique d'ouverture de la carte est dans interactions.js
@@ -491,43 +518,108 @@ export function consumeItem(itemName) {
     } else if (itemDef?.effects?.custom) {
         // Logiques custom spécifiques
         if (itemDef.effects.custom === 'porteBonheur') { /* ... */ }
+        else if (itemDef.effects.custom === 'breuvageEtrangeEffect') {
+            player.inventory[itemName]--; // Consume first
+            if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
+            if (!result.floatingTexts) result.floatingTexts = [];
+
+
+            const randEffect = Math.random() * 100;
+            let cumulative = 0;
+
+            const effects = [
+                { chance: 6, action: () => { player.inventory = {}; result.message = "Breuvage étrange: Votre inventaire s'est volatilisé !"; result.floatingTexts.push({text:"Inventaire Vide!", type:'cost'}); }},
+                { chance: 6, action: () => {
+                    const toolAndWeaponSlots = ['weapon', 'shield']; // Add other slots if they can hold tools/weapons
+                    toolAndWeaponSlots.forEach(slot => { if(player.equipment[slot]) unequipItem(slot); });
+                    for (const item in player.inventory) {
+                        if (ITEM_TYPES[item]?.type === 'tool' || ITEM_TYPES[item]?.type === 'weapon') delete player.inventory[item];
+                    }
+                    result.message = "Breuvage étrange: Vos armes et outils ont disparu !"; result.floatingTexts.push({text:"Équipement perdu!", type:'cost'});
+                }},
+                { chance: 6, action: () => { player.health = 0; result.message = "Breuvage étrange: Vous sentez une douleur atroce et sombrez..."; result.floatingTexts.push({text:"Mort Subite!", type:'cost'}); }},
+                { chance: 6, action: () => { player.hunger = Math.max(0, player.hunger - 5); player.sleep = Math.max(0, player.sleep - 5); result.message = "Breuvage étrange: Une vague de fatigue et de faim vous submerge."; result.floatingTexts.push({text:"-5 Faim, -5 Sommeil", type:'cost'}); }},
+                { chance: 6, action: () => { player.health = Math.min(player.maxHealth, player.health + 10); player.hunger = Math.min(player.maxHunger, player.hunger + 10); player.thirst = Math.min(player.maxThirst, player.thirst + 10); player.sleep = Math.min(player.maxSleep, player.sleep + 10); result.message = "Breuvage étrange: Vous vous sentez incroyablement revigoré !"; result.floatingTexts.push({text:"+10 All Stats", type:'gain'}); }},
+                { chance: 5, action: () => { const plan = getRandomPlanByRarity('offTable'); if(plan) { addResourceToPlayer(plan, 1); result.message = `Breuvage étrange: Une idée lumineuse ! (+1 ${plan})`; result.floatingTexts.push({text:`+1 ${plan}`, type:'gain'});} else result.message = "Breuvage étrange: Effet... étrange."; }},
+                { chance: 6, action: () => { const plan = getRandomPlanByRarity('rare'); if(plan) { addResourceToPlayer(plan, 1); result.message = `Breuvage étrange: Une illumination ! (+1 ${plan})`; result.floatingTexts.push({text:`+1 ${plan}`, type:'gain'});} else result.message = "Breuvage étrange: Effet... étrange."; }},
+                { chance: 6, action: () => { const plan = getRandomPlanByRarity('veryRare'); if(plan) { addResourceToPlayer(plan, 1); result.message = `Breuvage étrange: Une révélation ! (+1 ${plan})`; result.floatingTexts.push({text:`+1 ${plan}`, type:'gain'});} else result.message = "Breuvage étrange: Effet... étrange."; }},
+                { chance: 6, action: () => { const plans = [getRandomPlanByRarity('common'), getRandomPlanByRarity('common')].filter(p=>p); plans.forEach(p => addResourceToPlayer(p,1)); result.message = `Breuvage étrange: Des bribes de savoir... (+${plans.length} plans communs)`; result.floatingTexts.push({text:`+${plans.length} Plans Communs`, type:'gain'}); }},
+                { chance: 6, action: () => { const plans = [getRandomPlanByRarity('uncommon'), getRandomPlanByRarity('uncommon'), getRandomPlanByRarity('uncommon')].filter(p=>p); plans.forEach(p => addResourceToPlayer(p,1)); result.message = `Breuvage étrange: Des connaissances utiles... (+${plans.length} plans peu communs)`; result.floatingTexts.push({text:`+${plans.length} Plans Peu Communs`, type:'gain'}); }},
+                { chance: 6, action: () => { addResourceToPlayer('Fiole anti-poison', 1); result.message = "Breuvage étrange: Vous trouvez un antidote !"; result.floatingTexts.push({text:"+1 Fiole Anti-Poison", type:'gain'}); }},
+                { chance: 6, action: () => { addResourceToPlayer('Or', Math.floor(Math.random()*3)+1); result.message = "Breuvage étrange: De l'or !"; result.floatingTexts.push({text:"+ Or", type:'gain'}); }},
+                { chance: 6, action: () => { addResourceToPlayer('Recette médicinale', 1); result.message = "Breuvage étrange: Une recette médicinale !"; result.floatingTexts.push({text:"+1 Recette Médicinale", type:'gain'}); }},
+                { chance: 6, action: () => { addResourceToPlayer('Barre Énergétique', 3); result.message = "Breuvage étrange: Des barres énergétiques !"; result.floatingTexts.push({text:"+3 Barres Énergétiques", type:'gain'}); }},
+                { chance: 6, action: () => { addResourceToPlayer('Kit de Secours', 1); result.message = "Breuvage étrange: Un kit de secours !"; result.floatingTexts.push({text:"+1 Kit de Secours", type:'gain'}); }},
+                { chance: 5, action: () => { addResourceToPlayer('Porte bonheur', 1); result.message = "Breuvage étrange: Un porte-bonheur !"; result.floatingTexts.push({text:"+1 Porte Bonheur", type:'gain'}); }},
+                { chance: 6, action: () => { addResourceToPlayer('Drogue', 1); result.message = "Breuvage étrange: Une drogue puissante !"; result.floatingTexts.push({text:"+1 Drogue", type:'gain'}); }},
+            ];
+
+            let effectTriggered = false;
+            for (const effect of effects) {
+                cumulative += effect.chance;
+                if (randEffect < cumulative) {
+                    effect.action();
+                    effectTriggered = true;
+                    break;
+                }
+            }
+            if (!effectTriggered) { // Fallback if somehow no effect (e.g. sum of chances < 100)
+                result.message = "Breuvage étrange: Rien ne se passe... pour l'instant.";
+            }
+            result.success = true; // Mark as success because item was consumed
+            return result; // Return immediately after breuvage
+        }
         else if (itemDef.effects.custom === 'eauSaleeEffect') { // #35
-            if (player.status === 'Malade') {
+            if (player.status.includes('Malade')) {
                 // Déjà géré par l'effet health: -1 dans config
             } else {
                 if (Math.random() < 0.60) { // 60% chance de tomber malade
-                    player.status = 'Malade';
+                    if (!player.status.includes('Malade')) {
+                        player.status = player.status.filter(s => s !== 'normale');
+                        player.status.push('Malade');
+                    }
                     if (!result.floatingTexts) result.floatingTexts = [];
-                    result.floatingTexts.push('Statut: Malade');
+                    result.floatingTexts.push('Statut: Malade (Nouveau)');
                 }
             }
         } else if (itemDef.effects.custom === 'eauCroupieEffect') { // #34
             if (Math.random() < 0.80) { // 80% Malade
-                player.status = 'Malade';
+                if (!player.status.includes('Malade')) {
+                    player.status = player.status.filter(s => s !== 'normale');
+                    player.status.push('Malade');
+                }
                 if (!result.floatingTexts) result.floatingTexts = [];
-                result.floatingTexts.push('Statut: Malade');
+                result.floatingTexts.push('Statut: Malade (Nouveau)');
             }
         } else if (itemDef.effects.custom === 'drogueEffect') { // Point 35
-            player.status = 'Drogué';
+            if (!player.status.includes('Drogué')) {
+                player.status = player.status.filter(s => s !== 'normale');
+                player.status.push('Drogué');
+            }
             if (!result.floatingTexts) result.floatingTexts = [];
-            result.floatingTexts.push('Statut: Drogué');
+            result.floatingTexts.push('Statut: Drogué (Nouveau)');
         } else if (itemDef.effects.custom === 'chargeDevice') { // Point 15
             if (player.equipment.weapon) {
                 const equippedWeaponName = player.equipment.weapon.name;
                 let chargedItemName = null;
                 if (equippedWeaponName === 'Radio déchargée') chargedItemName = 'Radio chargée';
                 else if (equippedWeaponName === 'Téléphone déchargé') chargedItemName = 'Téléphone chargé';
+                else if (equippedWeaponName === 'Guitare déchargé') chargedItemName = 'Guitare';
 
                 if (chargedItemName) {
                     const unequipSuccess = unequipItem('weapon'); // Déséquipe la version déchargée
                     if (unequipSuccess.success) {
-                        addResourceToPlayer(chargedItemName, 1); // Ajoute la version chargée à l'inventaire
+                        // Add the charged item to inventory, then equip it immediately if possible
+                        const previousInventoryCount = player.inventory[chargedItemName] || 0;
+                        addResourceToPlayer(chargedItemName, 1);
+                        const equipResult = equipItem(chargedItemName); // Attempt to equip the new charged item
+
                         // Retirer la batterie chargée de l'inventaire
                         if (player.inventory['Batterie chargée'] > 0) {
                             player.inventory['Batterie chargée']--;
                             if (player.inventory['Batterie chargée'] <= 0) delete player.inventory['Batterie chargée'];
                         }
-                        result.message = `${ITEM_TYPES[chargedItemName]?.name || chargedItemName} obtenue et ajoutée à l'inventaire ! Équipez-la pour l'utiliser.`;
+                        result.message = `${ITEM_TYPES[chargedItemName]?.name || chargedItemName} ${equipResult.success ? 'équipée' : 'obtenue'} !`;
                         result.success = true;
                     } else {
                         result.success = false;
@@ -596,4 +688,23 @@ export function countItemTypeInInventory(itemTypeIdentifier) {
         }
     }
     return count;
+}
+
+export function getRandomPlanByRarity(rarity) {
+    const plansOfRarity = [];
+    for (const itemName in ITEM_TYPES) {
+        const itemDef = ITEM_TYPES[itemName];
+        if (itemDef.teachesRecipe && itemDef.rarity === rarity && !gameState.knownRecipes[itemDef.teachesRecipe] && !itemDef.unique) { // Only unknown, non-unique plans
+            plansOfRarity.push(itemName);
+        }
+    }
+    if (plansOfRarity.length === 0) { // Fallback: allow unique if no non-unique found
+         for (const itemName in ITEM_TYPES) {
+            const itemDef = ITEM_TYPES[itemName];
+            if (itemDef.teachesRecipe && itemDef.rarity === rarity && !gameState.knownRecipes[itemDef.teachesRecipe]) { // Removed itemDef.unique check here for fallback
+                 plansOfRarity.push(itemName);
+            }
+        }
+    }
+    return plansOfRarity.length > 0 ? plansOfRarity[Math.floor(Math.random() * plansOfRarity.length)] : null;
 }

@@ -43,12 +43,14 @@ export const ACTION_DURATIONS = {
     PLACE_TRAP: 800,
     ATTRACT_NPC: 500,
     FIND_MINE_COMPASS: 1200,
+    SET_LOCK: 500, // Duration for setting a lock
+    PLAY_GUITAR: 1500, // Duration for playing guitar
 };
 
 export const ENEMY_TYPES = {
     WOLF: { name: 'Loup Agressif', icon: '🐺', health: 10, damage: 2, color: '#dc2626', aggroRadius: 4, loot: { 'Peau de bête': 1, 'Os': 2, 'Viande crue': 1 } },
     SNAKE: { name: 'Serpent Venimeux', icon: '🐍', health: 6, damage: 3, color: '#16a34a', aggroRadius: 3, loot: { 'Viande crue': 1, 'Venin': 1 } },
-    RAT: { name: 'Rat Furtif', icon: '🐀', health: 1, damage: 1, color: '#6b7280', aggroRadius: 1, loot: {} }
+    RAT: { name: 'Rat Furtif', icon: '🐀', health: 1, damage: 1, color: '#6b7280', aggroRadius: 1, loot: {'Cadenas cassé': 1} } // Added Cadenas cassé to loot
 };
 
 export const ORE_TYPES = ['Charbon', 'Cuivre', 'Fer', 'Argent', 'Or', 'Souffre']; // Ensured Cuivre is here
@@ -73,7 +75,7 @@ export const SEARCH_ZONE_CONFIG = { // Added Minerai de cuivre to loot tables
             common: ['Feuilles', 'Liane', 'Écorce', 'Insectes', 'Parchemin Atelier Bois_PelleBois', 'Parchemin Atelier Bois_Gourdain', 'Parchemin Atelier BoisFer_Hache', 'Parchemin Atelier Bois_Etabli', 'Parchemin Atelier PeauBete_Cuir', 'Parchemin Atelier Ecorce_Bois_1'],
             uncommon: ['Os', 'Résine', 'Viande crue', 'Banane', 'Oeuf cru', 'Parchemin Atelier BoisFer_Scie', 'Parchemin Atelier Bois_EpeeBois', 'Parchemin Atelier BoisHamecon_CannePeche', 'Graine d\'arbre', 'Parchemin Atelier CuirCorde_PetitSac', 'Minerai de cuivre'],
             rare: ['Bandage', 'Allumettes', 'Parchemin Atelier Bois_LanceBois', 'Parchemin Atelier Planches_Seau', 'Parchemin Atelier Ecorce_Bois_4'],
-            veryRare: ['Médicaments', 'Plan d\'ingénieur', 'Recette médicinale', 'Parchemin Atelier CuirFicelle_VetementCuirSimple', 'Parchemin Atelier Ecorce_Bois_2', 'Parchemin Atelier LoupeArgent_Lunette', 'Briquet'],
+            veryRare: ['Médicaments', 'Plan d\'ingénieur', 'Recette médicinale', 'Parchemin Atelier CuirFicelle_VetementCuirSimple', 'Parchemin Atelier Ecorce_Bois_2', 'Parchemin Atelier LoupeArgent_Lunette', 'Briquet', 'Parchemin Atelier PlanFer_Cadenas'],
             offTable: ['Parchemin Atelier Cuir_Sandalette', 'Parchemin Atelier Ecorce_Bois_8', 'Parchemin Atelier CuirCorde_GrandSac', 'Loupe']
         }
     },
@@ -136,12 +138,13 @@ export const SEARCH_ZONE_CONFIG = { // Added Minerai de cuivre to loot tables
 
 export const ITEM_TYPES = {
     // === RESSOURCES ===
-    'Bois': { type: 'resource', icon: '🌳' }, 'Pierre': { type: 'resource', icon: '🪨' },
+    'Bois': { type: 'resource', icon: '🌳' }, 'Pierre': { type: 'resource', icon: '🪨🪨' }, // Placeholder Pierre icon
     'Feuilles': { type: 'resource', icon: '🍃' }, 'Liane': { type: 'resource', icon: '🌿' },
     'Écorce': { type: 'resource', icon: '🟫' }, 'Résine': { type: 'resource', icon: '💧' },
     'Sable': { type: 'resource', icon: '⏳' }, 'Peau de bête': { type: 'resource', icon: 'ቆዳ' },
+    'Cadenas': { type: 'resource', icon: '🔒' }, 'Cadenas cassé': { type: 'resource', icon: '🔓💥' },
     'Os': { type: 'resource', icon: '🦴' },
-    'Sel': { type: 'consumable', icon: '🧂', effects: { hunger: 5, thirst: -2 } },
+    'Sel': { type: 'consumable', icon: '🧂', effects: { hunger: 2, thirst: -2 } },
     'Composants électroniques': {type: 'resource', icon: '⚙️'},
     'Charbon': {type: 'resource', icon: '⚫'},
     'Planche': { type: 'resource', icon: '🟧' },
@@ -175,29 +178,30 @@ export const ITEM_TYPES = {
     'Eau pure': { type: 'consumable', icon: '💧', effects: { thirst: 10 } },
     'Eau salée': { type: 'consumable', icon: '🌊💧', effects: { thirst: 3, health: -1, custom: 'eauSaleeEffect' } },
     'Insectes': { type: 'consumable', icon: '🦗', effects: { hunger: 1 } },
-    'Viande crue': { type: 'consumable', icon: '🥩', effects: { hunger: 1, status: { name: 'Malade', chance: 0.3 } } },
+    'Viande crue': { type: 'consumable', icon: '🥩', effects: { hunger: 1, status: [{ name: 'Malade', chance: 0.3 }] } },
     'Viande cuite': { type: 'consumable', icon: '🍖', effects: { hunger: 3 } },
-    'Poisson cru': { type: 'consumable', icon: '🐟', effects: { hunger: 3, status: { name: 'Malade', chance: 0.8} } },
+    'Poisson cru': { type: 'consumable', icon: '🐟', effects: { hunger: 3, status: [{ name: 'Malade', chance: 0.8}] } },
     'Poisson cuit': { type: 'consumable', icon: '🐠🔥', effects: { hunger: 2 } },
-    'Oeuf cru': { type: 'consumable', icon: '🥚', effects: { hunger: 2, status: { name: 'Malade', chance: 0.6 } } },
+    'Oeuf cru': { type: 'consumable', icon: '🥚', effects: { hunger: 2, status: [{ name: 'Malade', chance: 0.6 }] } },
     'Oeuf cuit': { type: 'consumable', icon: '🍳', effects: { hunger: 3 } },
     'Banane': { type: 'consumable', icon: '🍌', effects: { hunger: 2, thirst: 1 } },
     'Noix de coco': { type: 'consumable', icon: '🥥', effects: { thirst: 3 } },
     'Canne à sucre': { type: 'consumable', icon: '🎋', effects: { hunger: 3, thirst: -1 } },
     'Sucre': { type: 'consumable', icon: '🍬', effects: { hunger: 4, thirst: -1 } },
-    'Barre Énergétique': { type: 'consumable', icon: '🍫', effects: { hunger: 6, sleep: 4 } },
-    'Médicaments': { type: 'consumable', icon: '💊', effects: { ifStatus: ['Malade', 'Drogué'], status: 'Normal', health: 4 } },
-    'Antiseptique': { type: 'consumable', icon: '🧴', effects: { ifStatus: ['Blessé', 'Malade'], status: 'Normal', health: 3 } },
+    'Barre Énergétique': { type: 'consumable', icon: '🍫', effects: { hunger: 6, sleep: 4 } }, // #41 Drogue affect handled in player.js
+    'Médicaments': { type: 'consumable', icon: '💊', effects: { ifStatus: ['Malade', 'Drogué'], status: 'normale', health: 4 } },
+    'Antiseptique': { type: 'consumable', icon: '🧴', effects: { ifStatus: ['Blessé', 'Malade'], status: 'normale', health: 3 } },
     'Bandage': { type: 'consumable', icon: '🩹', effects: { health: 2 } },
-    'Kit de Secours': { type: 'consumable', icon: '✚', effects: { ifStatus: ['Malade'], status: 'Normal', health: 3 } },
+    'Kit de Secours': { type: 'consumable', icon: '✚', effects: { ifStatus: ['Malade'], status: 'normale', health: 3 } },
     'Batterie déchargée': {type: 'resource', icon: '🔋'}, // Changed to resource, not directly consumable
-    'Venin': { type: 'consumable', icon: '🧪', effects: { status: { name: 'Empoisonné', chance: 1.0 } } },
+    'Venin': { type: 'consumable', icon: '🧪', effects: { status: [{ name: 'Empoisonné', chance: 1.0 }] } },
     'Fiole empoisonnée': { type: 'consumable', icon: '☠️', effects: { health: -1000 } },
-    'Fiole anti-poison': { type: 'consumable', icon: '🧪✨', effects: { ifStatus: 'Empoisonné', status: 'Normal', health: 10 } },
-    'Drogue': { type: 'consumable', icon: '😵‍💫', effects: { sleep: 5, hunger: 5, custom: 'drogueEffect' } },
+    'Fiole anti-poison': { type: 'consumable', icon: '🧪✨', effects: { ifStatus: 'Empoisonné', status: 'normale', health: 10 } },
+    'Drogue': { type: 'consumable', icon: '😵‍💫', effects: { sleep: 5, hunger: 5, custom: 'drogueEffect' } }, // #40
     'Porte bonheur': { type: 'consumable', icon: '🍀', effects: { custom: 'porteBonheur' } },
     'Carte': {type: 'usable', icon: '🗺️', uses: 30, action: 'open_large_map' }, // Changed to usable, added action
-    'Alcool': { type: 'consumable', icon: '🍺', effects: { thirst: 10, health: -2, status: { name: 'Alcoolisé', chance: 1.0 } } },
+    'Alcool': { type: 'consumable', icon: '🍺', effects: { thirst: 10, health: -2, status: [{ name: 'Alcoolisé', chance: 1.0 }] } },
+    'Breuvage étrange': { type: 'consumable', icon: '🧪❓', effects: { custom: 'breuvageEtrangeEffect' } },
 
     // Parchemins
     'Parchemin Atelier Bois_PelleBois': { type: 'consumable', icon: '📜', teachesRecipe: 'Pelle en bois', rarity: 'common', description: "Transformer 10 bois = 1 pelle en bois", unique: true },
@@ -245,6 +249,7 @@ export const ITEM_TYPES = {
     'Parchemin Atelier Ecorce_Bois_2': { type: 'consumable', icon: '📜', teachesRecipe: '2 Bois (15 Ecorce)', rarity: 'veryRare', description: "Transformer 15 Écorce = 2 Bois", unique: true },
     'Parchemin Atelier Ecorce_Bois_4': { type: 'consumable', icon: '📜', teachesRecipe: '4 Bois (20 Ecorce)', rarity: 'rare', description: "Transformer 20 Écorce = 4 Bois", unique: true },
     'Parchemin Atelier Ecorce_Bois_8': { type: 'consumable', icon: '📜', teachesRecipe: '8 Bois (30 Ecorce)', rarity: 'offtable', description: "Transformer 30 Écorce = 8 Bois", unique: true },
+    'Parchemin Atelier PlanFer_Cadenas': { type: 'consumable', icon: '📜', teachesRecipe: 'Cadenas (craft)', rarity: 'veryRare', description: "Transformer 1 Plan d'ingénieur + 10 Fer = 1 Cadenas", unique: true },
     'Parchemin Atelier LoupeArgent_Lunette': { type: 'consumable', icon: '📜', teachesRecipe: 'Lunette', rarity: 'veryRare', description: "Transformer 2 Loupe + 2 Argent = 1 Lunette", unique: true },
 
     // === OUTILS & ARMES ===
@@ -270,6 +275,8 @@ export const ITEM_TYPES = {
     'Radio déchargée': { type: 'tool', slot: 'weapon', icon: '📻🚫', durability: 3, action: null, stats: { damage: 0 } },
     'Téléphone déchargé': { type: 'tool', slot: 'weapon', icon: '📱🚫', durability: 5, action: null, stats: { damage: 0 } },
     'Radio chargée': { type: 'tool', slot: 'weapon', icon: '📻⚡', uses: 3, action: 'listen_radio_if_charged', stats: { damage: 0 } }, // Changed durability to uses
+    'Guitare déchargé': { type: 'tool', slot: 'weapon', icon: '🎸🚫', durability: 10, stats: { damage: 1 } },
+    'Guitare': { type: 'tool', slot: 'weapon', icon: '🎸⚡', uses: 1, action: 'play_electric_guitar', stats: { damage: 1 } },
     'Téléphone chargé': { type: 'tool', slot: 'weapon', icon: '📱⚡', uses: 5, action: 'attempt_call_if_charged', stats: { damage: 0 } }, // Changed durability to uses
 
     // === ÉQUIPEMENT ===
@@ -322,7 +329,7 @@ export const SPRITESHEET_PATHS = {
 export const TILE_TYPES = {
     WATER_LAGOON: { name: 'Lagon', accessible: false, color: '#48cae4', background: ['bg_sand_1'], icon: '🌊', description: "Une étendue d'eau salée infranchissable." },
     PLAGE: {
-        name: 'Plage', accessible: true, buildable: true, color: '#f4d35e', background: ['bg_sand_2'], icon: '🏖️',
+        name: 'Plage', accessible: true, buildable: false, color: '#f4d35e', background: ['bg_sand_2'], icon: '🏖️', // Buildable set to false
         description: "Du sable fin à perte de vue.",
         actionsAvailable: { search_zone: 10, harvest_sand: 10, fish: 5, harvest_salt_water: 10 }
     },
@@ -339,7 +346,7 @@ export const TILE_TYPES = {
                      { id: 'cook_meat_campfire', name: 'Cuisiner Viande', costItem: 'Viande crue', costWood: 1, result: { 'Viande cuite': 1 } },
                      { id: 'cook_egg_campfire', name: 'Cuisiner Oeuf', costItem: 'Oeuf cru', costWood: 1, result: { 'Oeuf cuit': 1 } },
                      { id: 'boil_stagnant_water_campfire', name: 'Bouillir Eau Croupie', costItem: 'Eau croupie', costWood: 1, result: { 'Eau pure': 1 } },
-                     { id: 'boil_salt_water_campfire', name: 'Bouillir Eau Salée', costItem: 'Eau salée', costWood: 1, result: { 'Sel': 1, 'Eau pure': 1 } }, // Yields salt and some pure water
+                     { id: 'boil_salt_water_campfire', name: 'Bouillir Eau Salée', costItem: 'Eau salée', costWood: 1, result: { 'Sel': 1 } },
                      { id: 'sleep_by_campfire', name: 'Dormir près du feu (1h)'}
                  ]
                 },
@@ -348,7 +355,9 @@ export const TILE_TYPES = {
         background: ['bg_shelter_individual'],
         sleepEffect: { sleep: 8, health: 3 },
         inventory: {}, maxInventory: 50,
-        durability: 20, isBuilding: true,
+        isLocked: false, lockCode: null, // For Cadenas
+        durability: 20, 
+        isBuilding: true,
         cost: { 'Bois': 20 },
         description: "Un petit abri pour une personne."
     },
@@ -356,7 +365,8 @@ export const TILE_TYPES = {
         name: 'Abri Collectif', accessible: true, color: '#ffffff', icon: '🏠',
         background: ['bg_shelter_collective'],
         inventory: {}, maxInventory: 500,
-        durability: 100,
+        isLocked: false, lockCode: null, // For Cadenas
+        durability: 100, 
         sleepEffect: { sleep: 8, health: 5 }, isBuilding: true,
         cost: { 'Bois': 60, 'Pierre': 15 },
         description: "Un grand abri pour plusieurs survivants."
@@ -393,6 +403,7 @@ export const TILE_TYPES = {
                         { id: 'use_laboratoire_antiseptic', name: 'Fabriquer Antiseptique', costItems: {'Kit de Secours': 2, 'Recette médicinale': 1}, result: {'Antiseptique': 1}},
                         { id: 'use_laboratoire_fiole_antipoison', name: 'Fabriquer Fiole Anti-Poison', costItems: {'Médicaments': 2, 'Venin': 1, 'Recette médicinale': 1}, result: {'Fiole anti-poison': 1}},
                         { id: 'use_laboratoire_drogue', name: 'Fabriquer Drogue', costItems: {'Feuilles': 10, 'Résine': 5, 'Recette médicinale': 1}, result: {'Drogue': 1}},
+                        { id: 'use_laboratoire_breuvage_etrange', name: 'Fabriquer Breuvage Étrange', costItems: {'Recette médicinale': 3, 'Plan d\'ingénieur': 3}, result: {'Breuvage étrange': 1}},
                    ],
                    description: "Permet de créer des composés chimiques." },
     FORGE: { name: 'Forge', accessible: true, color: '#d2691e', background: ['bg_plains_3'], icon: '🔥🏭', isBuilding: true, durability: 200, cost: { 'Pierre': 50, 'Charbon': 20, 'toolRequired': ['Pelle en fer'] }, action: { id: 'use_forge', name: 'Utiliser Forge' }, description: "Permet de travailler les métaux. (Ouvre l'atelier avec des recettes spécifiques)." },

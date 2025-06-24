@@ -36,7 +36,7 @@ export function initNpcs(config, map) { // Assurez-vous que 'export' est présen
             // Ajout pour quêtes simples
             availableQuest: null,
             activeQuest: null,
-            dialogueLines: [
+            dialogueLines: [ // #35 Drogue effect handled in player.js
                 "J'espère qu'on va s'en sortir...",
                 "Il faut rester vigilant. Le statut 'Gravement malade' n'est plus, mais restons prudents.", // #36 (NPC awareness, flavor)
                 "Travaillons ensemble pour survivre !",

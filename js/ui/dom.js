@@ -23,6 +23,10 @@ export function initDOM() {
     DOM.navSouth = document.getElementById('nav-south');
     DOM.navEast = document.getElementById('nav-east');
     DOM.navWest = document.getElementById('nav-west');
+    DOM.navNE = document.getElementById('nav-ne');
+    DOM.navNW = document.getElementById('nav-nw');
+    DOM.navSE = document.getElementById('nav-se');
+    DOM.navSW = document.getElementById('nav-sw');
 
     // --- INVENTAIRE PAR CATÉGORIES ---
     DOM.inventoryCategoriesEl = document.getElementById('inventory-categories');
@@ -32,7 +36,7 @@ export function initDOM() {
     DOM.thirstBarSquaresEl = document.getElementById('thirst-bar-squares');
     DOM.hungerBarSquaresEl = document.getElementById('hunger-bar-squares');
     DOM.sleepBarSquaresEl = document.getElementById('sleep-bar-squares');
-    DOM.healthStatusEl = document.getElementById('health-status');
+    DOM.healthStatusEl = document.getElementById('health-status'); // #11
 
     DOM.consumeHealthBtn = document.getElementById('consume-health-btn'); // #49 (Antiseptique condition is handled in interaction logic, not DOM init)
     DOM.consumeThirstBtn = document.getElementById('consume-thirst-btn');
@@ -120,4 +124,13 @@ export function initDOM() {
     DOM.workshopRecipesContainerEl = document.getElementById('workshop-recipes-container');
     DOM.workshopSearchInputEl = document.getElementById('workshop-search-input');
     DOM.workshopCategoryFilterEl = document.getElementById('workshop-category-filter');
+
+    // --- MODALE DE CODE DE CADENAS ---
+    DOM.lockModal = document.getElementById('lock-modal');
+    DOM.lockModalTitle = document.getElementById('lock-modal-title');
+    DOM.lockCodeInput1 = document.getElementById('lock-code-input-1');
+    DOM.lockCodeInput2 = document.getElementById('lock-code-input-2');
+    DOM.lockCodeInput3 = document.getElementById('lock-code-input-3');
+    DOM.lockUnlockButton = document.getElementById('lock-unlock-btn');
+    DOM.lockCancelButton = document.getElementById('lock-cancel-btn');
 }

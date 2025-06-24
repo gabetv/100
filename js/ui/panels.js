@@ -26,7 +26,7 @@ export function updateStatsPanel(player) {
     drawSquaresBar(hungerBarSquaresEl, player.hunger, player.maxHunger);
     drawSquaresBar(sleepBarSquaresEl, player.sleep, player.maxSleep);
 
-    if (healthStatusEl) healthStatusEl.textContent = player.status || 'Normal'; // #11
+    if (healthStatusEl) healthStatusEl.textContent = player.status.join(', ') || 'normale'; // #11
 
     if (healthBarSquaresEl) healthBarSquaresEl.classList.toggle('pulsing', player.health <= (player.maxHealth * 0.3));
     if (thirstBarSquaresEl) thirstBarSquaresEl.classList.toggle('pulsing', player.thirst <= (player.maxThirst * 0.2));
@@ -216,9 +216,9 @@ export function updateAllButtonsState(gameState) {
 
     if (DOM.consumeHealthBtn) {
         let canHeal = false;
-        if ((player.inventory['Kit de Secours'] > 0 && player.status === 'Malade') || // Point 33
-            (player.inventory['Médicaments'] > 0 && (player.status === 'Malade' || player.status === 'Gravement malade' || player.status === 'Drogué')) || // Point 34
-            (player.inventory['Antiseptique'] > 0 && (player.status === 'Blessé' || player.status === 'Malade' /*|| player.status === 'Gravement malade'*/) && player.health < player.maxHealth) || // #39, #49
+        if ((player.inventory['Kit de Secours'] > 0 && player.status.includes('Malade')) || // Point 33
+            (player.inventory['Médicaments'] > 0 && (player.status.includes('Malade') || player.status.includes('Drogué'))) || // Point 34
+            (player.inventory['Antiseptique'] > 0 && (player.status.includes('Blessé') || player.status.includes('Malade')) && player.health < player.maxHealth) || // #39, #49
             (player.inventory['Bandage'] > 0 && player.health < player.maxHealth) || // Point 32
             (player.inventory['Savon'] > 0 && player.health < player.maxHealth) || // Point 37
             (player.inventory['Huile de coco'] > 0 && player.health < player.maxHealth) // Point 43
@@ -279,7 +279,7 @@ export function updateGroundItemsPanel(tile) {
     const list = DOM.bottomBarGroundItemsEl.querySelector('.ground-items-list');
     if (list) {
         list.innerHTML = '';
-    } else {
+    } else { // Should not happen if HTML is correct
         console.error("Élément .ground-items-list non trouvé dans #bottom-bar-ground-items");
         return;
     }

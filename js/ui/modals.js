@@ -13,16 +13,15 @@ function populateInventoryList(inventory, listElement, owner) {
     listElement.innerHTML = '';
     let itemCountInList = 0;
 
-    if (Object.keys(inventory).length === 0) {
+    const items = Object.entries(inventory).filter(([_, count]) => count > 0);
+
+    if (items.length === 0) {
         const li = document.createElement('li');
         li.className = 'inventory-empty';
         li.textContent = '(Vide)';
         listElement.appendChild(li);
     } else {
-        for (const itemName in inventory) {
-            const count = inventory[itemName];
-            if (count <= 0) continue;
-
+        for (const [itemName, count] of items) {
             if (owner === 'shared' && (listElement.id === 'modal-shared-inventory')) {
                 const tile = State.state.map[State.state.player.y][State.state.player.x];
                 const building = tile.buildings.find(b => TILE_TYPES[b.key]?.inventory && (b.key === 'SHELTER_INDIVIDUAL' || b.key === 'SHELTER_COLLECTIVE'));
@@ -56,29 +55,36 @@ export function showInventoryModal(gameState) {
     if (!gameState || !gameState.player || !gameState.map) return;
     const { player, map } = gameState;
     const tile = map[player.y] && map[player.y][player.x] ? map[player.y][player.x] : null;
-    if (!tile) { console.warn("showInventoryModal: Tuile invalide."); return; }
+    if (!tile) { console.warn("showInventoryModal: Tuile invalide."); return; }    
 
-    const buildingWithInventoryInstance = tile.buildings.find(b => TILE_TYPES[b.key]?.inventory);
-    let tileInventorySourceDef = null;
+    let buildingWithInventory = null;
+    if (tile.buildings && tile.buildings.length > 0) {
+        buildingWithInventory = tile.buildings.find(b => 
+            (TILE_TYPES[b.key]?.inventory || TILE_TYPES[b.key]?.maxInventory) &&
+            (b.key === 'SHELTER_INDIVIDUAL' || b.key === 'SHELTER_COLLECTIVE' || TILE_TYPES[b.key]?.name.toLowerCase().includes("coffre"))
+        );
+    }
+
     let currentTileInventory = null;
     let currentTileMaxInventory = Infinity;
+    let buildingDef = null;
 
-    if (buildingWithInventoryInstance) {
-        tileInventorySourceDef = TILE_TYPES[buildingWithInventoryInstance.key];
-        if (!tile.inventory) {
-            if (tileInventorySourceDef && tileInventorySourceDef.inventory) {
-                tile.inventory = JSON.parse(JSON.stringify(tileInventorySourceDef.inventory));
-            }
-        }
+    if (buildingWithInventory) {
+        buildingDef = TILE_TYPES[buildingWithInventory.key];
+        if (!buildingWithInventory.inventory) buildingWithInventory.inventory = {}; // Initialize on instance
+        currentTileInventory = buildingWithInventory.inventory;
+        currentTileMaxInventory = buildingDef.maxInventory || Infinity;
+    } else if (tile.type.inventory && !buildingWithInventory) { // Fallback to tile's own inventory if no building has one
+        buildingDef = tile.type; // Use tile type as the definition source
+        if (!tile.inventory) tile.inventory = JSON.parse(JSON.stringify(buildingDef.inventory || {}));
         currentTileInventory = tile.inventory;
-        currentTileMaxInventory = tileInventorySourceDef.maxInventory || Infinity;
-    } else if (tile.type.inventory) {
-        tileInventorySourceDef = tile.type;
-        if (!tile.inventory) {
-            tile.inventory = JSON.parse(JSON.stringify(tileInventorySourceDef.inventory));
-        }
-        currentTileInventory = tile.inventory;
-        currentTileMaxInventory = tileInventorySourceDef.maxInventory || Infinity;
+        currentTileMaxInventory = buildingDef.maxInventory || Infinity;
+    }
+
+    if (buildingWithInventory && buildingWithInventory.isLocked) {
+        // This check should ideally be done before calling showInventoryModal
+        // If called directly, it implies the lock was bypassed or doesn't exist.
+        // Or, it's the first time after unlock this session.
     }
 
     if (!currentTileInventory) { console.warn("Tentative d'ouverture de l'inventaire sur une tuile sans stockage."); return; }
@@ -174,13 +180,15 @@ export function updateCombatUI(combatState) {
     const { combatEnemyName, combatEnemyHealthBar, combatEnemyHealthText, combatPlayerHealthBar, combatPlayerHealthText, combatLogEl, combatActionsEl } = DOM;
     if (!window.gameState || !window.gameState.player) { console.error("gameState.player non accessible dans updateCombatUI"); return; }
     const player = window.gameState.player;
+    const playerCurrentHealth = player.health;
+    const playerMaxHealth = player.maxHealth;
     const { enemy, isPlayerTurn, log } = combatState;
 
     if(combatEnemyName) combatEnemyName.textContent = enemy.name;
     if(combatEnemyHealthBar) combatEnemyHealthBar.style.width = `${(enemy.currentHealth / enemy.health) * 100}%`;
     if(combatEnemyHealthText) combatEnemyHealthText.textContent = `${enemy.currentHealth} / ${enemy.health}`;
-    if(combatPlayerHealthBar) combatPlayerHealthBar.style.width = `${(player.health / player.maxHealth) * 100}%`;
-    if(combatPlayerHealthText) combatPlayerHealthText.textContent = `${player.health} / ${player.maxHealth}`;
+    if(combatPlayerHealthBar) combatPlayerHealthBar.style.width = `${(playerCurrentHealth / playerMaxHealth) * 100}%`;
+    if(combatPlayerHealthText) combatPlayerHealthText.textContent = `${playerCurrentHealth} / ${playerMaxHealth}`;
     if(combatLogEl) combatLogEl.innerHTML = log.map(msg => `<p>${msg}</p>`).join('');
     if (combatActionsEl) {
         combatActionsEl.innerHTML = `<button id="combat-attack-btn" ${!isPlayerTurn ? 'disabled' : ''}>⚔️ Attaquer</button><button id="combat-flee-btn" ${!isPlayerTurn ? 'disabled' : ''}>🏃‍♂️ Fuir</button>`;
@@ -267,10 +275,11 @@ export function populateBuildModal(gameState) { // Rendre exportable si besoin
         const bt = TILE_TYPES[key];
         if (!bt.isBuilding || !bt.cost) return false;
 
-        const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === bt.name && item.isBuildingRecipe);
-        if (buildingRecipeParchemin && !knownRecipes[bt.name]) {
-            return false;
-        }
+        // Building recipes might not need a parchemin if they are basic (e.g. Abri Individuel)
+        // If a parchemin is defined for a building, then it must be known.
+        // const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === bt.name && item.isBuildingRecipe);
+        // if (buildingRecipeParchemin && !knownRecipes[bt.name]) {
+        // return false; }
 
         if (key === 'PETIT_PUIT' && bt.cost.toolRequired && bt.cost.toolRequired.length > 0) {
             const hasRequiredToolForWell = bt.cost.toolRequired.some(toolName =>
@@ -278,6 +287,12 @@ export function populateBuildModal(gameState) { // Rendre exportable si besoin
             );
             if (!hasRequiredToolForWell) return false;
         }
+
+        // Condition 15: Impossible de construire sur plage
+        if (tile.type.name === TILE_TYPES.PLAGE.name) {
+            return false;
+        }
+
         return true;
     });
 
@@ -354,11 +369,11 @@ export function populateBuildModal(gameState) { // Rendre exportable si besoin
         buildButton.textContent = "Construire";
 
         const hasEnoughResources = State.hasResources(costs).success;
-        const canBuildHere = tile.type.buildable || (bKey === 'MINE' || bKey === 'CAMPFIRE' || bKey === 'PETIT_PUIT');
+        const canBuildHere = tile.type.buildable && tile.type.name !== TILE_TYPES.PLAGE.name || (bKey === 'MINE' || bKey === 'CAMPFIRE' || bKey === 'PETIT_PUIT');
         
         let isDisabledByStatus = false; // #41
-        if (player.status === 'Drogué') {
-            isDisabledByStatus = true;
+        if (player.status.includes('Drogué')) {
+             isDisabledByStatus = true;
         }
         const canBuild = hasEnoughResources && hasRequiredToolForThisBuilding && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE && canBuildHere && !isDisabledByStatus;
 
@@ -678,4 +693,54 @@ export function setupWorkshopModalListeners(gameState) {
     if (DOM.workshopCategoryFilterEl) {
         DOM.workshopCategoryFilterEl.addEventListener('change', () => renderWorkshopRecipes(gameState.player));
     }
+}
+
+// --- MODALE DE CODE DE CADENAS ---
+let lockConfirmCallback = null;
+let isSettingNewCode = false;
+
+export function showLockModal(callback, isSetting) {
+    if (!DOM.lockModal) return;
+    isSettingNewCode = isSetting;
+    lockConfirmCallback = callback;
+
+    DOM.lockModalTitle.textContent = isSetting ? "Définir le code du cadenas" : "Entrer le code du cadenas";
+    DOM.lockUnlockButton.textContent = isSetting ? "Définir" : "Déverrouiller";
+    DOM.lockCodeInput1.value = ''; DOM.lockCodeInput2.value = ''; DOM.lockCodeInput3.value = '';
+    DOM.lockModal.classList.remove('hidden');
+    DOM.lockCodeInput1.focus();
+}
+
+export function hideLockModal() {
+    if (DOM.lockModal) DOM.lockModal.classList.add('hidden');
+    lockConfirmCallback = null;
+}
+
+export function setupLockModalListeners() {
+    const { lockModal, lockCodeInput1, lockCodeInput2, lockCodeInput3, lockUnlockButton, lockCancelButton } = DOM;
+    if (!lockModal || !lockUnlockButton || !lockCancelButton) return;
+
+    const inputs = [lockCodeInput1, lockCodeInput2, lockCodeInput3];
+    inputs.forEach((input, idx) => {
+        input.addEventListener('input', () => {
+            if (input.value.length >= 1 && idx < inputs.length - 1) {
+                inputs[idx+1].focus();
+            }
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && input.value.length === 0 && idx > 0) {
+                inputs[idx-1].focus();
+            }
+        });
+    });
+
+    lockUnlockButton.addEventListener('click', () => {
+        const code = `${lockCodeInput1.value}${lockCodeInput2.value}${lockCodeInput3.value}`;
+        if (code.length === 3 && /^\d{3}$/.test(code)) {
+            if (lockConfirmCallback) lockConfirmCallback(code);
+        } else {
+            if (window.UI) window.UI.addChatMessage("Le code doit être composé de 3 chiffres.", "system_error");
+        }
+    });
+    lockCancelButton.addEventListener('click', hideLockModal);
 }

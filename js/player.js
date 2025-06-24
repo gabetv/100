@@ -9,9 +9,9 @@ export function getTotalResources(inventory) {
 export function initPlayer(config, playerId = 'player1') {
     return {
         id: playerId,
-        x: 0, y: 0,
+        x: 0, y: 0, // Initial position, will be updated
         health: 10, thirst: 10, hunger: 10, sleep: 10, // #39 Alcool condition handled in consumption logic
-        status: 'Normal', // 'Normal', 'Blessé', 'Malade', 'Empoisonné', 'Accro', /*'Gravement malade',*/ 'Drogué', 'Alcoolisé' // #36
+        status: ['normale'], // 'normale', 'Blessé', 'Malade', 'Empoisonné', 'Accro', /*'Gravement malade',*/ 'Drogué', 'Alcoolisé' // #36
         maxHealth: 10, maxThirst: 10, maxHunger: 10, maxSleep: 10, maxInventory: CONFIG.PLAYER_BASE_MAX_RESOURCES,
 
         inventory: { // Inventaire de départ pour tests
@@ -32,7 +32,10 @@ export function initPlayer(config, playerId = 'player1') {
             'Alcool': 2, // #37
             'Huile de coco':1,
             'Noix de coco': 2,
+            'Breuvage étrange': 3,
             // 'Seau': 1,
+            // 'Guitare déchargé': 1,
+            // 'Cadenas': 1,
             // 'Radio déchargée': 1,
             // 'Batterie chargée': 1,
             // 'Petit Sac': 1, // Pour tester l'équipement
@@ -45,15 +48,20 @@ export function initPlayer(config, playerId = 'player1') {
     };
 }
 
-export function movePlayer(direction, player) {
-    let newX = player.x, newY = player.y;
+export function movePlayer(direction, currentPlayerPos) {
+    let newX = currentPlayerPos.x, newY = currentPlayerPos.y;
     switch (direction) {
-        case 'north': newY--; break; case 'south': newY++; break;
-        case 'west': newX--; break; case 'east': newX++; break;
-        default: return false;
+        case 'north': newY--; break;
+        case 'south': newY++; break;
+        case 'west': newX--; break;
+        case 'east': newX++; break;
+        case 'northeast': newY--; newX++; break;
+        case 'northwest': newY--; newX--; break;
+        case 'southeast': newY++; newX++; break;
+        case 'southwest': newY++; newX--; break;
+        default: return null; // Unknown direction
     }
-    player.x = newX; player.y = newY;
-    return true;
+    return { newX, newY };
 }
 
 export function decayStats(gameState) {
@@ -71,33 +79,37 @@ export function decayStats(gameState) {
     // La logique de decay pour soif, faim, sommeil est retirée de ce cycle de 180s.
     // Ces stats sont maintenant principalement affectées par les actions et les statuts.
     // Les statuts continuent d'avoir leurs effets passifs à chaque cycle de decayStats (180s).
-    switch (player.status) {
-        case 'Malade':
-            // L'effet direct de "Malade" sur faim/soif est supprimé de la dégradation passive.
-            // Il est appliqué par la source de la maladie (ex: consommer item).
-            messages.push("Vous vous sentez toujours fiévreux.");
-            break;
-        case 'Empoisonné':
-            if (player.health > 0) player.health = Math.max(0, player.health - 1);
-            messages.push("Le poison continue de vous ronger ! (-1 Santé supplémentaire).");
-            break;
-        case 'Blessé':
-            if (player.sleep > 0) player.sleep = Math.max(0, player.sleep - 1);
-            messages.push("Votre blessure vous fatigue davantage (-1 sommeil).");
-            break;
-        case 'Drogué': // Point 35
-            if (player.hunger > 0) player.hunger = Math.max(0, player.hunger - 1);
-            if (player.sleep > 0) player.sleep = Math.max(0, player.sleep - 1);
-            messages.push("Les effets de la drogue se font sentir... (-1 faim, -1 sommeil).");
-            break;
-        case 'Alcoolisé': // #37
-            // L'effet de déplacement est géré dans interactions.js.
-            // Ici, on pourrait ajouter un effet passif si besoin, ex: "Vous avez la gueule de bois."
-            // Pour l'instant, pas d'effet passif direct en plus de la stat de déplacement.
-            messages.push("Les effets de l'alcool persistent.");
-            break;
+
+    if (player.status.includes('Malade')) {
+        // L'effet direct de "Malade" sur faim/soif est supprimé de la dégradation passive.
+        // Il est appliqué par la source de la maladie (ex: consommer item).
+        messages.push("Vous vous sentez toujours fiévreux.");
+    }
+    if (player.status.includes('Empoisonné')) {
+        if (player.health > 0) player.health = Math.max(0, player.health - 1);
+        messages.push("Le poison continue de vous ronger ! (-1 Santé supplémentaire).");
+    }
+    if (player.status.includes('Blessé')) {
+        if (player.sleep > 0) player.sleep = Math.max(0, player.sleep - 1);
+        messages.push("Votre blessure vous fatigue davantage (-1 sommeil).");
+    }
+    if (player.status.includes('Drogué')) { // Point 35
+        if (player.hunger > 0) player.hunger = Math.max(0, player.hunger - 1);
+        if (player.sleep > 0) player.sleep = Math.max(0, player.sleep - 1);
+        messages.push("Les effets de la drogue se font sentir... (-1 faim, -1 sommeil).");
+    }
+    if (player.status.includes('Alcoolisé')) { // #37
+        // L'effet de déplacement est géré dans interactions.js.
+        // Ici, on pourrait ajouter un effet passif si besoin, ex: "Vous avez la gueule de bois."
+        // Pour l'instant, pas d'effet passif direct en plus de la stat de déplacement.
+        messages.push("Les effets de l'alcool persistent.");
     }
 
+    // Check for death by multiple statuses
+    const activeNonNormalStatuses = player.status.filter(s => s !== 'normale');
+    if (activeNonNormalStatuses.length >= 4) {
+        player.health = 0; // Trigger game over
+    }
 
     if (messages.length === 0) return null;
     return { message: messages.join(' ') };
@@ -133,7 +145,18 @@ export function consumeItem(itemName, player) {
         if ((itemName === 'Eau pure' || itemName === 'Eau salée' || itemName === 'Eau croupie' || itemName === 'Noix de coco') && player.thirst >= player.maxThirst) {
              return { success: false, message: "Vous n'avez pas soif." };
         }
-
+        if (itemName === 'Banane' && player.hunger > player.maxHunger - 2) {
+            return { success: false, message: "Vous n'avez pas assez faim pour une banane." };
+        }
+        if (itemName === 'Canne à sucre' && player.hunger > player.maxHunger - 3) {
+            return { success: false, message: "Vous n'avez pas assez faim pour de la canne à sucre." };
+        }
+        if (itemName === 'Oeuf cru' && player.hunger > player.maxHunger - 2) {
+             return { success: false, message: "Vous n'avez pas assez faim pour un oeuf cru." };
+        }
+        if (itemName === 'Poisson cru' && player.hunger > player.maxHunger - 3) {
+             return { success: false, message: "Vous n'avez pas assez faim pour du poisson cru." };
+        }
         const onlyHungerEffect = itemDef.effects && Object.keys(itemDef.effects).length === 1 && itemDef.effects.hunger && itemDef.effects.hunger > 0;
         if (onlyHungerEffect && player.hunger >= player.maxHunger) {
             return { success: false, message: "Vous n'avez pas faim pour l'instant." };
@@ -143,6 +166,9 @@ export function consumeItem(itemName, player) {
         }
         if (itemName === 'Alcool' && player.thirst >= player.maxThirst -1 ) { // #39
             return { success: false, message: "Vous n'avez pas assez soif pour boire de l'alcool." };
+        }
+        if (itemName === 'Sel' && player.hunger > player.maxHunger - (ITEM_TYPES['Sel'].effects.hunger || 0)) {
+             return { success: false, message: "Vous n'avez pas assez faim pour manger du sel." };
         }
     }
 
@@ -160,13 +186,20 @@ export function consumeItem(itemName, player) {
 
             if (effect === 'status') {
                 const statusEffect = value;
-                // Vérifier si une condition ifStatus est présente et si elle est remplie
-                const conditionMet = !statusEffect.ifStatus || // Pas de condition
-                                     (Array.isArray(statusEffect.ifStatus) ? statusEffect.ifStatus.includes(player.status) : player.status === statusEffect.ifStatus);
+                const newStatusName = statusEffect.name || (Array.isArray(statusEffect) ? statusEffect[0].name : null); // Assuming first status in array if it's an array
+                const chance = statusEffect.chance || (Array.isArray(statusEffect) ? statusEffect[0].chance : 1.0);
+                const ifCurrentStatus = statusEffect.ifStatus || (Array.isArray(statusEffect) ? statusEffect[0].ifStatus : null);
 
-                if (conditionMet && (!statusEffect.chance || Math.random() < statusEffect.chance)) {
-                    player.status = statusEffect.name; // Appliquer le nouveau statut
-                    floatingTexts.push(`Statut: ${player.status}`);
+                const conditionMet = !ifCurrentStatus || player.status.includes(ifCurrentStatus) || (Array.isArray(ifCurrentStatus) && ifCurrentStatus.some(s => player.status.includes(s)));
+
+                if (conditionMet && (!chance || Math.random() < chance)) {
+                    if (newStatusName === 'normale') {
+                        player.status = ['normale'];
+                    } else if (!player.status.includes(newStatusName)) {
+                        player.status = player.status.filter(s => s !== 'normale'); // Remove 'normale'
+                        player.status.push(newStatusName);
+                    }
+                    floatingTexts.push(`Statut: ${player.status.join(', ')}`);
                 }
             } else if (effect === 'custom') {
                 // La logique custom est gérée dans State.consumeItem (ex: eauSaleeEffect, eauCroupieEffect, drogueEffect, chargeDevice)

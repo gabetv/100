@@ -34,9 +34,14 @@ export function triggerShake(element) {
 export function resizeGameView() {
     const wrapper = document.getElementById('main-view-wrapper');
     const container = document.getElementById('main-view-container');
-    if (!wrapper || !container) return;
+    if (!wrapper || !container) {
+        console.error("[effects.js] resizeGameView: Wrapper or container not found.");
+        return;
+    }
 
+    console.log("[effects.js] resizeGameView: Wrapper clientW/H:", wrapper.clientWidth, wrapper.clientHeight);
     const size = Math.max(10, Math.min(wrapper.clientWidth, wrapper.clientHeight) - 10); // -10 pour un petit padding
+    console.log("[effects.js] resizeGameView: Calculated size:", size);
 
     container.style.width = `${size}px`;
     container.style.height = `${size}px`;
@@ -46,6 +51,7 @@ export function resizeGameView() {
     if(mainViewCanvas) {
         mainViewCanvas.width = size;
         mainViewCanvas.height = size;
+        console.log("[effects.js] Main view canvas resized to:", size, size);
     }
     if(charactersCanvas) {
         charactersCanvas.width = size;

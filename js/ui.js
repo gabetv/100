@@ -44,6 +44,9 @@ export const showWorkshopModal = ModalsModule.showWorkshopModal; // AJOUT
 export const hideWorkshopModal = ModalsModule.hideWorkshopModal; // AJOUT
 export const populateWorkshopModal = ModalsModule.populateWorkshopModal; // AJOUT
 export const setupWorkshopModalListeners = ModalsModule.setupWorkshopModalListeners; // AJOUT
+export const showLockModal = ModalsModule.showLockModal; // For Cadenas
+export const hideLockModal = ModalsModule.hideLockModal; // For Cadenas
+export const setupLockModalListeners = ModalsModule.setupLockModalListeners; // For Cadenas
 
 
 // Depuis ./ui/panels.js
@@ -83,8 +86,10 @@ export function updateAllUI(gameState) {
     PanelsModule.updateGroundItemsPanel(currentTile);
     PanelsModule.updateBottomBarEquipmentPanel(player);
 
+    console.log("[ui.js] updateAllUI: About to call drawMinimap. Config exists:", !!gameState.config);
     if (gameState.config) {
        DrawModule.drawMinimap(gameState, gameState.config);
+       console.log("[ui.js] updateAllUI: drawMinimap completed.");
     } else {
         console.warn("[ui.js] updateAllUI: gameState.config manquant pour drawMinimap.");
     }
@@ -102,6 +107,7 @@ export function updateAllUI(gameState) {
  * @param {object} gameState
  */
 export function renderScene(gameState) {
+    console.log("[ui.js] renderScene called. GameState player:", gameState && gameState.player ? gameState.player.x + ',' + gameState.player.y : "N/A");
     if (!gameState) {
         console.warn("[ui.js] renderScene appelée sans gameState.");
         return;

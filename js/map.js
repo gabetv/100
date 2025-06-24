@@ -189,6 +189,8 @@ export function generateMap(config) {
                 inventory: type.inventory ? JSON.parse(JSON.stringify(type.inventory)) : undefined,
                 hiddenItem: currentTileData.hiddenItemName || null, // Nom de l'objet caché, ou null
                 isOpened: type === TILE_TYPES.TREASURE_CHEST ? false : undefined, // Pour le trésor
+                isLocked: (type.name === TILE_TYPES.SHELTER_INDIVIDUAL.name || type.name === TILE_TYPES.SHELTER_COLLECTIVE.name) ? false : undefined,
+                lockCode: (type.name === TILE_TYPES.SHELTER_INDIVIDUAL.name || type.name === TILE_TYPES.SHELTER_COLLECTIVE.name) ? null : undefined,
                 groundItems: {}, // Pour les objets au sol
                 buildings: [], // Sera rempli par les constructions
                 actionsLeft: type.name === TILE_TYPES.PLAGE.name ? { ...TILE_TYPES.PLAGE.actionsAvailable } : undefined, // Point 1
@@ -201,11 +203,16 @@ export function generateMap(config) {
 
             // Si le type de tuile est un bâtiment par défaut (ex: trésor), l'ajouter
             if (type.isBuilding && !tileObject.buildings.find(b => b.key === Object.keys(TILE_TYPES).find(k => TILE_TYPES[k] === type))) {
-                tileObject.buildings.push({
+                const buildingInstanceData = {
                     key: Object.keys(TILE_TYPES).find(k => TILE_TYPES[k] === type), // Trouver la clé du type
                     durability: type.durability,
                     maxDurability: type.durability,
-                });
+                };
+                if (type.name === TILE_TYPES.SHELTER_INDIVIDUAL.name || type.name === TILE_TYPES.SHELTER_COLLECTIVE.name) {
+                    buildingInstanceData.isLocked = false;
+                    buildingInstanceData.lockCode = null;
+                }
+                tileObject.buildings.push(buildingInstanceData);
             }
             map[y][x] = tileObject;
         }

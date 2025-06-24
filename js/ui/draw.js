@@ -1,3 +1,4 @@
+// js/ui/draw.js
 import { TILE_TYPES, CONFIG } from '../config.js';
 import DOM from './dom.js';
 
@@ -28,8 +29,13 @@ export function loadAssets(paths) {
 }
 
 export function drawMainBackground(gameState) {
+    console.log("[draw.js] drawMainBackground called. Player pos:", gameState && gameState.player ? gameState.player.x + ',' + gameState.player.y : "N/A");
     const { mainViewCtx, mainViewCanvas } = DOM;
-    if (!mainViewCtx || !mainViewCanvas) return;
+    if (!mainViewCtx || !mainViewCanvas) {
+        console.error("[draw.js] drawMainBackground: Canvas context or element not found!");
+        return;
+    }
+    console.log("[draw.js] Main canvas dimensions:", mainViewCanvas.width, mainViewCanvas.height);
 
     if (!gameState || !gameState.player || !gameState.map ||
         !gameState.map[gameState.player.y] || !gameState.map[gameState.player.y][gameState.player.x]) {
@@ -48,6 +54,7 @@ export function drawMainBackground(gameState) {
     mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
 
     if (imageToDraw) {
+        console.log("[draw.js] Attempting to draw background image:", backgroundKey, imageToDraw.src, "Complete:", imageToDraw.complete, "naturalWidth:", imageToDraw.naturalWidth);
         if (imageToDraw.complete && imageToDraw.naturalWidth > 0 && imageToDraw.naturalHeight > 0) {
             const canvasAspect = mainViewCanvas.width / mainViewCanvas.height;
             const imageAspect = imageToDraw.naturalWidth / imageToDraw.naturalHeight;
@@ -70,6 +77,7 @@ export function drawMainBackground(gameState) {
             mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
         }
     } else {
+        console.log("[draw.js] No imageToDraw for backgroundKey:", backgroundKey, "Player tile type:", playerTile.type.name);
         // Point 5: Si Bois (Forêt) ou Pierre (Gisement de Pierre) n'ont pas d'image de fond, afficher une couleur
         // Cette logique est déjà dans config.js pour TILE_TYPES.FOREST.color et TILE_TYPES.MINE_TERRAIN.color (anciennement STONE_DEPOSIT)
         // On utilise la couleur définie dans TILE_TYPES si backgroundKey est manquant
@@ -212,11 +220,20 @@ export function drawSceneCharacters(gameState) {
 }
 
 export function drawMinimap(gameState, config) {
-    if (!gameState || !gameState.map || !gameState.player || !config) return;
+    console.log("[draw.js] drawMinimap called. Map width/height:", config ? config.MAP_WIDTH + '/' + config.MAP_HEIGHT : "Config N/A");
+    if (!gameState || !gameState.map || !gameState.player || !config) {
+        console.error("[draw.js] drawMinimap: Missing critical game data or config.");
+        return;
+    }
     const { map, player, npcs, enemies, globallyRevealedTiles } = gameState;
     const { MAP_WIDTH, MAP_HEIGHT, MINIMAP_DOT_SIZE } = config;
     const { minimapCanvas, minimapCtx } = DOM;
-    if(!minimapCtx || !minimapCanvas) return;
+    if(!minimapCtx || !minimapCanvas) {
+        console.error("[draw.js] drawMinimap: Minimap canvas context or element not found!");
+        return;
+    }
+    console.log("[draw.js] Minimap canvas dimensions:", minimapCanvas.width, minimapCanvas.height);
+
 
     // Ajuster la taille du canvas de la minimap dynamiquement
     minimapCanvas.width = MAP_WIDTH * MINIMAP_DOT_SIZE;
