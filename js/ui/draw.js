@@ -29,13 +29,11 @@ export function loadAssets(paths) {
 }
 
 export function drawMainBackground(gameState) {
-    console.log("[draw.js] drawMainBackground called. Player pos:", gameState && gameState.player ? gameState.player.x + ',' + gameState.player.y : "N/A");
     const { mainViewCtx, mainViewCanvas } = DOM;
     if (!mainViewCtx || !mainViewCanvas) {
-        console.error("[draw.js] drawMainBackground: Canvas context or element not found!");
+        // console.error("[draw.js] drawMainBackground: Canvas context or element not found!"); // Removed to reduce console noise
         return;
     }
-    console.log("[draw.js] Main canvas dimensions:", mainViewCanvas.width, mainViewCanvas.height);
 
     if (!gameState || !gameState.player || !gameState.map ||
         !gameState.map[gameState.player.y] || !gameState.map[gameState.player.y][gameState.player.x]) {
@@ -54,18 +52,17 @@ export function drawMainBackground(gameState) {
     mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
 
     if (imageToDraw) {
-        console.log("[draw.js] Attempting to draw background image:", backgroundKey, imageToDraw.src, "Complete:", imageToDraw.complete, "naturalWidth:", imageToDraw.naturalWidth);
         if (imageToDraw.complete && imageToDraw.naturalWidth > 0 && imageToDraw.naturalHeight > 0) {
             const canvasAspect = mainViewCanvas.width / mainViewCanvas.height;
-            const imageAspect = imageToDraw.naturalWidth / imageToDraw.naturalHeight;
+            const imageAspect = imageToDraw.naturalWidth / imageToDraw.naturalHeight; // Should be 1408 / 768
             let sx = 0, sy = 0, sWidth = imageToDraw.naturalWidth, sHeight = imageToDraw.naturalHeight;
 
             // Calcul pour rogner l'image et remplir le canvas en gardant l'aspect ratio (cover)
-            if (imageAspect > canvasAspect) { // Image plus large que le canvas
+            if (imageAspect > canvasAspect) { // Image plus large que le canvas (relativement)
                 sHeight = imageToDraw.naturalHeight;
                 sWidth = sHeight * canvasAspect;
                 sx = (imageToDraw.naturalWidth - sWidth) / 2;
-            } else if (imageAspect < canvasAspect) { // Image plus haute que le canvas
+            } else if (imageAspect < canvasAspect) { // Image plus haute que le canvas (relativement)
                 sWidth = imageToDraw.naturalWidth;
                 sHeight = sWidth / canvasAspect;
                 sy = (imageToDraw.naturalHeight - sHeight) / 2;
@@ -77,7 +74,6 @@ export function drawMainBackground(gameState) {
             mainViewCtx.fillRect(0, 0, mainViewCanvas.width, mainViewCanvas.height);
         }
     } else {
-        console.log("[draw.js] No imageToDraw for backgroundKey:", backgroundKey, "Player tile type:", playerTile.type.name);
         // Point 5: Si Bois (Forêt) ou Pierre (Gisement de Pierre) n'ont pas d'image de fond, afficher une couleur
         // Cette logique est déjà dans config.js pour TILE_TYPES.FOREST.color et TILE_TYPES.MINE_TERRAIN.color (anciennement STONE_DEPOSIT)
         // On utilise la couleur définie dans TILE_TYPES si backgroundKey est manquant
@@ -220,20 +216,17 @@ export function drawSceneCharacters(gameState) {
 }
 
 export function drawMinimap(gameState, config) {
-    console.log("[draw.js] drawMinimap called. Map width/height:", config ? config.MAP_WIDTH + '/' + config.MAP_HEIGHT : "Config N/A");
     if (!gameState || !gameState.map || !gameState.player || !config) {
-        console.error("[draw.js] drawMinimap: Missing critical game data or config.");
+        // console.error("[draw.js] drawMinimap: Missing critical game data or config."); // Removed to reduce console noise
         return;
     }
     const { map, player, npcs, enemies, globallyRevealedTiles } = gameState;
     const { MAP_WIDTH, MAP_HEIGHT, MINIMAP_DOT_SIZE } = config;
     const { minimapCanvas, minimapCtx } = DOM;
     if(!minimapCtx || !minimapCanvas) {
-        console.error("[draw.js] drawMinimap: Minimap canvas context or element not found!");
+        // console.error("[draw.js] drawMinimap: Minimap canvas context or element not found!"); // Removed to reduce console noise
         return;
     }
-    console.log("[draw.js] Minimap canvas dimensions:", minimapCanvas.width, minimapCanvas.height);
-
 
     // Ajuster la taille du canvas de la minimap dynamiquement
     minimapCanvas.width = MAP_WIDTH * MINIMAP_DOT_SIZE;

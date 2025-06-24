@@ -39,22 +39,33 @@ export function resizeGameView() {
         return;
     }
 
-    console.log("[effects.js] resizeGameView: Wrapper clientW/H:", wrapper.clientWidth, wrapper.clientHeight);
-    const size = Math.max(10, Math.min(wrapper.clientWidth, wrapper.clientHeight) - 10); // -10 pour un petit padding
-    console.log("[effects.js] resizeGameView: Calculated size:", size);
+    const aspectRatio = 1408 / 768; // Environ 1.8333
+    const wrapperWidth = wrapper.clientWidth - 10; // -10 pour un petit padding
+    const wrapperHeight = wrapper.clientHeight - 10;
 
-    container.style.width = `${size}px`;
-    container.style.height = `${size}px`;
+    let newWidth = wrapperWidth;
+    let newHeight = wrapperWidth / aspectRatio;
+
+    if (newHeight > wrapperHeight) {
+        newHeight = wrapperHeight;
+        newWidth = wrapperHeight * aspectRatio;
+    }
+    
+    newWidth = Math.max(10, newWidth);
+    newHeight = Math.max(10, newHeight);
+
+    container.style.width = `${newWidth}px`;
+    container.style.height = `${newHeight}px`;
 
     const mainViewCanvas = document.getElementById('main-view-canvas');
     const charactersCanvas = document.getElementById('characters-canvas');
+    
     if(mainViewCanvas) {
-        mainViewCanvas.width = size;
-        mainViewCanvas.height = size;
-        console.log("[effects.js] Main view canvas resized to:", size, size);
+        mainViewCanvas.width = newWidth;
+        mainViewCanvas.height = newHeight;
     }
     if(charactersCanvas) {
-        charactersCanvas.width = size;
-        charactersCanvas.height = size;
+        charactersCanvas.width = newWidth;
+        charactersCanvas.height = newHeight;
     }
 }

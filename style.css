@@ -26,9 +26,9 @@ body {
     flex-direction: column;
     width: 100%;
     height: 100%;
-    aspect-ratio: 16 / 10;
-    max-width: 1800px;
-    max-height: calc(1800px * (10 / 16)); /* Maintenir l'aspect ratio */
+    /* aspect-ratio: 16 / 10; */ /* Ajusté pour être plus flexible si main-view-container dicte son ratio */
+    max-width: 1800px; /* Max global */
+    /* max-height: calc(1800px * (10 / 16)); */ /* Maintenir l'aspect ratio global si besoin, mais main-view est prioritaire */
     gap: 10px;
     margin: auto;
 }
@@ -63,33 +63,31 @@ body {
     align-items: center;
     overflow: hidden;
     position: relative;
-    z-index: 10; /* S'assurer que la vue principale est au-dessus des panneaux si chevauchement */
+    z-index: 10; 
 }
 #main-view-container {
     background-color: var(--bg-view);
     border-radius: var(--border-radius);
     overflow: hidden;
     position: relative;
-    aspect-ratio: 1 / 1;
-    width: 100%; /* Prendra la largeur de la colonne grid */
-    height: 100%; /* Prendra la hauteur disponible */
-    max-width: 1024px; /* Limite pour ne pas devenir trop grand */
-    max-height: 1024px;
+    /* aspect-ratio: 1 / 1; removed, will be set by JS */
+    width: 100%; /* Prendra la largeur calculée par JS */
+    height: 100%; /* Prendra la hauteur calculée par JS */
+    max-width: 1408px; /* Limite basée sur la nouvelle image source */
+    max-height: 768px; /* Limite basée sur la nouvelle image source */
     border: 3px solid #1a2a32; /* Bordure autour de la vue */
     box-shadow: 0 0 25px rgba(0, 0, 0, 0.5);
 }
-#main-view-canvas {
+#main-view-canvas, #characters-canvas {
+    position: absolute; /* characters-canvas est au-dessus de main-view-canvas */
+    inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Assure que le canvas remplit le conteneur */
+    object-fit: cover; 
 }
 #characters-canvas {
-    position: absolute;
-    inset: 0; /* Couvre main-view-canvas */
-    width: 100%;
-    height: 100%;
-    pointer-events: none; /* Pour que les clics passent au canvas en dessous si besoin */
-    z-index: 2; /* Au-dessus du fond mais en dessous des overlays UI */
+    pointer-events: none; 
+    z-index: 2; 
 }
 
 .ui-panel h3 { font-weight: 600; margin-bottom: 10px; border-bottom: 1px solid #ffffff20; padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;}
@@ -323,9 +321,9 @@ body {
 }
 @media (max-width: 900px) {
     body { padding: 5px; overflow: auto; }
-    #game-container { gap: 10px; aspect-ratio: unset; width: 100%; height: auto; min-height: 100vh; max-height: unset; }
+    #game-container { gap: 10px; /* aspect-ratio: unset; */ width: 100%; height: auto; min-height: 100vh; max-height: unset; }
     #main-area { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; }
-    #main-view-wrapper { grid-row: 1; height: 60vw; max-height: 400px; }
+    #main-view-wrapper { grid-row: 1; /* height: 60vw; */ /* La hauteur sera gérée par JS */ max-height: 400px; /* Limite pour petits écrans */ }
     #main-view-container { width: auto; height: 100%; }
     #right-panel { grid-row: 2; } #left-panel { grid-row: 3; }
     .ui-panel { overflow-y: visible; padding: 15px; } .ui-panel section { padding: 12px; }
@@ -947,4 +945,39 @@ body {
 }
 .tutorial-highlight.ui-panel { 
     overflow-y: auto !important; 
+}
+
+/* === MODALE FIN DE JEU === */
+#end-game-modal {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0,0,0,0.85);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 2em;
+    text-align: center;
+    padding: 20px;
+    backdrop-filter: blur(5px);
+}
+#end-game-modal p {
+    margin-bottom: 30px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+#end-game-modal button {
+    padding: 15px 30px;
+    font-size: 0.8em;
+    background-color: var(--action-color);
+    color: var(--text-light);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+#end-game-modal button:hover {
+    background-color: #5e9ac4;
 }

@@ -33,12 +33,12 @@ export function initPlayer(config, playerId = 'player1') {
             'Huile de coco':1,
             'Noix de coco': 2,
             'Breuvage étrange': 3,
-            // 'Seau': 1,
-            // 'Guitare déchargé': 1,
-            // 'Cadenas': 1,
-            // 'Radio déchargée': 1,
-            // 'Batterie chargée': 1,
-            // 'Petit Sac': 1, // Pour tester l'équipement
+            'Seau': 1, // Commented out for cleaner start, can be uncommented for testing
+            'Guitare déchargé': 1,
+            'Cadenas': 1,
+            'Radio déchargée': 1,
+            'Batterie chargée': 1,
+            'Petit Sac': 1, // Pour tester l'équipement
         },
         equipment: {
             head: null, body: null, feet: null, weapon: null, shield: null, bag: null,
