@@ -4,14 +4,14 @@ import { getTotalResources } from '../player.js';
 import * as State from '../state.js';
 import DOM from './dom.js';
 import * as Draw from './draw.js';
-import { handleCombatAction, handlePlayerAction } from '../interactions.js'; // Assurez-vous que UI est importé si vous l'utilisez ici, ou passez les fonctions UI nécessaires
+import { handleCombatAction, handlePlayerAction } from '../interactions.js';
 
 let quantityConfirmCallback = null;
 
+// MODIFIÉ : Simplification de la fonction pour corriger le bug de drag-and-drop
 function populateInventoryList(inventory, listElement, owner) {
     if (!listElement) return;
-    listElement.innerHTML = '';
-    let itemCountInList = 0;
+    listElement.innerHTML = ''; // Vider les items précédents
 
     const items = Object.entries(inventory).filter(([_, count]) => count > 0);
 
@@ -21,34 +21,24 @@ function populateInventoryList(inventory, listElement, owner) {
         li.textContent = '(Vide)';
         listElement.appendChild(li);
     } else {
-        for (const [itemName, count] of items) {
-            if (owner === 'shared' && (listElement.id === 'modal-shared-inventory')) {
-                const tile = State.state.map[State.state.player.y][State.state.player.x];
-                const building = tile.buildings.find(b => TILE_TYPES[b.key]?.inventory && (b.key === 'SHELTER_INDIVIDUAL' || b.key === 'SHELTER_COLLECTIVE'));
-                if (building && itemCountInList >= 13) {
-                    if (itemCountInList === 13) {
-                        const liMore = document.createElement('li');
-                        liMore.className = 'inventory-empty';
-                        liMore.textContent = `(...et plus. Faites défiler pour voir tout.)`;
-                        listElement.appendChild(liMore);
-                    }
-                    itemCountInList++;
-                }
-            }
-
+        items.forEach(([itemName, count]) => {
             const li = document.createElement('li');
             li.className = 'inventory-item';
             li.setAttribute('draggable', 'true');
             li.dataset.itemName = itemName;
             li.dataset.itemCount = count;
             li.dataset.owner = owner;
+
             const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
             li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${count}</span>`;
             listElement.appendChild(li);
-            if (owner === 'shared' && listElement.id === 'modal-shared-inventory') itemCountInList++;
-        }
+        });
     }
+    // La logique de la classe 'scrollable-limited' a été entièrement retirée
+    // pour que le drag-and-drop fonctionne correctement sur les listes longues.
+    // Le scroll est maintenant géré nativement par le `overflow-y: auto` de la liste.
 }
+
 
 // --- MODALE D'INVENTAIRE PARTAGÉ ---
 export function showInventoryModal(gameState) {
@@ -71,27 +61,27 @@ export function showInventoryModal(gameState) {
 
     if (buildingWithInventory) {
         buildingDef = TILE_TYPES[buildingWithInventory.key];
-        if (!buildingWithInventory.inventory) buildingWithInventory.inventory = {}; // Initialize on instance
+        if (!buildingWithInventory.inventory) buildingWithInventory.inventory = {}; 
         currentTileInventory = buildingWithInventory.inventory;
         currentTileMaxInventory = buildingDef.maxInventory || Infinity;
-    } else if (tile.type.inventory && !buildingWithInventory) { // Fallback to tile's own inventory if no building has one
-        buildingDef = tile.type; // Use tile type as the definition source
+    } else if (tile.type.inventory && !buildingWithInventory) { 
+        buildingDef = tile.type; 
         if (!tile.inventory) tile.inventory = JSON.parse(JSON.stringify(buildingDef.inventory || {}));
         currentTileInventory = tile.inventory;
         currentTileMaxInventory = buildingDef.maxInventory || Infinity;
     }
 
-    if (buildingWithInventory && buildingWithInventory.isLocked) {
-        // This check should ideally be done before calling showInventoryModal
-        // If called directly, it implies the lock was bypassed or doesn't exist.
-        // Or, it's the first time after unlock this session.
+    if (buildingWithInventory && buildingWithInventory.isLocked && !tile.playerHasUnlockedThisSession) {
+        // Logic handled by interactions.js
     }
 
     if (!currentTileInventory) { console.warn("Tentative d'ouverture de l'inventaire sur une tuile sans stockage."); return; }
 
     const { modalPlayerInventoryEl, modalSharedInventoryEl, modalPlayerCapacityEl, inventoryModal, modalSharedCapacityEl } = DOM;
+    
     populateInventoryList(player.inventory, modalPlayerInventoryEl, 'player-inventory');
     populateInventoryList(currentTileInventory, modalSharedInventoryEl, 'shared');
+
 
     if(modalPlayerCapacityEl) {
         const totalPlayerResources = getTotalResources(player.inventory);
@@ -108,6 +98,7 @@ export function showInventoryModal(gameState) {
 
 export function hideInventoryModal() {
     if(DOM.inventoryModal) DOM.inventoryModal.classList.add('hidden');
+    // Pas besoin de retirer la classe .scrollable-limited car elle n'est plus utilisée
 }
 
 // --- MODALE D'ÉQUIPEMENT ---
@@ -124,7 +115,7 @@ export function updateEquipmentModal(gameState) {
     const { player } = gameState;
     const { equipmentPlayerInventoryEl, equipmentPlayerCapacityEl, playerStatAttackEl, playerStatDefenseEl, equipmentSlotsEl } = DOM;
 
-    if (equipmentPlayerInventoryEl) populateInventoryList(player.inventory, equipmentPlayerInventoryEl, 'player-inventory');
+    if (equipmentPlayerInventoryEl) populateInventoryList(player.inventory, equipmentPlayerInventoryEl, 'player-inventory'); 
     if (equipmentPlayerCapacityEl) {
         const totalPlayerResources = getTotalResources(player.inventory);
         equipmentPlayerCapacityEl.textContent = `${totalPlayerResources} / ${player.maxInventory}`;
@@ -227,7 +218,14 @@ export function setupQuantityModalListeners() {
         quantityInput.value = val;
         if(quantitySlider) quantitySlider.value = quantityInput.value;
     });
-    quantityConfirmBtn.addEventListener('click', () => { if (quantityConfirmCallback) quantityConfirmCallback(parseInt(quantityInput.value, 10)); hideQuantityModal(); });
+    quantityConfirmBtn.addEventListener('click', () => { 
+        if (quantityConfirmCallback) {
+            const valueToConfirm = parseInt(quantityInput.value, 10);
+            // CORRIGÉ : La variable globale draggedItemInfo n'est pas fiable. On vérifie juste si le callback existe.
+            quantityConfirmCallback(valueToConfirm);
+        }
+        hideQuantityModal(); 
+    });
     quantityCancelBtn.addEventListener('click', hideQuantityModal);
     quantityMaxBtn.addEventListener('click', () => { if(quantityInput) quantityInput.value = quantityInput.max; if(quantitySlider) quantitySlider.value = quantitySlider.max; });
     quantityShortcuts.addEventListener('click', (e) => {
@@ -265,7 +263,7 @@ export function hideBuildModal() {
     if (DOM.buildModal) DOM.buildModal.classList.add('hidden');
 }
 
-export function populateBuildModal(gameState) { // Rendre exportable si besoin
+export function populateBuildModal(gameState) { 
     if (!DOM.buildModalGridEl || !gameState || !gameState.player || !gameState.map || !gameState.knownRecipes) return;
     const { player, map, knownRecipes, config } = gameState;
     const tile = map[player.y][player.x];
@@ -275,12 +273,6 @@ export function populateBuildModal(gameState) { // Rendre exportable si besoin
         const bt = TILE_TYPES[key];
         if (!bt.isBuilding || !bt.cost) return false;
 
-        // Building recipes might not need a parchemin if they are basic (e.g. Abri Individuel)
-        // If a parchemin is defined for a building, then it must be known.
-        // const buildingRecipeParchemin = Object.values(ITEM_TYPES).find(item => item.teachesRecipe === bt.name && item.isBuildingRecipe);
-        // if (buildingRecipeParchemin && !knownRecipes[bt.name]) {
-        // return false; }
-
         if (key === 'PETIT_PUIT' && bt.cost.toolRequired && bt.cost.toolRequired.length > 0) {
             const hasRequiredToolForWell = bt.cost.toolRequired.some(toolName =>
                 player.equipment.weapon && player.equipment.weapon.name === toolName
@@ -288,7 +280,6 @@ export function populateBuildModal(gameState) { // Rendre exportable si besoin
             if (!hasRequiredToolForWell) return false;
         }
 
-        // Condition 15: Impossible de construire sur plage
         if (tile.type.name === TILE_TYPES.PLAGE.name) {
             return false;
         }
@@ -371,7 +362,7 @@ export function populateBuildModal(gameState) { // Rendre exportable si besoin
         const hasEnoughResources = State.hasResources(costs).success;
         const canBuildHere = tile.type.buildable && tile.type.name !== TILE_TYPES.PLAGE.name || (bKey === 'MINE' || bKey === 'CAMPFIRE' || bKey === 'PETIT_PUIT');
         
-        let isDisabledByStatus = false; // #41
+        let isDisabledByStatus = false; 
         if (player.status.includes('Drogué')) {
              isDisabledByStatus = true;
         }
@@ -384,7 +375,7 @@ export function populateBuildModal(gameState) { // Rendre exportable si besoin
             else if (!canBuildHere) buildButton.title = "Ne peut pas être construit sur ce type de terrain.";
             else if (!hasEnoughResources) buildButton.title = "Ressources manquantes";
             else if (!hasRequiredToolForThisBuilding) buildButton.title = "Outil requis manquant";
-            else if (isDisabledByStatus) buildButton.title = "Impossible de construire sous l'effet de la drogue."; // #41
+            else if (isDisabledByStatus) buildButton.title = "Impossible de construire sous l'effet de la drogue."; 
         }
 
         buildButton.onclick = () => {
@@ -430,7 +421,7 @@ function getRecipeCategory(itemName) {
     return 'other';
 }
 
-export function populateWorkshopModal(gameState) { // Changé pour être exportable
+export function populateWorkshopModal(gameState) { 
     if (!DOM.workshopRecipesContainerEl || !gameState || !gameState.player || !gameState.knownRecipes) return;
     const { player, knownRecipes } = gameState;
     DOM.workshopRecipesContainerEl.innerHTML = '';
@@ -544,7 +535,6 @@ function renderWorkshopRecipes(player) {
             
             const costAmountSpan = document.createElement('span');
             costAmountSpan.className = 'cost-amount';
-            // Initial display for 1 unit craft
             costAmountSpan.textContent = `${playerAmount} / ${requiredAmount}`;
             if (playerAmount < requiredAmount) {
                 costAmountSpan.classList.add('insufficient');
@@ -605,11 +595,10 @@ function renderWorkshopRecipes(player) {
                     costs: recipe.costs,
                     yields: { [recipe.name]: recipe.yield },
                     quantity: currentQuantityToCraft,
-                    sourceParchemin: recipe.sourceParchemin // Pourrait être utile pour logique future
+                    sourceParchemin: recipe.sourceParchemin 
                 });
             }
-            // Re-peupler pour mettre à jour l'état après le craft
-            populateWorkshopModal(State.state); // Doit être ModalsModule.populateWorkshopModal
+            populateWorkshopModal(State.state); 
             if (window.UI && window.UI.updateInventory) window.UI.updateInventory(player);
             if (window.UI && window.UI.updateAllButtonsState) window.UI.updateAllButtonsState(State.state);
         };
@@ -622,7 +611,6 @@ function renderWorkshopRecipes(player) {
         card.appendChild(actionDiv);
         DOM.workshopRecipesContainerEl.appendChild(card);
         
-        // Appeler handleWorkshopQuantityChange pour définir l'état initial du bouton
         handleWorkshopQuantityChange({ target: quantityInput }, player, recipe);
     });
 }
@@ -635,12 +623,20 @@ function handleWorkshopQuantityChange(event, player, recipe) {
 
     if (isNaN(quantityToCraft) || quantityToCraft <= 0) {
         if (transformButton) transformButton.disabled = true;
-        // Mettre à jour l'affichage des coûts pour refléter "pas assez" si qté = 0 ou invalide
         recipeCard.querySelectorAll('.workshop-recipe-costs li .cost-amount').forEach(costAmountEl => {
-            const costItemName = costAmountEl.previousElementSibling.textContent.replace(ITEM_TYPES[costItemName]?.icon || '', '').trim();
+            let costItemName = '';
+            const costNameSpan = costAmountEl.previousElementSibling;
+            if(costNameSpan) {
+                 for (let i = costNameSpan.childNodes.length - 1; i >= 0; i--) {
+                    if (costNameSpan.childNodes[i].nodeType === Node.TEXT_NODE) {
+                        costItemName = costNameSpan.childNodes[i].textContent.trim();
+                        break;
+                    }
+                }
+            }
             const requiredForOne = recipe.costs[costItemName];
             const playerHas = player.inventory[costItemName] || 0;
-            costAmountEl.textContent = `${playerHas} / ${requiredForOne}`; // Affiche pour 1 si qté invalide
+            costAmountEl.textContent = `${playerHas} / ${requiredForOne}`; 
             costAmountEl.classList.add('insufficient');
         });
         return;
@@ -648,11 +644,9 @@ function handleWorkshopQuantityChange(event, player, recipe) {
 
     let canCraftThisQuantity = true;
     recipeCard.querySelectorAll('.workshop-recipe-costs li .cost-amount').forEach(costAmountEl => {
-        // Pour extraire le nom de l'item du span qui contient aussi l'icône
         let costItemName = '';
         const costNameSpan = costAmountEl.previousElementSibling;
         if (costNameSpan) {
-            // Le nom de l'item est le dernier nœud texte du span .cost-name
             for (let i = costNameSpan.childNodes.length - 1; i >= 0; i--) {
                 if (costNameSpan.childNodes[i].nodeType === Node.TEXT_NODE) {
                     costItemName = costNameSpan.childNodes[i].textContent.trim();
@@ -661,7 +655,7 @@ function handleWorkshopQuantityChange(event, player, recipe) {
             }
         }
         
-        if (!recipe.costs[costItemName]) { // Sécurité si le nom n'est pas trouvé
+        if (!recipe.costs[costItemName]) { 
             console.warn("Nom d'item de coût non trouvé pour :", costAmountEl.previousElementSibling.innerHTML);
             return;
         }
@@ -687,7 +681,6 @@ export function setupWorkshopModalListeners(gameState) {
         DOM.closeWorkshopModalBtn.addEventListener('click', hideWorkshopModal);
     }
     if (DOM.workshopSearchInputEl) {
-        // Utiliser gameState.player au lieu de player directement car player peut changer
         DOM.workshopSearchInputEl.addEventListener('input', () => renderWorkshopRecipes(gameState.player));
     }
     if (DOM.workshopCategoryFilterEl) {

@@ -1,5 +1,4 @@
-// js/ui.js
-import DOM from './ui/dom.js';
+import DOM from './ui/dom.js'; // Assurez-vous que DOM est bien importé ici
 
 // Importer les modules en entier (namespace import)
 import * as PanelsModule from './ui/panels.js';
@@ -68,8 +67,7 @@ export const advanceTutorial = TutorialModule.advanceTutorial;
 export const skipTutorial = TutorialModule.skipTutorial;
 export const completeTutorial = TutorialModule.completeTutorial;
 export const playerMovedForTutorial = TutorialModule.playerMovedForTutorial;
-export const highlightElement = TutorialModule.highlightElement; // Exportation de highlightElement
-
+export const highlightElement = TutorialModule.highlightElement; 
 
 /**
  * Met à jour tous les éléments statiques de l'interface utilisateur (sauf la scène principale).
@@ -121,4 +119,13 @@ export function renderScene(gameState) {
     }
     DrawModule.drawMainBackground(gameState);
     DrawModule.drawSceneCharacters(gameState);
+}
+
+/**
+ * Vérifie si la modale de quantité est actuellement ouverte.
+ * @returns {boolean} True si la modale est ouverte, false sinon.
+ */
+// AJOUTÉ : Fonction manquante pour les gestionnaires d'événements
+export function isQuantityModalOpen() {
+    return DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden');
 }

@@ -7,12 +7,12 @@ import * as State from './state.js';
 import { decayStats, getTotalResources } from './player.js';
 import { updateNpcs, npcChatter } from './npc.js';
 import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js';
-import * as Interactions from './interactions.js';
+import * as Interactions from './interactions.js'; // Import all exports from interactions
 import { initAdminControls } from './admin.js';
 
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
-let draggedItemInfo = null;
+let draggedItemInfo = null; // Garder cette variable globale, mais l'utiliser avec prudence
 
 function updatePossibleActions() {
     if (!DOM.actionsEl) return;
@@ -154,7 +154,7 @@ function updatePossibleActions() {
         createButton(`🔑 Prendre ${tile.hiddenItem}`, 'take_hidden_item', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : `Ramasser ${tile.hiddenItem}`);
     }
 
-    if (tileType.resource && (tile.harvestsLeft > 0 || tile.harvestsLeft === Infinity) && !findEnemyOnTile(player.x, player.y, enemies) && !findBuildingOnTile(tile, 'MINE')) {
+    if (tileType.resource && (tile.harvestsLeft > 0 || tile.harvestsLeft === Infinity) && !findEnemyOnTile(player.x, player.y, enemies) && !Interactions.findBuildingOnTile(tile, 'MINE')) {
         if (tileType.name === TILE_TYPES.FOREST.name) {
             const canHarvestWood = tile.woodActionsLeft > 0;
             const equippedWeapon = player.equipment.weapon;
@@ -174,7 +174,7 @@ function updatePossibleActions() {
     }
 
     const hasPiocheEquipped = player.equipment.weapon && player.equipment.weapon.name === 'Pioche';
-    if (tileType.name === TILE_TYPES.MINE_TERRAIN.name && hasPiocheEquipped && !findBuildingOnTile(tile, 'MINE')) {
+    if (tileType.name === TILE_TYPES.MINE_TERRAIN.name && hasPiocheEquipped && !Interactions.findBuildingOnTile(tile, 'MINE')) {
         createButton("⛏️ Chercher Minerais (Terrain)", 'use_building_action', { buildingKey: null, specificActionId: 'search_ore_tile' });
     }
     if (player.equipment.weapon && player.equipment.weapon.name === 'Guitare') {
@@ -294,7 +294,7 @@ function updatePossibleActions() {
                 });
             }
 
-            if (buildingInstance.key === 'MINE' && buildingInstance.durability > 0 && hasPiocheEquipped) {
+            if (buildingInstance.key === 'MINE' && buildingInstance.durability > 0 && hasPiocheEquipped) { // Utilisation de Interactions.findBuildingOnTile est implicite
                 createButton("⛏️ Chercher Minerais (Bât.)", 'use_building_action', { buildingKey: 'MINE', specificActionId: 'search_ore_building' });
             }
             if ((buildingInstance.key === 'ATELIER' || buildingInstance.key === 'ETABLI' || buildingInstance.key === 'FORGE') && buildingInstance.durability > 0) {
@@ -770,7 +770,8 @@ function handleDragLeave(e) {
 function handleDragEnd() {
     if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) { return; }
     if (draggedItemInfo && draggedItemInfo.element) draggedItemInfo.element.classList.remove('dragging');
-    draggedItemInfo = null;
+    // Ne pas réinitialiser draggedItemInfo ici si une modale de quantité pourrait s'ouvrir.
+    // La réinitialisation se fera dans handleDrop ou après le callback de la modale.
     document.querySelectorAll('.droppable.drag-over').forEach(el => el.classList.remove('drag-over'));
 }
 
@@ -778,85 +779,98 @@ function handleDrop(e) {
     if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) { e.preventDefault(); return; }
     e.preventDefault();
     const dropZone = e.target.closest('.droppable');
-    if (!draggedItemInfo || !dropZone) return;
+    
+    if (!draggedItemInfo) { // Si rien n'est glissé, ne rien faire.
+        if (dropZone) dropZone.classList.remove('drag-over');
+        return;
+    }
+    if (!dropZone) { // Si on ne lâche pas sur une zone valide
+        if (draggedItemInfo.element) draggedItemInfo.element.classList.remove('dragging');
+        draggedItemInfo = null;
+        return;
+    }
 
     const destOwner = dropZone.dataset.owner;
     const destSlotType = dropZone.dataset.slotType;
 
-    let transferProcessed = false;
+    const itemName = draggedItemInfo.itemName;
+    const itemCount = draggedItemInfo.itemCount;
+    const sourceOwner = draggedItemInfo.sourceOwner;
+    const sourceSlotType = draggedItemInfo.sourceSlotType;
+    
+    let transferActionInitiated = false; // Pour savoir si une modale de quantité va s'ouvrir
 
     if (destOwner === 'equipment') {
-        const itemDef = ITEM_TYPES[draggedItemInfo.itemName];
-        if (draggedItemInfo.sourceOwner === 'player-inventory') {
+        const itemDef = ITEM_TYPES[itemName];
+        if (sourceOwner === 'player-inventory') {
             if (itemDef && itemDef.slot === destSlotType) {
-                State.equipItem(draggedItemInfo.itemName);
-                transferProcessed = true;
+                State.equipItem(itemName);
             } else { UI.addChatMessage("Cet objet ne va pas dans cet emplacement.", "system"); }
         }
     } else if (destOwner === 'player-inventory') {
-        if (draggedItemInfo.sourceOwner === 'equipment' && draggedItemInfo.sourceSlotType) {
-            State.unequipItem(draggedItemInfo.sourceSlotType);
-            transferProcessed = true;
-        } else if (draggedItemInfo.sourceOwner === 'ground') {
-            const itemName = draggedItemInfo.itemName;
-            const maxAmount = draggedItemInfo.itemCount;
-            if (maxAmount > 1) {
-                UI.showQuantityModal(`Ramasser ${itemName}`, maxAmount, (amount) => {
+        if (sourceOwner === 'equipment' && sourceSlotType) {
+            State.unequipItem(sourceSlotType);
+        } else if (sourceOwner === 'ground') {
+            if (itemCount > 1) {
+                transferActionInitiated = true;
+                UI.showQuantityModal(`Ramasser ${itemName}`, itemCount, (amount) => {
                     if (amount > 0) {
                         const result = State.pickUpItemFromGround(itemName, amount);
                         UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
                     }
                     window.fullUIUpdate();
+                    draggedItemInfo = null; 
                 });
             } else {
                 const result = State.pickUpItemFromGround(itemName, 1);
                 UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
             }
-            transferProcessed = true;
         }
     } else if (dropZone.closest('#inventory-modal')) {
         let transferType = '';
-        if (draggedItemInfo.sourceOwner === 'player-inventory' && destOwner === 'shared') transferType = 'deposit';
-        else if (draggedItemInfo.sourceOwner === 'shared' && destOwner === 'player-inventory') transferType = 'withdraw';
+        if (sourceOwner === 'player-inventory' && destOwner === 'shared') transferType = 'deposit';
+        else if (sourceOwner === 'shared' && destOwner === 'player-inventory') transferType = 'withdraw';
 
         if (transferType) {
-            if (draggedItemInfo.itemCount > 1) {
-                UI.showQuantityModal(draggedItemInfo.itemName, draggedItemInfo.itemCount, amount => {
+            const currentTransferType = transferType; 
+            if (itemCount > 1) {
+                transferActionInitiated = true;
+                UI.showQuantityModal(itemName, itemCount, amount => {
                     if (amount > 0) {
-                        const transferResult = State.applyBulkInventoryTransfer(draggedItemInfo.itemName, amount, transferType);
+                        const transferResult = State.applyBulkInventoryTransfer(itemName, amount, currentTransferType);
                         UI.addChatMessage(transferResult.message, transferResult.success ? 'system' : 'system_error');
                     }
                     window.fullUIUpdate();
+                    draggedItemInfo = null; 
                 });
             } else {
-                const transferResult = State.applyBulkInventoryTransfer(draggedItemInfo.itemName, 1, transferType);
+                const transferResult = State.applyBulkInventoryTransfer(itemName, 1, currentTransferType);
                 UI.addChatMessage(transferResult.message, transferResult.success ? 'system' : 'system_error');
             }
-            transferProcessed = true;
         }
-    } else if (destOwner === 'ground' && draggedItemInfo.sourceOwner === 'player-inventory') {
-        const itemName = draggedItemInfo.itemName;
-        const maxAmount = draggedItemInfo.itemCount;
-        if (maxAmount > 1) {
-            UI.showQuantityModal(`Déposer ${itemName}`, maxAmount, (amount) => {
+    } else if (destOwner === 'ground' && sourceOwner === 'player-inventory') {
+        if (itemCount > 1) {
+            transferActionInitiated = true;
+            UI.showQuantityModal(`Déposer ${itemName}`, itemCount, (amount) => {
                 if (amount > 0) {
                     const result = State.dropItemOnGround(itemName, amount);
                     UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
                 }
                 window.fullUIUpdate();
+                draggedItemInfo = null; 
             });
         } else {
             const result = State.dropItemOnGround(itemName, 1);
             UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
         }
-        transferProcessed = true;
     }
 
-    if (transferProcessed) window.fullUIUpdate();
+    if (!transferActionInitiated) { // Si aucune modale de quantité n'a été ouverte, on peut nettoyer.
+        draggedItemInfo = null;
+    }
+    
+    window.fullUIUpdate(); // Mettre à jour l'UI dans tous les cas après un drop
     if (dropZone) dropZone.classList.remove('drag-over');
-
-    if (draggedItemInfo && draggedItemInfo.itemName === 'Breuvage étrange' && destOwner === 'player-inventory') {
-    }
 }
 
 
@@ -1011,7 +1025,9 @@ function setupEventListeners() {
             else if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.hideInventoryModal();
             else if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) UI.hideLargeMap();
             else if (DOM.combatModal && !DOM.combatModal.classList.contains('hidden')) UI.hideCombatModal();
-            else if (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) UI.hideQuantityModal();
+            else if (UI.isQuantityModalOpen()) UI.hideQuantityModal();
+            // AJOUTÉ : Gérer la modale admin
+            else if (DOM.adminModal && !DOM.adminModal.classList.contains('hidden')) UI.hideAdminModal();
             return;
         }
 
@@ -1032,8 +1048,10 @@ function setupEventListeners() {
             return;
         }
 
+        // CORRIGÉ : Ajout de vérifications pour les modales qui bloquent les actions
         if (document.activeElement === DOM.chatInputEl ||
-            (DOM.quantityModal && !DOM.quantityModal.classList.contains('hidden')) ||
+            UI.isQuantityModalOpen() ||
+            (DOM.adminModal && !DOM.adminModal.classList.contains('hidden')) || // AJOUTÉ
             (DOM.workshopSearchInputEl && document.activeElement === DOM.workshopSearchInputEl) ||
             (DOM.workshopRecipesContainerEl && DOM.workshopRecipesContainerEl.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') ||
             (DOM.lockModal && !DOM.lockModal.classList.contains('hidden')) ||
@@ -1097,7 +1115,8 @@ function endGame(isVictory) {
     const reloadButton = document.createElement('button');
     reloadButton.textContent = "Recommencer";
     reloadButton.style.cssText = `padding: 15px 30px; font-size: 0.8em; margin-top: 30px; background-color: var(--action-color); color: var(--text-light); border: none; border-radius: 8px; cursor: pointer;`;
-    reloadButton.onclick = () => { localStorage.removeItem('tutorialCompleted'); window.location.reload(); };
+    // CORRIGÉ : Ne pas supprimer la sauvegarde du tutoriel à la fin du jeu
+    reloadButton.onclick = () => { /* localStorage.removeItem('tutorialCompleted'); */ window.location.reload(); };
 
     endModal.appendChild(messageEl);
     endModal.appendChild(reloadButton);
