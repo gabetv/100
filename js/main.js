@@ -624,13 +624,34 @@ window.fullUIUpdate = function() {
     }
     
     // Update navigation button visibility
-    const navDirections = ['north', 'south', 'east', 'west', 'ne', 'nw', 'se', 'sw'];
-    navDirections.forEach(dir => {
-        const btn = DOM[`nav${dir.toUpperCase()}`] || DOM[`nav${dir.charAt(0).toUpperCase() + dir.slice(1)}`];
+    const navDirections = {
+        'north': DOM.navNorth,
+        'south': DOM.navSouth,
+        'east': DOM.navEast,
+        'west': DOM.navWest,
+        'northeast': DOM.navNE, // Make sure these match your DOM init
+        'northwest': DOM.navNW,
+        'southeast': DOM.navSE,
+        'southwest': DOM.navSW
+    };
+
+    for (const dir in navDirections) {
+        const btn = navDirections[dir];
         if (btn) {
-            btn.style.display = Interactions.canMoveInDirection(State.state.player, dir, State.state.map, CONFIG) ? 'flex' : 'none';
+            // Check if the button *should* be visible based on game logic
+            const shouldBeVisible = Interactions.canMoveInDirection(State.state.player, dir, State.state.map, CONFIG);
+            
+            // Check if the button is *currently* visible
+            const isCurrentlyVisible = btn.style.display !== 'none';
+
+            if (shouldBeVisible && !isCurrentlyVisible) {
+                btn.style.display = 'flex'; // Or 'block', 'inline-flex' depending on your CSS
+            } else if (!shouldBeVisible && isCurrentlyVisible) {
+                btn.style.display = 'none';
+            }
+            // If already in the correct state, do nothing to avoid unnecessary DOM manipulation
         }
-    });
+    }
 };
 // Make State accessible to UI modules if needed for things like lock modals
 window.State = State;
