@@ -431,7 +431,8 @@ function handleNavigation(direction) {
     if (newX < 0 || newX >= CONFIG.MAP_WIDTH || newY < 0 || newY >= CONFIG.MAP_HEIGHT || !map[newY][newX].type.accessible) {
         UI.addChatMessage("Vous ne pouvez pas aller dans cette direction.", "system");
         if (DOM[`nav${direction.toUpperCase()}`] || DOM[`nav${direction.charAt(0).toUpperCase() + direction.slice(1)}`]) {
-            UI.triggerShake(DOM[`nav${direction.toUpperCase()}`] || DOM[`nav${direction.charAt(0).toUpperCase() + direction.slice(1)}`]);
+            const navButton = DOM[`nav${direction.toUpperCase()}`] || DOM[`nav${direction.charAt(0).toUpperCase() + direction.slice(1)}`];
+            if (navButton) UI.triggerShake(navButton);
         }
         return;
     }
@@ -595,13 +596,18 @@ function handleConsumeClick(itemName) {
 }
 
 window.fullUIUpdate = function() {
-    if (!State.state || !State.state.player) return;
-    UI.updateAllUI(State.state);
+    if (!State.state || !State.state.player) {
+        console.warn("fullUIUpdate: State or player not ready.");
+        return;
+    }
+    console.log("[main.js] Executing fullUIUpdate. Player pos:", State.state.player.x, State.state.player.y);
+    UI.updateAllUI(State.state); // This calls drawMinimap internally
     updatePossibleActions();
     UI.updateAllButtonsState(State.state);
 
+    // Modal updates (if open)
     if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.updateEquipmentModal(State.state);
-    if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.showInventoryModal(State.state);
+    if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.showInventoryModal(State.state); // Re-populate based on current state
     if (DOM.largeMapModal && !DOM.largeMapModal.classList.contains('hidden')) {
         if (State.state && State.state.config) {
             UI.drawLargeMap(State.state, State.state.config);
@@ -612,12 +618,7 @@ window.fullUIUpdate = function() {
         UI.populateBuildModal(State.state);
     }
     if (DOM.workshopModal && !DOM.workshopModal.classList.contains('hidden')) {
-        // Déterminer le contexte de l'atelier (Atelier, Etabli, Forge)
-        let workshopContext = 'ATELIER'; // Default
-        const tile = State.state.map[State.state.player.y][State.state.player.x];
-        if (tile.buildings.some(b => b.key === 'ETABLI')) workshopContext = 'ETABLI';
-        if (tile.buildings.some(b => b.key === 'FORGE')) workshopContext = 'FORGE';
-        UI.populateWorkshopModal(State.state, workshopContext);
+        UI.populateWorkshopModal(State.state); // Removed workshopContext, let populateWorkshopModal handle it
     }
     if (DOM.bottomBarEl) {
         UI.updateGroundItemsPanel(State.state.map[State.state.player.y][State.state.player.x]);
@@ -625,33 +626,18 @@ window.fullUIUpdate = function() {
     
     // Update navigation button visibility
     const navDirections = {
-        'north': DOM.navNorth,
-        'south': DOM.navSouth,
-        'east': DOM.navEast,
-        'west': DOM.navWest,
-        'northeast': DOM.navNE, // Make sure these match your DOM init
-        'northwest': DOM.navNW,
-        'southeast': DOM.navSE,
-        'southwest': DOM.navSW
+        'north': DOM.navNorth, 'south': DOM.navSouth, 'east': DOM.navEast, 'west': DOM.navWest,
+        'northeast': DOM.navNE, 'northwest': DOM.navNW, 'southeast': DOM.navSE, 'southwest': DOM.navSW
     };
 
     for (const dir in navDirections) {
         const btn = navDirections[dir];
         if (btn) {
-            // Check if the button *should* be visible based on game logic
             const shouldBeVisible = Interactions.canMoveInDirection(State.state.player, dir, State.state.map, CONFIG);
-            
-            // Check if the button is *currently* visible
-            const isCurrentlyVisible = btn.style.display !== 'none';
-
-            if (shouldBeVisible && !isCurrentlyVisible) {
-                btn.style.display = 'flex'; // Or 'block', 'inline-flex' depending on your CSS
-            } else if (!shouldBeVisible && isCurrentlyVisible) {
-                btn.style.display = 'none';
-            }
-            // If already in the correct state, do nothing to avoid unnecessary DOM manipulation
+            btn.style.display = shouldBeVisible ? 'flex' : 'none';
         }
     }
+    console.log("[main.js] fullUIUpdate completed.");
 };
 // Make State accessible to UI modules if needed for things like lock modals
 window.State = State;
@@ -1069,40 +1055,44 @@ async function init() {
     try {
         initDOM();
         console.log("DOM initialisé.");
+
+        // Load assets first
         await UI.loadAssets(SPRITESHEET_PATHS);
         console.log("Assets chargés.");
-        // fullResizeAndRedraw(); // Moved down
-        window.addEventListener('resize', fullResizeAndRedraw);
 
+        // THEN initialize game state which depends on some configs that might be related to assets indirectly
         State.initializeGameState(CONFIG);
-        console.log("État du jeu initialisé.");
+        console.log("État du jeu initialisé. Player data:", JSON.parse(JSON.stringify(State.state.player)));
+
+        // Setup event listeners (like resize) that might trigger UI updates
+        window.addEventListener('resize', fullResizeAndRedraw);
+        setupEventListeners(); // This includes navigation, modals, etc.
+        console.log("Écouteurs d'événements configurés.");
+
+        initAdminControls();
+
+        // Perform the first full UI setup *after* everything else is ready
+        // Using requestAnimationFrame to ensure it runs after the browser has had a chance to paint and DOM is fully settled
+        requestAnimationFrame(() => {
+            console.log("Performing initial fullResizeAndRedraw and UI updates via requestAnimationFrame.");
+            fullResizeAndRedraw(); // This calls UI.renderScene and UI.updateAllUI
+            UI.updateBottomBarEquipmentPanel(State.state.player); // Specifically update this after first draw
+            // The fullUIUpdate inside fullResizeAndRedraw should handle inventory and arrows now
+            console.log("Initial UI updates completed.");
+        });
+        
         UI.addChatMessage("Bienvenue aventurier, trouve vite d'autres aventuriers pour s'organiser ensemble!", "system_event", "Ancien");
-        if (State.state && (!State.state.config || Object.keys(State.state.config).length === 0)) { State.state.config = { ...CONFIG };
+        
+        // Config checks (can remain here)
+        if (State.state && (!State.state.config || Object.keys(State.state.config).length === 0)) { 
+            State.state.config = { ...CONFIG };
             console.warn("State.state.config a été redéfini dans init de main.js, vérifier initializeGameState.");
         } else if (State.state && !State.state.config.VICTORY_DAY) {
              State.state.config.VICTORY_DAY = CONFIG.VICTORY_DAY || 200;
         }
 
-
-        setupEventListeners();
-        console.log("Écouteurs d'événements configurés.");
-
-        initAdminControls();
-
-        // UI.updateBottomBarEquipmentPanel(State.state.player); // Moved this down
-        // window.fullUIUpdate(); // Moved this down
-        // requestAnimationFrame(gameLoop); // Moved this up slightly
-
-        console.log("Attempting initial fullUIUpdate and renderScene in init().");
-        // Defer first render slightly to ensure CSS is applied
-        setTimeout(() => {
-            fullResizeAndRedraw(); // This will call UI.renderScene and UI.updateAllUI (which includes drawMinimap)
-            UI.updateBottomBarEquipmentPanel(State.state.player); // Update this after resize
-            console.log("Initial UI update and renderScene calls completed in init().");
-        }, 50); // 50ms delay, adjust if needed
-
-        requestAnimationFrame(gameLoop); // Start the game loop
-
+        // Start the game loop
+        requestAnimationFrame(gameLoop);
 
         if (State.state) {
             State.state.gameIntervals.push(setInterval(dailyUpdate, CONFIG.DAY_DURATION_MS));
@@ -1113,6 +1103,7 @@ async function init() {
             }, CONFIG.CHAT_MESSAGE_INTERVAL_MS));
         }
         console.log("Jeu initialisé et boucles démarrées.");
+
     } catch (error) {
         console.error("ERREUR CRITIQUE lors de l'initialisation :", error);
         if (document.body) {
