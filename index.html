@@ -100,11 +100,21 @@
             <div id="inventory-modal-grid">
                 <div class="inventory-container">
                     <h3>Votre Inventaire (<span id="modal-player-capacity">0 / 0</span>)</h3>
-                    <ul id="modal-player-inventory" class="inventory-list droppable" data-owner="player-inventory"></ul>
+                    <!-- AJOUTÉ : Wrapper pour la liste d'inventaire du joueur -->
+                    <div class="inventory-list-wrapper">
+                        <ul id="modal-player-inventory" class="inventory-list droppable" data-owner="player-inventory"></ul>
+                    </div>
                 </div>
                 <div class="inventory-container">
                     <h3>Stockage Commun (<span id="modal-shared-capacity">0 / ∞</span>)</h3>
-                    <ul id="modal-shared-inventory" class="inventory-list droppable" data-owner="shared"></ul>
+                    <!-- AJOUTÉ : Barre de recherche -->
+                    <div class="search-bar-wrapper">
+                        <input type="text" id="shared-inventory-search" placeholder="Rechercher un objet...">
+                    </div>
+                    <!-- AJOUTÉ : Wrapper pour la liste du stockage partagé -->
+                    <div class="inventory-list-wrapper">
+                        <ul id="modal-shared-inventory" class="inventory-list droppable" data-owner="shared"></ul>
+                    </div>
                 </div>
             </div>
         </div>
@@ -248,4 +258,4 @@
 
     <script type="module" src="js/main.js"></script>
 </body>
-</html
+</html>

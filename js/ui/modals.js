@@ -8,17 +8,23 @@ import { handleCombatAction, handlePlayerAction } from '../interactions.js';
 
 let quantityConfirmCallback = null;
 
-// MODIFIÉ : Simplification de la fonction pour corriger le bug de drag-and-drop
-function populateInventoryList(inventory, listElement, owner) {
+// MODIFIÉ : Ajout du paramètre searchTerm pour filtrer la liste
+function populateInventoryList(inventory, listElement, owner, searchTerm = '') {
     if (!listElement) return;
     listElement.innerHTML = ''; // Vider les items précédents
 
-    const items = Object.entries(inventory).filter(([_, count]) => count > 0);
+    let items = Object.entries(inventory).filter(([_, count]) => count > 0);
+
+    // Filtrer par terme de recherche si fourni
+    if (searchTerm.trim() !== '') {
+        const lowerCaseSearchTerm = searchTerm.toLowerCase();
+        items = items.filter(([itemName, _]) => itemName.toLowerCase().includes(lowerCaseSearchTerm));
+    }
 
     if (items.length === 0) {
         const li = document.createElement('li');
         li.className = 'inventory-empty';
-        li.textContent = '(Vide)';
+        li.textContent = searchTerm.trim() !== '' ? '(Aucun résultat)' : '(Vide)';
         listElement.appendChild(li);
     } else {
         items.forEach(([itemName, count]) => {
@@ -34,13 +40,11 @@ function populateInventoryList(inventory, listElement, owner) {
             listElement.appendChild(li);
         });
     }
-    // La logique de la classe 'scrollable-limited' a été entièrement retirée
-    // pour que le drag-and-drop fonctionne correctement sur les listes longues.
-    // Le scroll est maintenant géré nativement par le `overflow-y: auto` de la liste.
 }
 
 
 // --- MODALE D'INVENTAIRE PARTAGÉ ---
+// MODIFIÉ : Ajout de la gestion de la barre de recherche
 export function showInventoryModal(gameState) {
     if (!gameState || !gameState.player || !gameState.map) return;
     const { player, map } = gameState;
@@ -72,17 +76,18 @@ export function showInventoryModal(gameState) {
     }
 
     if (buildingWithInventory && buildingWithInventory.isLocked && !tile.playerHasUnlockedThisSession) {
-        // Logic handled by interactions.js
+        // La logique est gérée par interactions.js
     }
 
     if (!currentTileInventory) { console.warn("Tentative d'ouverture de l'inventaire sur une tuile sans stockage."); return; }
 
     const { modalPlayerInventoryEl, modalSharedInventoryEl, modalPlayerCapacityEl, inventoryModal, modalSharedCapacityEl } = DOM;
     
+    // Remplissage initial des listes sans filtre
     populateInventoryList(player.inventory, modalPlayerInventoryEl, 'player-inventory');
     populateInventoryList(currentTileInventory, modalSharedInventoryEl, 'shared');
 
-
+    // Mise à jour des capacités
     if(modalPlayerCapacityEl) {
         const totalPlayerResources = getTotalResources(player.inventory);
         modalPlayerCapacityEl.textContent = `${totalPlayerResources} / ${player.maxInventory}`;
@@ -93,12 +98,26 @@ export function showInventoryModal(gameState) {
         modalSharedCapacityEl.textContent = `${totalSharedResources} / ${maxSharedText}`;
     }
 
+    // Gestion de la recherche pour l'inventaire partagé
+    const sharedInventorySearchInput = document.getElementById('shared-inventory-search');
+    if (sharedInventorySearchInput) {
+        sharedInventorySearchInput.value = ''; // Vider la recherche à chaque ouverture
+        // Attacher l'événement
+        sharedInventorySearchInput.oninput = function() {
+            populateInventoryList(currentTileInventory, modalSharedInventoryEl, 'shared', this.value);
+        };
+    }
+    
     if(inventoryModal) inventoryModal.classList.remove('hidden');
 }
 
 export function hideInventoryModal() {
     if(DOM.inventoryModal) DOM.inventoryModal.classList.add('hidden');
-    // Pas besoin de retirer la classe .scrollable-limited car elle n'est plus utilisée
+    // Vider la recherche en quittant pour éviter les surprises à la prochaine ouverture
+    const sharedInventorySearchInput = document.getElementById('shared-inventory-search');
+    if (sharedInventorySearchInput) {
+        sharedInventorySearchInput.value = '';
+    }
 }
 
 // --- MODALE D'ÉQUIPEMENT ---
@@ -221,7 +240,6 @@ export function setupQuantityModalListeners() {
     quantityConfirmBtn.addEventListener('click', () => { 
         if (quantityConfirmCallback) {
             const valueToConfirm = parseInt(quantityInput.value, 10);
-            // CORRIGÉ : La variable globale draggedItemInfo n'est pas fiable. On vérifie juste si le callback existe.
             quantityConfirmCallback(valueToConfirm);
         }
         hideQuantityModal(); 

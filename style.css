@@ -114,7 +114,7 @@ body {
 .category-header.open .category-toggle { transform: rotate(90deg); }
 .category-content { list-style: none; padding: 10px 0 0 0; display: none; flex-direction: column; gap: 5px; }
 .category-content.visible { display: flex; }
-.inventory-item { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.1); position: relative; transition: background-color 0.2s; height: 34px; /* Hauteur pour calcul maxHeight */ }
+.inventory-item { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; background: rgba(0,0,0,0.1); position: relative; transition: background-color 0.2s; height: 34px; }
 .inventory-item.clickable { cursor: pointer; }
 .inventory-item:not(.clickable) { cursor: pointer; }
 .inventory-item:hover { background-color: rgba(69, 123, 157, 0.3); }
@@ -339,55 +339,44 @@ body {
 #combat-modal { z-index: 5000; background-color: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); }
 
 #inventory-modal-content, #equipment-modal-content, #build-modal-content, #workshop-modal-content { background-color: var(--bg-panel); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: var(--border-radius); padding: 30px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); position: relative; }
-#inventory-modal-content { max-width: 900px; min-height: 400px; display: flex; flex-direction: column; }
+#inventory-modal-content { max-width: 900px; min-height: 500px; max-height: 90vh; display: flex; flex-direction: column; } /* MODIFIÉ */
 #close-inventory-modal-btn, #close-equipment-modal-btn, #close-build-modal-btn, #close-workshop-modal-btn { position: absolute; top: 15px; right: 15px; background: transparent; border: none; color: var(--text-secondary); font-size: 2em; cursor: pointer; line-height: 1; transition: color 0.2s, transform 0.2s; }
 #close-inventory-modal-btn:hover, #close-equipment-modal-btn:hover, #close-build-modal-btn:hover, #close-workshop-modal-btn:hover { color: var(--accent-color); transform: scale(1.1); }
 #inventory-modal h2, #equipment-modal h2, #build-modal h2, #workshop-modal h2 { text-align: center; margin-bottom: 25px; color: var(--text-light); }
 #inventory-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; flex-grow: 1; overflow: hidden;}
 .inventory-container { display: flex; flex-direction: column; overflow: hidden;}
-.inventory-container h3 { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-#inventory-modal .inventory-list { 
-    background-color: rgba(0,0,0,0.25); 
-    border-radius: 8px; 
-    padding: 10px; 
-    min-height: 250px; 
-    display: flex; 
-    flex-direction: column; 
-    gap: 6px; 
-    transition: background-color 0.2s ease; 
-    overflow-y: auto;  
-    flex-grow: 1; 
-    position: relative;
-}
+.inventory-container h3 { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
 
-/* CORRECTION : Suppression de la logique .scrollable-limited pour corriger le bug de drag-and-drop */
-
-.inventory-more-indicator { /* Ce style est maintenant pour le LI créé par JS, si vous gardez cette approche */
-    text-align: center;
-    font-style: italic;
-    color: var(--text-secondary);
-    opacity: 0.8;
-    padding: 8px 0;
-    font-size: 0.9em;
-    background-color: rgba(0,0,0,0.05); 
-    border-top: 1px solid rgba(255,255,255,0.05);
-    margin-top: 4px; 
+/* AJOUTÉ : Styles pour la barre de recherche et le conteneur de liste scrollable */
+.search-bar-wrapper {
+    margin-bottom: 10px;
 }
-
-
-#modal-shared-inventory::-webkit-scrollbar {
-    width: 8px;
+#shared-inventory-search {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    color: var(--text-light);
+    font-family: 'Poppins', sans-serif;
 }
-#modal-shared-inventory::-webkit-scrollbar-track {
-    background: rgba(0,0,0,0.1);
-    border-radius: 4px;
+#shared-inventory-search:focus {
+    outline: none;
+    border-color: var(--action-color);
 }
-#modal-shared-inventory::-webkit-scrollbar-thumb {
-    background: var(--action-color);
-    border-radius: 4px;
+.inventory-list-wrapper {
+    background-color: rgba(0,0,0,0.25);
+    border-radius: 8px;
+    padding: 10px;
+    flex-grow: 1;
+    overflow-y: auto; /* C'est ce conteneur qui scroll ! */
+    min-height: 0; /* Important pour le flexbox */
 }
-#modal-shared-inventory::-webkit-scrollbar-thumb:hover {
-    background: #5e9ac4;
+#inventory-modal .inventory-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: auto; /* La liste elle-même n'a plus besoin de hauteur min */
 }
 
 
