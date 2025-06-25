@@ -909,6 +909,16 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                  UI.showWorkshopModal(State.state); return; 
             }
 
+            if (specificActionId === 'listen_radio_if_charged') {
+                UI.addChatMessage("La radio grésille mais vous n'entendez rien d'intéressant pour le moment.", "system");
+                return;
+            }
+
+            if (specificActionId === 'attempt_call_if_charged') {
+                UI.addChatMessage("Vous essayez de passer un appel, mais il n'y a aucun signal.", "system");
+                return;
+            }
+
 
             if (specificActionId === 'search_ore_tile' || specificActionId === 'search_ore_building') {
                 if (!player.equipment.weapon || player.equipment.weapon.name !== 'Pioche') {

@@ -326,7 +326,7 @@ export const ITEM_TYPES = {
     'Filet de pêche': { type: 'tool', slot: 'weapon', icon: '🥅', uses: 15, action: 'net_fish', stats: {damage: 1}, rarity: 'uncommon' }, // Can be equipped to be used
     'Torche': { type: 'usable', slot: 'weapon', icon: '🔦', uses: 10, isFireStarter: true, stats: { damage: 1 }, rarity: 'common' },
     'Briquet': { type: 'tool', slot: 'weapon', icon: '🔥', uses: 5, isFireStarter: true, stats: { damage: 1 }, rarity: 'uncommon' },
-    'Allumettes': { type: 'tool', slot: 'weapon', icon: ' MATCHES', uses: 1, isFireStarter: true, stats: { damage: 1 }, rarity: 'common' },
+    'Allumettes': { type: 'tool', slot: 'weapon', icon: ' ম্যাচ', uses: 1, isFireStarter: true, stats: { damage: 1 }, rarity: 'common' },
     'Seau': { type: 'tool', slot: 'weapon', icon: '🪣', breakChance: 0.1, stats: { damage: 1 }, action: 'harvest_sand', rarity: 'common' }, // Can also be a weapon
     'Radio déchargée': { type: 'tool', slot: 'weapon', icon: '📻🚫', breakChance: 0.05, action: null, stats: { damage: 0 }, rarity: 'rare' },
     'Téléphone déchargé': { type: 'tool', slot: 'weapon', icon: '📱🚫', breakChance: 0.05, action: null, stats: { damage: 0 }, rarity: 'rare' },

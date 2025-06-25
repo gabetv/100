@@ -146,15 +146,16 @@ export function updateEquipmentModal(gameState) {
             const equippedItem = player.equipment[slotType];
             slotEl.innerHTML = '';
             if (equippedItem) {
+                const itemName = equippedItem.name || Object.keys(ITEM_TYPES).find(key => ITEM_TYPES[key] === equippedItem);
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'inventory-item';
                 itemDiv.setAttribute('draggable', 'true');
-                itemDiv.dataset.itemName = equippedItem.name;
+                itemDiv.dataset.itemName = itemName;
                 itemDiv.dataset.owner = 'equipment';
                 itemDiv.dataset.slotType = slotType;
 
-                const itemDef = ITEM_TYPES[equippedItem.name] || { icon: equippedItem.icon || '❓' };
-                itemDiv.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${equippedItem.name}</span>`;
+                const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
+                itemDiv.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span>`;
 
                 if (equippedItem.hasOwnProperty('currentDurability') && equippedItem.hasOwnProperty('durability')) {
                      itemDiv.innerHTML += `<span class="item-durability">${equippedItem.currentDurability}/${equippedItem.durability}</span>`;

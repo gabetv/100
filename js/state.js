@@ -105,18 +105,13 @@ export function initializeGameState(config) {
         }
     });
 
-    if (localStorage.getItem('tutorialCompleted') === 'true') {
-        gameState.tutorialState.completed = true;
-        gameState.tutorialState.active = false;
-        gameState.tutorialState.welcomeMessageShown = true;
-        gameState.tutorialState.isTemporarilyHidden = false; // Assurer réinitialisation
-    } else {
-        gameState.tutorialState.completed = false;
-        gameState.tutorialState.active = false;
-        gameState.tutorialState.step = 0;
-        gameState.tutorialState.welcomeMessageShown = false;
-        gameState.tutorialState.isTemporarilyHidden = false; // Assurer réinitialisation
-    }
+    gameState.tutorialState = {
+        step: 0,
+        active: false,
+        completed: localStorage.getItem('tutorialCompleted') === 'true',
+        welcomeMessageShown: false,
+        isTemporarilyHidden: false,
+    };
 
     console.log("GameState initialisé DANS initializeGameState (fin):", JSON.parse(JSON.stringify(gameState)));
     console.log("tutorialState DANS initializeGameState (fin):", gameState.tutorialState);

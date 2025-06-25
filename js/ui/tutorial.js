@@ -215,11 +215,17 @@ export function initTutorial() {
     if (localStorage.getItem('tutorialCompleted') === 'true') {
         State.state.tutorialState.active = false;
         State.state.tutorialState.completed = true;
-        State.state.tutorialState.isTemporarilyHidden = false;
         DOM.tutorialOverlay.classList.add('hidden');
         console.log("[TUTORIAL] Tutorial already completed (localStorage).");
+        // Afficher le message de bienvenue si le tutoriel est déjà fait
+        if (window.UI && window.UI.addChatMessage) {
+            setTimeout(() => {
+                 window.UI.addChatMessage("Bienvenue aventurier, trouve vite d'autres aventuriers pour s'organiser ensemble!", "system_event", "Ancien");
+            }, 500);
+        }
         return;
     }
+    // Lancer le tutoriel pour les nouveaux joueurs
     State.state.tutorialState.active = true;
     State.state.tutorialState.completed = false;
     State.state.tutorialState.isTemporarilyHidden = false;

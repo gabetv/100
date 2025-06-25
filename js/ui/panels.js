@@ -358,11 +358,12 @@ export function updateBottomBarEquipmentPanel(player) {
 
         const equippedItem = player.equipment[slotInfo.type];
         if (equippedItem) {
-            const itemDef = ITEM_TYPES[equippedItem.name] || { icon: equippedItem.icon || '❓' };
+            const itemName = equippedItem.name || Object.keys(ITEM_TYPES).find(key => ITEM_TYPES[key] === equippedItem);
+            const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
             const itemDiv = document.createElement('div');
             itemDiv.className = 'inventory-item';
             itemDiv.setAttribute('draggable', 'true');
-            itemDiv.dataset.itemName = equippedItem.name;
+            itemDiv.dataset.itemName = itemName;
             itemDiv.dataset.owner = 'equipment';
             itemDiv.dataset.slotType = slotInfo.type;
 

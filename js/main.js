@@ -226,7 +226,8 @@ function updatePossibleActions() {
                     createButton(`🪚 Scier Bois (Scie) (${tile.woodActionsLeft || 0})`, ACTIONS.HARVEST_WOOD_SCIE, {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
                 }
             }
-            if (!equippedWeapon) {
+            // Toujours afficher l'option de récolter à mains nues si aucune hache ou scie n'est équipée
+            if (!equippedWeapon || (equippedWeapon.name !== 'Hache' && equippedWeapon.name !== 'Scie')) {
                 createButton(`✋ Ramasser Bois (${tile.woodActionsLeft || 0})`, ACTIONS.HARVEST_WOOD_MAINS, {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
             }
         } else if (tileType.name === TILE_TYPES.MINE_TERRAIN.name) {
@@ -1144,10 +1145,6 @@ async function init() {
             fullResizeAndRedraw();
             UI.updateBottomBarEquipmentPanel(State.state.player);
         });
-
-        if (!State.state.tutorialState.active || State.state.tutorialState.completed) {
-            UI.addChatMessage("Bienvenue aventurier, trouve vite d'autres aventuriers pour s'organiser ensemble!", "system_event", "Ancien");
-        }
 
         if (State.state && (!State.state.config || Object.keys(State.state.config).length === 0)) {
             State.state.config = { ...CONFIG };
