@@ -22,6 +22,7 @@ export const populateLargeMapLegend = DrawModule.populateLargeMapLegend;
 export const showFloatingText = EffectsModule.showFloatingText;
 export const triggerActionFlash = EffectsModule.triggerActionFlash;
 export const triggerShake = EffectsModule.triggerShake;
+export const triggerScreenShake = EffectsModule.triggerScreenShake;
 export const resizeGameView = EffectsModule.resizeGameView;
 
 // Depuis ./ui/modals.js

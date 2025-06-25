@@ -23,6 +23,15 @@ export function triggerActionFlash(type) {
     flashEl.classList.add(type === 'gain' ? 'flash-gain' : 'flash-cost');
 }
 
+export function triggerScreenShake() {
+    const mainView = document.getElementById('main-view-container');
+    if (!mainView) return;
+    mainView.classList.add('action-failed-shake');
+    setTimeout(() => {
+        mainView.classList.remove('action-failed-shake');
+    }, 500);
+}
+
 export function triggerShake(element) {
     if (!element) return;
     element.classList.add('action-failed-shake');

@@ -422,6 +422,8 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     if (amountToHarvest > 0) {
                         State.addResourceToPlayer(resource.type, amountToHarvest);
                         UI.showFloatingText(`+${amountToHarvest} ${resource.type}`, 'gain'); UI.triggerActionFlash('gain');
+                        UI.triggerScreenShake();
+                        triggerParticles('dust', window.innerWidth / 2, window.innerHeight / 2);
                         if (amountToHarvest < finalYield && availableSpace === 0) UI.addChatMessage("Inventaire plein, récolte partielle.", "system");
 
                         if (toolUsed && toolUsed.hasOwnProperty('currentDurability')) {
@@ -442,26 +444,19 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             break;
         }
         case ACTIONS.HARVEST_WOOD_HACHE:
-        case ACTIONS.HARVEST_WOOD_SCIE:
-        case ACTIONS.HARVEST_WOOD_MAINS: {
-            const requiredToolName = actionId === ACTIONS.HARVEST_WOOD_HACHE ? 'Hache' : (actionId === ACTIONS.HARVEST_WOOD_SCIE ? 'Scie' : null);
+        case ACTIONS.HARVEST_WOOD_SCIE: {
+            const requiredToolName = actionId === ACTIONS.HARVEST_WOOD_HACHE ? 'Hache' : 'Scie';
             const forestTileRef = map[player.y][player.x];
             if (forestTileRef.type.name !== TILE_TYPES.FOREST.name || forestTileRef.woodActionsLeft <= 0) {
-                UI.addChatMessage("Plus de bois à couper/ramasser ici ou ce n'est pas une forêt.", "system"); return;
+                UI.addChatMessage("Plus de bois à couper ici ou ce n'est pas une forêt.", "system"); return;
             }
             performToolAction(player, 'weapon', 'harvest_wood',
                 (powerOverride, toolUsed) => {
-                    let woodYield = 1;
-                    let toolUsedNameForMessage = "vos mains";
+                    let woodYield = 0;
+                    if (toolUsed && toolUsed.name === 'Hache') woodYield = 3;
+                    else if (toolUsed && toolUsed.name === 'Scie') woodYield = 5;
+                    else { UI.addChatMessage(`Vous avez besoin d'un(e) ${requiredToolName} équipé(e).`, "system"); return; }
 
-                    if (actionId === ACTIONS.HARVEST_WOOD_HACHE) {
-                        if (toolUsed && toolUsed.name === 'Hache') { woodYield = 3; toolUsedNameForMessage = toolUsed.name; }
-                        else { UI.addChatMessage("Vous avez besoin d'une Hache équipée.", "system"); return; }
-                    } else if (actionId === ACTIONS.HARVEST_WOOD_SCIE) {
-                        if (toolUsed && toolUsed.name === 'Scie') { woodYield = 5; toolUsedNameForMessage = toolUsed.name; }
-                        else { UI.addChatMessage("Vous avez besoin d'une Scie équipée.", "system"); return; }
-                    }
-                    
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                     const amountToHarvest = Math.min(woodYield, availableSpace);
                     if (forestTileRef.woodActionsLeft > 0) forestTileRef.woodActionsLeft--;
@@ -469,18 +464,47 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     if (amountToHarvest > 0) {
                         State.addResourceToPlayer('Bois', amountToHarvest);
                         UI.showFloatingText(`+${amountToHarvest} Bois`, 'gain'); UI.triggerActionFlash('gain');
-                        UI.addChatMessage(`Vous obtenez ${amountToHarvest} Bois avec ${toolUsedNameForMessage}.`, 'system');
-                        if (amountToHarvest < woodYield && availableSpace === 0) UI.addChatMessage("Inventaire plein, récolte partielle de bois.", "system");
-
+                        UI.triggerScreenShake();
+                        UI.addChatMessage(`Vous obtenez ${amountToHarvest} Bois avec ${toolUsed.name}.`, 'system');
+                        if (amountToHarvest < woodYield && availableSpace === 0) UI.addChatMessage("Inventaire plein, récolte partielle.", "system");
                     } else {
-                         UI.addChatMessage(availableSpace <=0 ? "Votre inventaire est plein !" : "Impossible de récolter du bois.", "system");
-                         if (availableSpace <=0 && DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
+                        UI.addChatMessage(availableSpace <= 0 ? "Votre inventaire est plein !" : "Impossible de récolter du bois.", "system");
+                        if (availableSpace <= 0 && DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
                     }
-                     if (forestTileRef.woodActionsLeft <= 0) {
+                    if (forestTileRef.woodActionsLeft <= 0) {
                         UI.addChatMessage("Cette partie de la forêt est épuisée pour le bois.", "system");
                     }
                 },
                 updateUICallbacks, {}, requiredToolName);
+            break;
+        }
+        case ACTIONS.HARVEST_WOOD_MAINS: {
+            const forestTileRef = map[player.y][player.x];
+            if (forestTileRef.type.name !== TILE_TYPES.FOREST.name || forestTileRef.woodActionsLeft <= 0) {
+                UI.addChatMessage("Plus de bois à ramasser ici ou ce n'est pas une forêt.", "system"); return;
+            }
+            performTimedAction(player, ACTION_DURATIONS.HARVEST,
+                () => UI.addChatMessage("Vous ramassez du bois à mains nues...", "system"),
+                () => {
+                    const woodYield = 1; // Rendement de base pour les mains nues
+                    const availableSpace = player.maxInventory - getTotalResources(player.inventory);
+                    const amountToHarvest = Math.min(woodYield, availableSpace);
+                    if (forestTileRef.woodActionsLeft > 0) forestTileRef.woodActionsLeft--;
+
+                    if (amountToHarvest > 0) {
+                        State.addResourceToPlayer('Bois', amountToHarvest);
+                        UI.showFloatingText(`+${amountToHarvest} Bois`, 'gain'); UI.triggerActionFlash('gain');
+                        UI.addChatMessage(`Vous obtenez ${amountToHarvest} Bois.`, 'system');
+                        if (amountToHarvest < woodYield && availableSpace === 0) UI.addChatMessage("Inventaire plein, récolte partielle.", "system");
+                    } else {
+                        UI.addChatMessage(availableSpace <= 0 ? "Votre inventaire est plein !" : "Impossible de ramasser du bois.", "system");
+                        if (availableSpace <= 0 && DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
+                    }
+                    if (forestTileRef.woodActionsLeft <= 0) {
+                        UI.addChatMessage("Cette partie de la forêt est épuisée pour le bois.", "system");
+                    }
+                },
+                updateUICallbacks);
             break;
         }
         case ACTIONS.FISH: { 
@@ -612,6 +636,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 UI.addChatMessage("Vous ne pouvez pas construire sur ce type de terrain.", "system"); return;
             }
 
+            UI.triggerActionFlash('cost');
             performTimedAction(player, ACTION_DURATIONS.BUILD,
                 () => UI.addChatMessage(`Construction de ${structureType.name}...`, "system"),
                 () => {
@@ -1056,6 +1081,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 return;
             }
 
+            UI.triggerActionFlash('cost');
             performTimedAction(player, ACTION_DURATIONS.CRAFT * quantity,
                 () => UI.addChatMessage(`Fabrication de ${quantity}x ${recipeName}...`, "system"),
                 () => {

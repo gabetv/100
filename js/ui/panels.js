@@ -3,35 +3,27 @@ import { ITEM_TYPES, TILE_TYPES } from '../config.js';
 import { getTotalResources } from '../player.js';
 import DOM from './dom.js';
 
-function drawSquaresBar(container, value, maxValue) {
-    if (!container) return;
-    container.innerHTML = '';
-    const numSquares = 10;
-    const filledCount = Math.ceil((value / maxValue) * numSquares);
-
-    for (let i = 0; i < numSquares; i++) {
-        const square = document.createElement('div');
-        square.classList.add('stat-square');
-        square.classList.toggle('filled', i < filledCount);
-        container.appendChild(square);
-    }
+function updateBar(barElement, value, maxValue) {
+    if (!barElement) return;
+    const percentage = (value / maxValue) * 100;
+    barElement.style.width = `${percentage}%`;
 }
 
 export function updateStatsPanel(player) {
     if (!player) return;
-    const { healthBarSquaresEl, thirstBarSquaresEl, hungerBarSquaresEl, sleepBarSquaresEl, healthStatusEl } = DOM;
+    const { healthBarEl, thirstBarEl, hungerBarEl, sleepBarEl, healthStatusEl } = DOM;
 
-    drawSquaresBar(healthBarSquaresEl, player.health, player.maxHealth);
-    drawSquaresBar(thirstBarSquaresEl, player.thirst, player.maxThirst);
-    drawSquaresBar(hungerBarSquaresEl, player.hunger, player.maxHunger);
-    drawSquaresBar(sleepBarSquaresEl, player.sleep, player.maxSleep);
+    updateBar(healthBarEl, player.health, player.maxHealth);
+    updateBar(thirstBarEl, player.thirst, player.maxThirst);
+    updateBar(hungerBarEl, player.hunger, player.maxHunger);
+    updateBar(sleepBarEl, player.sleep, player.maxSleep);
 
     if (healthStatusEl) healthStatusEl.textContent = player.status.join(', ') || 'normale';
 
-    if (healthBarSquaresEl) healthBarSquaresEl.classList.toggle('pulsing', player.health <= (player.maxHealth * 0.3));
-    if (thirstBarSquaresEl) thirstBarSquaresEl.classList.toggle('pulsing', player.thirst <= (player.maxThirst * 0.2));
-    if (hungerBarSquaresEl) hungerBarSquaresEl.classList.toggle('pulsing', player.hunger <= (player.maxHunger * 0.2));
-    if (sleepBarSquaresEl) sleepBarSquaresEl.classList.toggle('pulsing', player.sleep <= (player.maxSleep * 0.2));
+    if (healthBarEl) healthBarEl.parentElement.classList.toggle('pulsing', player.health <= (player.maxHealth * 0.3));
+    if (thirstBarEl) thirstBarEl.parentElement.classList.toggle('pulsing', player.thirst <= (player.maxThirst * 0.2));
+    if (hungerBarEl) hungerBarEl.parentElement.classList.toggle('pulsing', player.hunger <= (player.maxHunger * 0.2));
+    if (sleepBarEl) sleepBarEl.parentElement.classList.toggle('pulsing', player.sleep <= (player.maxSleep * 0.2));
 
     const survivalVignette = document.getElementById('survival-vignette');
     if (survivalVignette) survivalVignette.classList.toggle('active', player.health <= (player.maxHealth * 0.3));
@@ -319,7 +311,7 @@ export function updateGroundItemsPanel(tile) {
                 const li = document.createElement('li');
                 li.className = 'inventory-item clickable';
                 li.dataset.itemKey = itemName; // La clé unique de l'inventaire
-                li.dataset.itemName = baseItemName; // Le nom de base pour la définition de l'objet
+                li.dataset.itemName = itemName; // Le nom de base pour la définition de l'objet
                 li.dataset.itemCount = groundItems[itemName];
                 li.setAttribute('draggable', 'true');
                 li.dataset.owner = 'ground';

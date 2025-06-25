@@ -1,6 +1,7 @@
 // js/player.js
 import { CONFIG, ITEM_TYPES } from './config.js';
 import * as State from './state.js';
+import { triggerActionFlash } from './ui/effects.js';
 
 export function getTotalResources(inventory) {
     return Object.values(inventory).reduce((sum, item) => {
@@ -228,6 +229,8 @@ export function consumeItem(itemName, player) {
                         else if(effect === 'hunger') icon = '🍗';
                         else if(effect === 'sleep') icon = '🌙';
                         floatingTexts.push({text: `${sign}${actualChange}${icon}`, type: actualChange > 0 ? 'gain' : 'cost'});
+                        // Déclencher le flash visuel
+                        triggerActionFlash(actualChange > 0 ? 'gain' : 'cost');
                     }
                 }
             }

@@ -55,7 +55,9 @@ function triggerParticles(type, x, y) {
     const colors = {
         harvest: ['#8b4513', '#228B22'],
         craft: ['#FFA500', '#FFD700'],
-        combat: ['#FF0000', '#8B0000']
+        combat: ['#FF0000', '#8B0000'],
+        smoke: ['#555555', '#888888'],
+        dust: ['#BDB76B', '#F0E68C']
     };
     const selectedColors = colors[type] || ['#FFFFFF'];
 
@@ -215,26 +217,27 @@ function updatePossibleActions() {
         createButton(`🔑 Prendre ${tile.hiddenItem}`, ACTIONS.TAKE_HIDDEN_ITEM, {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : `Ramasser ${tile.hiddenItem}`);
     }
 
-    if (tileType.resource && (tile.harvestsLeft > 0 || tile.harvestsLeft === Infinity) && !findEnemyOnTile(player.x, player.y, enemies) && !Interactions.findBuildingOnTile(tile, 'MINE')) {
-        if (tileType.name === TILE_TYPES.FOREST.name) {
-            const canHarvestWood = tile.woodActionsLeft > 0;
-            const equippedWeapon = player.equipment.weapon;
-            if (equippedWeapon) {
-                if (equippedWeapon.name === 'Hache') {
-                    createButton(`🪓 Couper Bois (Hache) (${tile.woodActionsLeft || 0})`, ACTIONS.HARVEST_WOOD_HACHE, {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
-                } else if (equippedWeapon.name === 'Scie') {
-                    createButton(`🪚 Scier Bois (Scie) (${tile.woodActionsLeft || 0})`, ACTIONS.HARVEST_WOOD_SCIE, {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
-                }
+    // Condition pour afficher les actions de récolte (bois, pierre, etc.)
+    const canHarvestWood = tileType.name === TILE_TYPES.FOREST.name && tile.woodActionsLeft > 0;
+    const canHarvestStone = tileType.name === TILE_TYPES.MINE_TERRAIN.name && (tile.harvestsLeft > 0 || tile.harvestsLeft === Infinity) && !Interactions.findBuildingOnTile(tile, 'MINE');
+
+    if (canHarvestWood && !findEnemyOnTile(player.x, player.y, enemies)) {
+        const equippedWeapon = player.equipment.weapon;
+        if (equippedWeapon) {
+            if (equippedWeapon.name === 'Hache') {
+                createButton(`🪓 Couper Bois (Hache) (${tile.woodActionsLeft || 0})`, ACTIONS.HARVEST_WOOD_HACHE, {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "Couper du bois avec une hache");
+            } else if (equippedWeapon.name === 'Scie') {
+                createButton(`🪚 Scier Bois (Scie) (${tile.woodActionsLeft || 0})`, ACTIONS.HARVEST_WOOD_SCIE, {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "Scier du bois avec une scie");
             }
-            // Toujours afficher l'option de récolter à mains nues si aucune hache ou scie n'est équipée
-            if (!equippedWeapon || (equippedWeapon.name !== 'Hache' && equippedWeapon.name !== 'Scie')) {
-                createButton(`✋ Ramasser Bois (${tile.woodActionsLeft || 0})`, ACTIONS.HARVEST_WOOD_MAINS, {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
-            }
-        } else if (tileType.name === TILE_TYPES.MINE_TERRAIN.name) {
-            const canHarvestStone = tile.harvestsLeft > 0;
-            const resourceIcon = ITEM_TYPES[tileType.resource.type]?.icon || '';
-            createButton(`${resourceIcon} Récolter Pierre (${tile.harvestsLeft || 0})`, ACTIONS.HARVEST_STONE, {}, isInventoryFull || !canHarvestStone, isInventoryFull ? "Inventaire plein" : (!canHarvestStone ? "Plus de pierre ici" : ""));
         }
+        if (!equippedWeapon || (equippedWeapon.name !== 'Hache' && equippedWeapon.name !== 'Scie')) {
+            createButton(`✋ Ramasser Bois (${tile.woodActionsLeft || 0})`, ACTIONS.HARVEST_WOOD_MAINS, {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "Ramasser du bois à mains nues");
+        }
+    }
+
+    if (canHarvestStone && !findEnemyOnTile(player.x, player.y, enemies)) {
+        const resourceIcon = ITEM_TYPES[tileType.resource.type]?.icon || '🪨';
+        createButton(`${resourceIcon} Récolter Pierre (${tile.harvestsLeft || 0})`, ACTIONS.HARVEST_STONE, {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : "Récolter de la pierre");
     }
 
     const hasPiocheEquipped = player.equipment.weapon && player.equipment.weapon.name === 'Pioche';
@@ -804,6 +807,7 @@ function handleDrop(e) {
     const itemCount = draggedItemInfo.itemCount;
     const sourceOwner = draggedItemInfo.sourceOwner;
     const sourceSlotType = draggedItemInfo.sourceSlotType;
+    const itemKey = draggedItemInfo.element.dataset.itemKey; // Ajout pour obtenir la clé unique
     
     let transferActionInitiated = false;
 
@@ -811,7 +815,7 @@ function handleDrop(e) {
         const itemDef = ITEM_TYPES[itemName];
         if (sourceOwner === 'player-inventory') {
             if (itemDef && itemDef.slot === destSlotType) {
-                State.equipItem(itemName);
+                State.equipItem(itemKey); // Utiliser itemKey pour équiper
             } else { UI.addChatMessage("Cet objet ne va pas dans cet emplacement.", "system"); }
         }
     } else if (destOwner === 'player-inventory') {
@@ -844,31 +848,33 @@ function handleDrop(e) {
                 transferActionInitiated = true;
                 UI.showQuantityModal(itemName, itemCount, amount => {
                     if (amount > 0) {
-                        const transferResult = State.applyBulkInventoryTransfer(itemName, amount, currentTransferType);
+                        const transferResult = State.applyBulkInventoryTransfer(itemKey, amount, currentTransferType); // Utiliser itemKey
                         UI.addChatMessage(transferResult.message, transferResult.success ? 'system' : 'system_error');
                     }
                     window.fullUIUpdate();
                     draggedItemInfo = null; 
                 });
             } else {
-                const transferResult = State.applyBulkInventoryTransfer(itemName, 1, currentTransferType);
+                const transferResult = State.applyBulkInventoryTransfer(itemKey, 1, currentTransferType); // Utiliser itemKey
                 UI.addChatMessage(transferResult.message, transferResult.success ? 'system' : 'system_error');
             }
         }
-    } else if (destOwner === 'ground' && sourceOwner === 'player-inventory') {
-        if (itemCount > 1) {
-            transferActionInitiated = true;
-            UI.showQuantityModal(`Déposer ${itemName}`, itemCount, (amount) => {
-                if (amount > 0) {
-                    const result = State.dropItemOnGround(itemName, amount);
-                    UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
-                }
-                window.fullUIUpdate();
-                draggedItemInfo = null; 
-            });
-        } else {
-            const result = State.dropItemOnGround(itemName, 1);
-            UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+    } else if (destOwner === 'ground' || !dropZone.closest('#inventory-modal, #equipment-modal, #bottom-bar-equipment-panel')) {
+        if (sourceOwner === 'player-inventory') {
+            if (itemCount > 1) {
+                transferActionInitiated = true;
+                UI.showQuantityModal(`Déposer ${itemName}`, itemCount, (amount) => {
+                    if (amount > 0) {
+                        const result = State.dropItemOnGround(itemKey, amount); // Utiliser itemKey
+                        UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+                    }
+                    window.fullUIUpdate();
+                    draggedItemInfo = null; 
+                });
+            } else {
+                const result = State.dropItemOnGround(itemKey, 1); // Utiliser itemKey
+                UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+            }
         }
     }
 
@@ -1161,6 +1167,13 @@ async function init() {
                     npcChatter(State.state.npcs);
                 }
             }, CONFIG.CHAT_MESSAGE_INTERVAL_MS));
+
+            State.state.gameIntervals.push(setInterval(() => {
+                const tile = State.state.map[State.state.player.y][State.state.player.x];
+                if (tile.buildings.some(b => b.key === 'CAMPFIRE' && b.durability > 0)) {
+                    triggerParticles('smoke', window.innerWidth / 2, window.innerHeight / 2);
+                }
+            }, 500));
         }
 
     } catch (error) {
