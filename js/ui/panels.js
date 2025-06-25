@@ -122,14 +122,16 @@ export function updateInventory(player) {
                     instanceData = itemValue;
                 }
                 
-                const baseItemDef = ITEM_TYPES[baseItemName] || { icon: '❓' };
+                const baseItemDef = ITEM_TYPES[baseItemName] || { icon: '❓', rarity: 'common' };
 
                 const li = document.createElement('li');
                 li.className = 'inventory-item';
+                li.classList.add(`rarity-${baseItemDef.rarity}`);
                  if (baseItemDef.type === 'consumable' || baseItemDef.teachesRecipe || baseItemDef.slot || baseItemDef.type === 'usable' || baseItemDef.type === 'key') {
                     li.classList.add('clickable');
                 }
-                li.dataset.itemName = itemName; // Use original key for interactions
+                li.dataset.itemKey = itemName; // Use the unique key for interactions
+                li.dataset.itemName = baseItemName;
                 li.setAttribute('draggable', 'true');
                 li.dataset.owner = 'player-inventory';
 
@@ -316,7 +318,8 @@ export function updateGroundItemsPanel(tile) {
                 const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
                 const li = document.createElement('li');
                 li.className = 'inventory-item clickable';
-                li.dataset.itemName = itemName;
+                li.dataset.itemKey = itemName; // La clé unique de l'inventaire
+                li.dataset.itemName = baseItemName; // Le nom de base pour la définition de l'objet
                 li.dataset.itemCount = groundItems[itemName];
                 li.setAttribute('draggable', 'true');
                 li.dataset.owner = 'ground';

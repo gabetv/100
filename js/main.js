@@ -11,6 +11,44 @@ import * as Interactions from './interactions.js';
 import { initAdminControls } from './admin.js';
 
 import { ParticleSystem } from './effects.js';
+
+function handleInventoryItemClick(e) {
+    if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return;
+    
+    const header = e.target.closest('.category-header');
+    if (header) {
+        header.classList.toggle('open');
+        const content = header.nextElementSibling;
+        if (content) content.classList.toggle('visible');
+        return; // Ne pas traiter comme un clic d'item
+    }
+
+    const itemEl = e.target.closest('.inventory-item');
+    if (!itemEl || !itemEl.dataset.itemKey) return;
+
+    const ownerEl = itemEl.closest('[data-owner="player-inventory"]');
+    if (!ownerEl) return;
+
+    const itemKey = itemEl.dataset.itemKey;
+    const itemName = itemEl.dataset.itemName; // Utilisation du bon dataset
+
+    if (!itemName) {
+        console.error("Erreur: itemName est undefined. itemKey:", itemKey, "Élément:", itemEl);
+        UI.addChatMessage("Erreur interne: Impossible d'identifier l'objet.", "system_error");
+        return;
+    }
+
+    const itemDef = ITEM_TYPES[itemName];
+
+    if (itemDef && itemDef.slot) {
+        const equipResult = State.equipItem(itemKey);
+        UI.addChatMessage(equipResult.message, equipResult.success ? 'system' : 'system_error');
+        if (equipResult.success) window.fullUIUpdate();
+    } else {
+        handleConsumeClick(itemName);
+    }
+}
+
 const particleSystem = new ParticleSystem();
 
 function triggerParticles(type, x, y) {
@@ -563,73 +601,6 @@ function handleConsumeClick(itemName) {
     const { player } = State.state;
     if (player.isBusy || player.animationState) { UI.addChatMessage("Vous êtes occupé.", "system"); return; }
 
-    const itemDef = ITEM_TYPES[itemName];
-    const isInstance = typeof player.inventory[itemName] === 'object';
-    
-    // Si c'est une instance (objet avec durabilité), on ne peut pas le "consommer" comme ça
-    if (isInstance) {
-        if (itemDef && itemDef.slot) { // Tentative d'équipement
-            const equipResult = State.equipItem(itemName);
-            UI.addChatMessage(equipResult.message, equipResult.success ? 'system' : 'system_error');
-            if (equipResult.success) fullUIUpdate();
-        } else {
-             UI.addChatMessage(`"${itemName}" ne peut pas être utilisé directement comme ça.`, "system");
-        }
-        return;
-    }
-
-    if (itemDef && itemDef.effects) {
-        if ((itemName === 'Eau pure' || itemName === 'Eau salée' || itemName === 'Eau croupie' || itemName === 'Noix de coco') && player.thirst >= player.maxThirst) {
-            const msg = itemName === 'Noix de coco' || itemName === 'Eau pure' ? "Vous n'avez pas soif." : "Vous n'avez pas soif, vous devriez économiser cette eau précieuse.";
-            UI.addChatMessage(msg, "system"); return;
-        }
-        const onlyHungerEffect = Object.keys(itemDef.effects).length === 1 && itemDef.effects.hunger && itemDef.effects.hunger > 0;
-        if (onlyHungerEffect && player.hunger >= player.maxHunger) {
-            UI.addChatMessage("Vous n'avez pas faim.", "system"); return;
-        }
-        if ((itemName === 'Savon' || itemName === 'Bandage' || itemName === 'Huile de coco') && player.health >= player.maxHealth) {
-            UI.addChatMessage("Votre santé est au maximum.", "system"); return;
-        }
-        if (itemName === 'Alcool' && player.thirst >= player.maxThirst -1) {
-            UI.addChatMessage("Vous n'avez pas assez soif pour boire de l'alcool.", "system"); return;
-        }
-        if (itemName === 'Banane' && player.hunger > player.maxHunger - 2) { UI.addChatMessage("Vous n'avez pas assez faim pour une banane.", "system"); return; }
-        if (itemName === 'Canne à sucre' && player.hunger > player.maxHunger - 3) { UI.addChatMessage("Vous n'avez pas assez faim pour de la canne à sucre.", "system"); return; }
-        if (itemName === 'Oeuf cru' && player.hunger > player.maxHunger - 2) { UI.addChatMessage("Vous n'avez pas assez faim pour un oeuf cru.", "system"); return; }
-        if (itemName === 'Poisson cru' && player.hunger > player.maxHunger - 3) { UI.addChatMessage("Vous n'avez pas assez faim pour du poisson cru.", "system"); return; }
-        if (itemName === 'Sel') {
-            const selDef = ITEM_TYPES['Sel'];
-            if (player.hunger > player.maxHunger - (selDef.effects.hunger || 0) ) {
-                UI.addChatMessage("Vous n'avez pas assez faim pour manger du sel.", "system"); return;
-            }
-        }
-
-        if (itemName === 'Antiseptique' && player.health >= player.maxHealth) {
-            UI.addChatMessage("Votre santé est au maximum, l'antiseptique ne sera pas utilisé.", "system"); return;
-        }
-    }
-
-    if (itemName === 'Eau salée') {
-         handleGlobalPlayerAction('consume_eau_salee', {itemName: 'Eau salée'});
-         return;
-    }
-    if (itemDef && itemDef.slot && ['weapon', 'shield', 'body', 'head', 'feet', 'bag'].includes(itemDef.slot)) {
-        const equipResult = State.equipItem(itemName);
-        UI.addChatMessage(equipResult.message, equipResult.success ? 'system' : 'system_error');
-        if (equipResult.success) fullUIUpdate();
-        return;
-    }
-    if (itemName === 'Batterie chargée' && player.equipment.weapon && (player.equipment.weapon.name === 'Radio déchargée' || player.equipment.weapon.name === 'Téléphone déchargé' || player.equipment.weapon.name === 'Guitare déchargé')) {
-        const result = State.consumeItem(itemName);
-        UI.addChatMessage(result.message, result.success ? 'system_event' : 'system_error');
-        if (result.success) fullUIUpdate();
-        return;
-    }
-    if (itemDef && itemDef.type === 'usable' && itemDef.action) {
-        handleGlobalPlayerAction(itemDef.action, { itemName: itemName });
-        return;
-    }
-
     const result = State.consumeItem(itemName);
     UI.addChatMessage(result.message, result.success ? (itemName.startsWith('Parchemin') || itemName === 'Porte bonheur' || itemName === 'Batterie chargée' ? 'system_event' : 'system') : 'system_error');
     if(result.success) {
@@ -966,27 +937,15 @@ function setupEventListeners() {
     if (DOM.closeInventoryModalBtn) DOM.closeInventoryModalBtn.addEventListener('click', UI.hideInventoryModal);
 
     if (DOM.inventoryCategoriesEl) {
-        DOM.inventoryCategoriesEl.addEventListener('click', e => {
-            if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return;
-            const itemEl = e.target.closest('.inventory-item');
-            if (itemEl && itemEl.dataset.itemName) {
-                const itemName = itemEl.dataset.itemName;
-                const itemDef = ITEM_TYPES[itemName];
-                if (itemDef && itemDef.slot && ['bag', 'shield', 'body', 'feet', 'head', 'weapon'].includes(itemDef.slot)) {
-                    const equipResult = State.equipItem(itemName);
-                    UI.addChatMessage(equipResult.message, equipResult.success ? 'system' : 'system_error');
-                    if (equipResult.success) window.fullUIUpdate();
-                } else {
-                    handleConsumeClick(itemName);
-                }
-            } else {
-                const header = e.target.closest('.category-header');
-                if (header) { header.classList.toggle('open');
-                    if (header.nextElementSibling) header.nextElementSibling.classList.toggle('visible');
-                }
-            }
-        });
+        DOM.inventoryCategoriesEl.addEventListener('click', handleInventoryItemClick);
         setupDragAndDropForContainer(DOM.inventoryCategoriesEl);
+    }
+
+    if (DOM.modalPlayerInventoryEl) {
+        DOM.modalPlayerInventoryEl.addEventListener('click', handleInventoryItemClick);
+    }
+    if (DOM.equipmentPlayerInventoryEl) {
+        DOM.equipmentPlayerInventoryEl.addEventListener('click', handleInventoryItemClick);
     }
 
     if (DOM.bottomBarGroundItemsEl) {

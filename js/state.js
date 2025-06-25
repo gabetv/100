@@ -239,11 +239,25 @@ export function addEnemy(enemy) {
     }
 }
 
-export function equipItem(itemName) {
+export function equipItem(itemKey) {
     const player = gameState.player;
+    const itemInstance = player.inventory[itemKey];
+
+    if (!itemInstance) {
+        // Si la clé n'est pas trouvée, c'est peut-être un objet empilable.
+        // On cherche la première clé correspondant au nom de l'objet.
+        const foundKey = Object.keys(player.inventory).find(key => player.inventory[key].name === itemKey);
+        if (foundKey) {
+            return equipItem(foundKey); // On relance la fonction avec la bonne clé.
+        }
+        return { success: false, message: "Objet introuvable dans l'inventaire." };
+    }
+
+    const itemName = typeof itemInstance === 'object' ? itemInstance.name : itemKey;
     const itemDef = JSON.parse(JSON.stringify(ITEM_TYPES[itemName]));
 
-    if (!itemDef || !player.inventory[itemName]) return { success: false, message: "Objet introuvable." };
+    if (!itemDef) return { success: false, message: "Définition de l'objet introuvable." };
+
     const slot = itemDef.slot;
     if (!slot || !player.equipment.hasOwnProperty(slot)) return { success: false, message: "Vous ne pouvez pas équiper ceci." };
 
@@ -251,45 +265,26 @@ export function equipItem(itemName) {
         const unequipResult = unequipItem(slot);
         if (!unequipResult.success) return unequipResult;
     }
-    
-    // Si l'objet dans l'inventaire est une instance (avec durabilité), on l'utilise
-    // Sinon, on en crée une nouvelle (pour les objets qui n'ont pas de durabilité/usages)
-    const inventoryItem = player.inventory[itemName];
-    let itemInstanceToEquip;
-    if (typeof inventoryItem === 'object' && inventoryItem.name) {
-        itemInstanceToEquip = inventoryItem;
-    } else {
-        itemInstanceToEquip = { name: itemName, ...itemDef };
-        if (itemInstanceToEquip.hasOwnProperty('durability')) {
-            itemInstanceToEquip.currentDurability = itemInstanceToEquip.durability;
-        }
-        if (itemInstanceToEquip.hasOwnProperty('uses')) {
-            itemInstanceToEquip.currentUses = itemInstanceToEquip.uses;
-        }
-    }
-    
-    player.equipment[slot] = itemInstanceToEquip;
+
+    player.equipment[slot] = itemInstance;
 
     if (itemDef.stats) {
         for (const stat in itemDef.stats) {
-            if (stat.startsWith('max') && player.hasOwnProperty(stat)) {
-                 player[stat] += itemDef.stats[stat];
-                 const currentStatName = stat.substring(3).toLowerCase();
-                 if (player.hasOwnProperty(currentStatName)) {
-                     player[currentStatName] = Math.min(player[currentStatName], player[stat]);
-                 }
+            if (stat === 'maxInventory') {
+                player.maxInventory += itemDef.stats[stat];
+            } else if (stat.startsWith('max') && player.hasOwnProperty(stat)) {
+                player[stat] += itemDef.stats[stat];
+                const currentStatName = stat.substring(3).toLowerCase();
+                if (player.hasOwnProperty(currentStatName)) {
+                    player[currentStatName] = Math.min(player[currentStatName], player[stat]);
+                }
             } else if (player.hasOwnProperty(stat)) {
                 player[stat] += itemDef.stats[stat];
             }
         }
     }
 
-    if (typeof inventoryItem === 'object') {
-        delete player.inventory[itemName]; // Supprimer l'instance de l'inventaire
-    } else if (player.inventory[itemName] > 0) {
-        player.inventory[itemName]--;
-        if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
-    }
+    delete player.inventory[itemKey];
 
     return { success: true, message: `${itemName} équipé.` };
 }
@@ -317,7 +312,9 @@ export function unequipItem(slot) {
     
     if (itemInstance.stats) {
         for (const stat in itemInstance.stats) {
-            if (stat.startsWith('max') && player.hasOwnProperty(stat)) {
+            if (stat === 'maxInventory') {
+                player.maxInventory -= itemInstance.stats[stat];
+            } else if (stat.startsWith('max') && player.hasOwnProperty(stat)) {
                 player[stat] -= itemInstance.stats[stat];
                 const currentStatName = stat.substring(3).toLowerCase();
                 if (player.hasOwnProperty(currentStatName)) {
@@ -330,34 +327,32 @@ export function unequipItem(slot) {
     }
 
     // Remettre l'objet dans l'inventaire en préservant son état
-    if (hasState) {
-        addResourceToPlayer(itemInstance.name, 1);
-    } else {
-        // Pour les objets sans état, on incrémente juste le compteur.
-        addResourceToPlayer(itemInstance.name, 1);
-    }
+    addResourceToPlayer(itemInstance, 1);
     
     return { success: true, message: `${itemInstance.name} déséquipé.` };
 }
 
 
-export function addResourceToPlayer(resourceType, amount) {
+export function addResourceToPlayer(resource, amount) {
     const player = gameState.player;
-    if (typeof amount !== 'number' || isNaN(amount)) {
-        console.error(`Tentative d'ajout d'une quantité non numérique à l'inventaire:`, { resourceType, amount });
-        return;
-    }
+    const resourceName = typeof resource === 'string' ? resource : resource.name;
+
     if (typeof player.inventory !== 'object' || player.inventory === null) {
         console.error("L'inventaire du joueur n'est pas un objet valide. Réinitialisation.", player.inventory);
         player.inventory = {};
     }
 
-    const currentAmount = player.inventory[resourceType] || 0;
-    if (typeof currentAmount !== 'number') {
-        console.warn(`Le type de ressource '${resourceType}' dans l'inventaire n'est pas un nombre, il sera écrasé.`, currentAmount);
-        player.inventory[resourceType] = amount;
+    if (typeof resource === 'object') {
+        const uniqueKey = `${resourceName}_${Date.now()}`;
+        player.inventory[uniqueKey] = resource;
     } else {
-        player.inventory[resourceType] = currentAmount + amount;
+        const currentAmount = player.inventory[resourceName] || 0;
+        if (typeof currentAmount !== 'number') {
+            console.warn(`Le type de ressource '${resourceName}' dans l'inventaire n'est pas un nombre, il sera écrasé.`, currentAmount);
+            player.inventory[resourceName] = amount;
+        } else {
+            player.inventory[resourceName] = currentAmount + amount;
+        }
     }
 }
 
@@ -680,24 +675,33 @@ export function consumeItem(itemName) {
 }
 
 
-export function dropItemOnGround(itemName, quantity) {
+export function dropItemOnGround(item, quantity) {
     const player = gameState.player;
+    const itemName = typeof item === 'string' ? item : item.name;
+
     if (!player.inventory[itemName] || player.inventory[itemName] < quantity) {
         return { success: false, message: "Quantité insuffisante dans l'inventaire." };
     }
+
     const tile = gameState.map[player.y][player.x];
     if (!tile.groundItems) tile.groundItems = {};
 
     player.inventory[itemName] -= quantity;
     if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
 
-    tile.groundItems[itemName] = (tile.groundItems[itemName] || 0) + quantity;
+    if (!tile.groundItems[itemName]) {
+        tile.groundItems[itemName] = 0;
+    }
+    tile.groundItems[itemName] += quantity;
+
     return { success: true, message: `Vous avez déposé ${quantity} ${itemName} au sol.` };
 }
 
-export function pickUpItemFromGround(itemName, quantity) {
+export function pickUpItemFromGround(item, quantity) {
     const player = gameState.player;
     const tile = gameState.map[player.y][player.x];
+    const itemName = typeof item === 'string' ? item : item.name;
+
     if (!tile.groundItems || !tile.groundItems[itemName] || tile.groundItems[itemName] < quantity) {
         return { success: false, message: "Quantité insuffisante au sol." };
     }
@@ -708,9 +712,12 @@ export function pickUpItemFromGround(itemName, quantity) {
     }
 
     tile.groundItems[itemName] -= quantity;
-    if (tile.groundItems[itemName] <= 0) delete tile.groundItems[itemName];
+    if (tile.groundItems[itemName] <= 0) {
+        delete tile.groundItems[itemName];
+    }
 
-    player.inventory[itemName] = (player.inventory[itemName] || 0) + quantity;
+    addResourceToPlayer(itemName, quantity);
+
     return { success: true, message: `Vous avez ramassé ${quantity} ${itemName}.` };
 }
 

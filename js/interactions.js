@@ -115,12 +115,9 @@ function performToolAction(player, toolSlot, actionType, onComplete, updateUICal
         () => {
             onComplete(tool ? (tool.power || 1) : 1, tool); // Pass tool instance
             if (tool) { // Only process tool if one was actually used (not hands)
-                if (tool.hasOwnProperty('currentDurability') && typeof tool.currentDurability === 'number') {
-                    tool.currentDurability--;
-                    if (tool.currentDurability <= 0) {
-                        UI.addChatMessage(`${tool.name} s'est cassé !`, 'system_warning'); // Durability 0 -> disappears (handled by unequipItem)
-                        State.unequipItem(toolSlot);
-                    }
+                if (tool.hasOwnProperty('breakChance') && Math.random() < tool.breakChance) {
+                    UI.addChatMessage(`${tool.name} s'est cassé !`, 'system_warning');
+                    State.unequipItem(toolSlot);
                 } else if (tool.hasOwnProperty('uses')) { // Check for uses property first (e.g. for tools like Filtre à eau)
                     // If the item definition has 'uses' but the instance doesn't have 'currentUses', initialize it.
                     if (typeof tool.currentUses === 'undefined' && typeof tool.uses === 'number') {

@@ -3,43 +3,66 @@ import { CONFIG, ITEM_TYPES } from './config.js';
 import * as State from './state.js';
 
 export function getTotalResources(inventory) {
-    return Object.values(inventory).reduce((sum, count) => sum + count, 0);
+    return Object.values(inventory).reduce((sum, item) => {
+        if (typeof item === 'number') {
+            return sum + item;
+        } else if (typeof item === 'object') {
+            return sum + 1;
+        }
+        return sum;
+    }, 0);
 }
 
 export function initPlayer(config, playerId = 'player1') {
+    const inventory = {};
+    const initialItems = {
+        'Hache': 1,
+        'Pelle en bois': 1,
+        'Briquet': 1,
+        'Eau pure': 5,
+        'Viande crue': 2,
+        'Poisson cru': 2,
+        'Oeuf cru': 2,
+        'Eau croupie': 3,
+        'Eau salée': 3,
+        'Kit de Secours': 2,
+        'Bandage': 2,
+        'Médicaments':1,
+        'Antiseptique': 1,
+        'Savon':1,
+        'Alcool': 2,
+        'Huile de coco':1,
+        'Noix de coco': 2,
+        'Breuvage étrange': 3,
+        'Seau': 1,
+        'Guitare déchargé': 1,
+        'Cadenas': 1,
+        'Radio déchargée': 1,
+        'Batterie chargée': 1,
+        'Petit Sac': 1,
+    };
+
+    for (const itemName in initialItems) {
+        const itemDef = ITEM_TYPES[itemName];
+        if (itemDef && (itemDef.hasOwnProperty('breakChance') || itemDef.hasOwnProperty('uses') || itemDef.slot)) {
+            for (let i = 0; i < initialItems[itemName]; i++) {
+                const uniqueKey = `${itemName}_${Date.now()}_${i}`;
+                const newItem = { name: itemName, ...JSON.parse(JSON.stringify(itemDef)) };
+                if(newItem.uses) newItem.currentUses = newItem.uses;
+                inventory[uniqueKey] = newItem;
+            }
+        } else {
+            inventory[itemName] = initialItems[itemName];
+        }
+    }
+
     return {
         id: playerId,
         x: 0, y: 0, // Initial position, will be updated
         health: 10, thirst: 10, hunger: 10, sleep: 10,
         status: ['normale'], // 'normale', 'Blessé', 'Malade', 'Empoisonné', 'Accro', 'Drogué', 'Alcoolisé'
         maxHealth: 10, maxThirst: 10, maxHunger: 10, maxSleep: 10, maxInventory: CONFIG.PLAYER_BASE_MAX_RESOURCES,
-
-        inventory: { // Inventaire de départ pour tests
-            'Hache': 1,
-            'Pelle en bois': 1,
-            'Briquet': 1,
-            'Eau pure': 5,
-            'Viande crue': 2,
-            'Poisson cru': 2,
-            'Oeuf cru': 2,
-            'Eau croupie': 3,
-            'Eau salée': 3,
-            'Kit de Secours': 2,
-            'Bandage': 2,
-            'Médicaments':1,
-            'Antiseptique': 1,
-            'Savon':1,
-            'Alcool': 2,
-            'Huile de coco':1,
-            'Noix de coco': 2,
-            'Breuvage étrange': 3,
-            'Seau': 1,
-            'Guitare déchargé': 1,
-            'Cadenas': 1,
-            'Radio déchargée': 1,
-            'Batterie chargée': 1,
-            'Petit Sac': 1,
-        },
+        inventory: inventory,
         equipment: {
             head: null, body: null, feet: null, weapon: null, shield: null, bag: null,
         },
