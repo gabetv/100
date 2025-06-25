@@ -1,5 +1,60 @@
 //js/config.js
 
+export const ACTIONS = {
+    // Player Actions
+    INITIATE_COMBAT: 'initiate_combat',
+    CONSUME_EAU_SALEE: 'consume_eau_salee',
+    HARVEST_SALT_WATER: 'harvest_salt_water',
+    HARVEST_SAND: 'harvest_sand',
+    HARVEST_STONE: 'harvest',
+    HARVEST_WOOD_HACHE: 'harvest_wood_hache',
+    HARVEST_WOOD_SCIE: 'harvest_wood_scie',
+    HARVEST_WOOD_MAINS: 'harvest_wood_mains',
+    FISH: 'fish',
+    NET_FISH: 'net_fish',
+    HUNT: 'hunt',
+    BUILD_STRUCTURE: 'build_structure',
+    REGENERATE_FOREST: 'regenerate_forest',
+    PLANT_TREE: 'plant_tree',
+    SLEEP: 'sleep',
+    SLEEP_BY_CAMPFIRE: 'sleep_by_campfire',
+    COOK: 'cook',
+    SEARCH_ZONE: 'search_zone',
+    TAKE_HIDDEN_ITEM: 'take_hidden_item',
+    OPEN_TREASURE: 'open_treasure',
+    USE_BUILDING_ACTION: 'use_building_action',
+    CRAFT_ITEM_WORKSHOP: 'craft_item_workshop',
+    DISMANTLE_BUILDING: 'dismantle_building',
+    OPEN_ALL_PARCHEMINS: 'open_all_parchemins',
+    FIRE_DISTRESS_GUN: 'fire_distress_gun',
+    FIRE_DISTRESS_FLARE: 'fire_distress_flare',
+    PLACE_SOLAR_PANEL_FIXED: 'place_solar_panel_fixed',
+    CHARGE_BATTERY_PORTABLE_SOLAR: 'charge_battery_portable_solar',
+    PLACE_TRAP: 'place_trap',
+    ATTRACT_NPC_ATTENTION: 'attract_npc_attention',
+    FIND_MINE_COMPASS: 'find_mine_compass',
+    REPAIR_BUILDING: 'repair_building',
+    SET_LOCK: 'set_lock',
+    REMOVE_LOCK: 'remove_lock',
+    OPEN_LARGE_MAP: 'open_large_map',
+    TALK_TO_NPC: 'talk_to_npc',
+    OPEN_BUILDING_INVENTORY: 'open_building_inventory',
+
+    // Building specific actions
+    SEARCH_ORE_TILE: 'search_ore_tile',
+    PLAY_ELECTRIC_GUITAR: 'play_electric_guitar',
+    USE_ATELIER: 'use_atelier',
+    USE_ETABLI: 'use_etabli',
+    USE_FORGE: 'use_forge',
+    OBSERVE_WEATHER: 'observe_weather',
+    GENERATE_PLAN: 'generate_plan',
+
+    // Tutorial Actions
+    TUTORIAL_HIDE_AND_MOVE: 'tutorial_hide_and_move',
+    TUTORIAL_NEXT: 'tutorial_next',
+    TUTORIAL_SKIP: 'tutorial_skip',
+};
+
 export const CONFIG = {
     MAP_WIDTH: 20, MAP_HEIGHT: 20, TILE_SIZE: 192, MINIMAP_DOT_SIZE: 8,
     NUM_NPCS: 4,

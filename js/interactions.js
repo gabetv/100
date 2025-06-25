@@ -1,5 +1,5 @@
 // js/interactions.js
-import { TILE_TYPES, CONFIG, ACTION_DURATIONS, ORE_TYPES, COMBAT_CONFIG, ITEM_TYPES, SEARCH_ZONE_CONFIG, ENEMY_TYPES, ALL_SEARCHABLE_ITEMS, TREASURE_COMBAT_KIT } from './config.js';
+import { TILE_TYPES, CONFIG, ACTIONS, ACTION_DURATIONS, ORE_TYPES, COMBAT_CONFIG, ITEM_TYPES, SEARCH_ZONE_CONFIG, ENEMY_TYPES, ALL_SEARCHABLE_ITEMS, TREASURE_COMBAT_KIT } from './config.js';
 import * as UI from './ui.js';
 import * as State from './state.js';
 import { getTotalResources } from './player.js';
@@ -188,6 +188,7 @@ function playerAttack() {
     const damage = weapon && weapon.stats?.damage ? weapon.stats.damage : COMBAT_CONFIG.PLAYER_UNARMED_DAMAGE;
     combatState.enemy.currentHealth = Math.max(0, combatState.enemy.currentHealth - damage);
     combatState.log.unshift(`Vous infligez ${damage} dégâts avec ${weapon ? weapon.name : 'vos poings'}.`);
+    triggerParticles('combat', window.innerWidth / 2, window.innerHeight / 2);
     if (weapon && weapon.hasOwnProperty('currentDurability') && typeof weapon.currentDurability === 'number') {
         weapon.currentDurability--;
         if (weapon.currentDurability <= 0) {
@@ -265,13 +266,13 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
     const tile = map[player.y][player.x];
     let shouldApplyBaseCost = true;
     const noBaseCostActions = [
-        'sleep', 'initiate_combat', 'take_hidden_item', 'open_treasure',
-        'consume_eau_salee', 'open_large_map',
-        'talk_to_npc', 'open_building_inventory',
-        'plant_tree', 'sleep_by_campfire', 'dismantle_building',
-        'craft_item_workshop', 'open_all_parchemins', 'set_lock', 'remove_lock',
-        'fire_distress_gun', 'fire_distress_flare', 'place_solar_panel_fixed', 'charge_battery_portable_solar',
-        'place_trap', 'attract_npc_attention', 'find_mine_compass', 'observe_weather', 'use_building_action'
+        ACTIONS.SLEEP, ACTIONS.INITIATE_COMBAT, ACTIONS.TAKE_HIDDEN_ITEM, ACTIONS.OPEN_TREASURE,
+        ACTIONS.CONSUME_EAU_SALEE, ACTIONS.OPEN_LARGE_MAP,
+        ACTIONS.TALK_TO_NPC, ACTIONS.OPEN_BUILDING_INVENTORY,
+        ACTIONS.PLANT_TREE, ACTIONS.SLEEP_BY_CAMPFIRE, ACTIONS.DISMANTLE_BUILDING,
+        ACTIONS.CRAFT_ITEM_WORKSHOP, ACTIONS.OPEN_ALL_PARCHEMINS, ACTIONS.SET_LOCK, ACTIONS.REMOVE_LOCK,
+        ACTIONS.FIRE_DISTRESS_GUN, ACTIONS.FIRE_DISTRESS_FLARE, ACTIONS.PLACE_SOLAR_PANEL_FIXED, ACTIONS.CHARGE_BATTERY_PORTABLE_SOLAR,
+        ACTIONS.PLACE_TRAP, ACTIONS.ATTRACT_NPC_ATTENTION, ACTIONS.FIND_MINE_COMPASS, ACTIONS.OBSERVE_WEATHER, ACTIONS.USE_BUILDING_ACTION
     ];
     if (noBaseCostActions.includes(actionId)) {
         shouldApplyBaseCost = false;
@@ -280,7 +281,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
     if (shouldApplyBaseCost) applyRandomStatCost(player, 1, actionId);
 
     switch(actionId) {
-        case 'initiate_combat': {
+        case ACTIONS.INITIATE_COMBAT: {
             const enemy = findEnemyOnTile(player.x, player.y, enemies);
             if (enemy) {
                 State.startCombat(player, enemy);
@@ -289,7 +290,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             } else UI.addChatMessage("Il n'y a plus rien à attaquer ici.", "system");
             break;
         }
-        case 'consume_eau_salee': {
+        case ACTIONS.CONSUME_EAU_SALEE: {
             if (tile.type.name !== TILE_TYPES.PLAGE.name) {
                 UI.addChatMessage("Vous ne pouvez boire de l'eau salée que sur la plage.", "system"); return;
             }
@@ -312,7 +313,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             break;
         }
-        case 'harvest_salt_water': {
+        case ACTIONS.HARVEST_SALT_WATER: {
             if (tile.type.name !== TILE_TYPES.PLAGE.name) {
                 UI.addChatMessage("Vous ne pouvez récolter de l'eau salée que sur la plage.", "system"); return;
             }
@@ -350,7 +351,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks );
             break;
         }
-        case 'harvest_sand': {
+        case ACTIONS.HARVEST_SAND: {
             if (tile.type.name !== TILE_TYPES.PLAGE.name) {
                  UI.addChatMessage("Vous ne pouvez récolter du sable que sur la plage.", "system"); return;
             }
@@ -389,6 +390,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                             }
                         }
                         if (amountToHarvest < yieldAmount && availableSpace <= 0) UI.addChatMessage("Inventaire plein, récolte partielle.", "system");
+                        triggerParticles('harvest', window.innerWidth / 2, window.innerHeight / 2);
 
                     } else {
                         UI.addChatMessage(availableSpace <=0 ? "Votre inventaire est plein !" : "Impossible de récolter.", "system");
@@ -397,7 +399,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks );
             break;
         }
-        case 'harvest': { // Generic harvest for stone from MINE_TERRAIN
+        case ACTIONS.HARVEST_STONE: { // Generic harvest for stone from MINE_TERRAIN
             const resource = tile.type.resource;
             if (!resource || resource.type !== 'Pierre' || tile.type.name !== TILE_TYPES.MINE_TERRAIN.name) {
                 console.warn("[handlePlayerAction - harvest] Action générique appelée pour une ressource non-Pierre ou un mauvais type de terrain."); return;
@@ -442,10 +444,10 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks );
             break;
         }
-        case 'harvest_wood_hache':
-        case 'harvest_wood_scie':
-        case 'harvest_wood_mains': {
-            const requiredToolName = actionId === 'harvest_wood_hache' ? 'Hache' : (actionId === 'harvest_wood_scie' ? 'Scie' : null);
+        case ACTIONS.HARVEST_WOOD_HACHE:
+        case ACTIONS.HARVEST_WOOD_SCIE:
+        case ACTIONS.HARVEST_WOOD_MAINS: {
+            const requiredToolName = actionId === ACTIONS.HARVEST_WOOD_HACHE ? 'Hache' : (actionId === ACTIONS.HARVEST_WOOD_SCIE ? 'Scie' : null);
             const forestTileRef = map[player.y][player.x];
             if (forestTileRef.type.name !== TILE_TYPES.FOREST.name || forestTileRef.woodActionsLeft <= 0) {
                 UI.addChatMessage("Plus de bois à couper/ramasser ici ou ce n'est pas une forêt.", "system"); return;
@@ -455,10 +457,10 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     let woodYield = 1;
                     let toolUsedNameForMessage = "vos mains";
 
-                    if (actionId === 'harvest_wood_hache') {
+                    if (actionId === ACTIONS.HARVEST_WOOD_HACHE) {
                         if (toolUsed && toolUsed.name === 'Hache') { woodYield = 3; toolUsedNameForMessage = toolUsed.name; }
                         else { UI.addChatMessage("Vous avez besoin d'une Hache équipée.", "system"); return; }
-                    } else if (actionId === 'harvest_wood_scie') {
+                    } else if (actionId === ACTIONS.HARVEST_WOOD_SCIE) {
                         if (toolUsed && toolUsed.name === 'Scie') { woodYield = 5; toolUsedNameForMessage = toolUsed.name; }
                         else { UI.addChatMessage("Vous avez besoin d'une Scie équipée.", "system"); return; }
                     }
@@ -484,7 +486,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 updateUICallbacks, {}, requiredToolName);
             break;
         }
-        case 'fish': { 
+        case ACTIONS.FISH: { 
              if (tile.type.name !== TILE_TYPES.PLAGE.name) {
                  UI.addChatMessage("Vous ne pouvez pêcher que sur la plage.", "system"); return;
             }
@@ -513,7 +515,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }, updateUICallbacks, {}, 'Canne à pêche');
             break;
         }
-        case 'net_fish': { 
+        case ACTIONS.NET_FISH: { 
              if (tile.type.name !== TILE_TYPES.PLAGE.name) {
                  UI.addChatMessage("Vous ne pouvez pêcher que sur la plage.", "system"); return;
             }
@@ -536,7 +538,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }, updateUICallbacks, {}, 'Filet de pêche');
             break;
         }
-        case 'hunt': {
+        case ACTIONS.HUNT: {
              const weapon = player.equipment.weapon;
              const currentTileForHunt = map[player.y][player.x];
              if (!currentTileForHunt.huntActionsLeft || currentTileForHunt.huntActionsLeft <= 0) {
@@ -577,7 +579,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks );
             break;
         }
-        case 'build_structure': {
+        case ACTIONS.BUILD_STRUCTURE: {
             const structureKey = data.structureKey;
             const structureType = TILE_TYPES[structureKey];
             if (!structureType) { UI.addChatMessage("Type de structure inconnu.", "system"); return; }
@@ -638,11 +640,14 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
 
                     const buildResult = State.addBuildingToTile(player.x, player.y, structureKey);
                     UI.addChatMessage(buildResult.message, buildResult.success ? "gain" : "system");
-                    if(buildResult.success) UI.triggerActionFlash('gain');
+                    if(buildResult.success) {
+                        UI.triggerActionFlash('gain');
+                        triggerParticles('craft', window.innerWidth / 2, window.innerHeight / 2);
+                    }
                 }, updateUICallbacks );
             break;
         }
-        case 'regenerate_forest': {
+        case ACTIONS.REGENERATE_FOREST: {
             if (tile.type.name !== TILE_TYPES.WASTELAND.name) { UI.addChatMessage("Cette action ne peut être faite que sur une friche.", "system"); return; }
             const costs = TILE_TYPES.WASTELAND.regeneration.cost;
             if (!State.hasResources(costs).success) { UI.addChatMessage("Ressources manquantes pour régénérer.", "system"); return; }
@@ -652,7 +657,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 updateUICallbacks);
             break;
         }
-        case 'plant_tree': {
+        case ACTIONS.PLANT_TREE: {
             if (tile.type.name !== TILE_TYPES.PLAINS.name) { UI.addChatMessage("Vous ne pouvez planter un arbre que sur une Plaine.", "system"); return; }
             if (tile.buildings.length > 0) { UI.addChatMessage("Vous ne pouvez pas planter un arbre ici, il y a déjà une construction.", "system"); return; } 
             const costs = { 'Graine d\'arbre': 5, 'Eau pure': 1 };
@@ -663,7 +668,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 updateUICallbacks);
             break;
         } 
-        case 'sleep': {
+        case ACTIONS.SLEEP: {
             let sleepEffect = null; let buildingKeyForDamage = null;
             const shelterInd = findBuildingOnTile(tile, 'SHELTER_INDIVIDUAL');
             const shelterCol = findBuildingOnTile(tile, 'SHELTER_COLLECTIVE');
@@ -689,7 +694,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks, { buildingKeyForDamage, buildingIndex: getBuildingIndexOnTile(tile, buildingKeyForDamage) } );
             break;
         }
-        case 'sleep_by_campfire': {
+        case ACTIONS.SLEEP_BY_CAMPFIRE: {
             const campfire = findBuildingOnTile(tile, 'CAMPFIRE');
             if (!campfire || campfire.durability <= 0) {
                 UI.addChatMessage("Le feu de camp n'est pas utilisable pour dormir.", "system"); return;
@@ -710,7 +715,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks);
             break;
         }
-        case 'cook': { 
+        case ACTIONS.COOK: { 
             const { raw, buildingKeyForDamage } = data; 
             const building = findBuildingOnTile(tile, buildingKeyForDamage);
             if (!building) { UI.addChatMessage("Bâtiment de cuisson introuvable.", "system"); return; }
@@ -743,7 +748,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks );
             break;
         }
-        case 'search_zone': {
+        case ACTIONS.SEARCH_ZONE: {
             let canSearch = false;
             let actionCounterToDecrement = null;
 
@@ -826,7 +831,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks );
             break;
         }
-        case 'take_hidden_item': {
+        case ACTIONS.TAKE_HIDDEN_ITEM: {
             if (tile.hiddenItem) {
                 const itemName = tile.hiddenItem;
                  const itemDef = ITEM_TYPES[itemName];
@@ -840,7 +845,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             } else UI.addChatMessage("Il n'y a rien à prendre ici.", 'system');
             break;
         }
-        case 'open_treasure': {
+        case ACTIONS.OPEN_TREASURE: {
             if (tile.type !== TILE_TYPES.TREASURE_CHEST || tile.isOpened) {
                 UI.addChatMessage("Ce n'est pas un trésor ou il a déjà été ouvert.", "system"); return;
             }
@@ -867,7 +872,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks);
             break;
         }
-        case 'use_building_action': {
+        case ACTIONS.USE_BUILDING_ACTION: {
             const buildingKey = data.buildingKey;
             const specificActionId = data.specificActionId;
             const buildingInstance = buildingKey ? tile.buildings.find(b => b.key === buildingKey) : null; // buildingKey can be null for terrain actions
@@ -1028,7 +1033,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks);
             break;
         }
-        case 'craft_item_workshop': {
+        case ACTIONS.CRAFT_ITEM_WORKSHOP: {
             const { recipeName, costs, yields, quantity } = data;
             let hasEnoughResources = true;
             for (const itemName in costs) {
@@ -1081,7 +1086,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             );
             break;
         }
-        case 'dismantle_building': {
+        case ACTIONS.DISMANTLE_BUILDING: {
             const buildingIndex = data.buildingIndex;
             const buildingToDismantle = tile.buildings[buildingIndex];
             if (!buildingToDismantle) { UI.addChatMessage("Bâtiment introuvable pour le démantèlement.", "system"); return; }
@@ -1102,7 +1107,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks);
             break;
         }
-        case 'open_all_parchemins': {
+        case ACTIONS.OPEN_ALL_PARCHEMINS: {
             let parcheminsUsed = 0;
             let newRecipesLearned = 0;
             const tempInventoryCopy = {...player.inventory};
@@ -1128,13 +1133,13 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             break;
         }
-        case 'fire_distress_gun': {
+        case ACTIONS.FIRE_DISTRESS_GUN: {
             performToolAction(player, 'weapon', 'fire_distress_gun', (power, toolUsed) => {
                  UI.addChatMessage("Vous tirez une fusée de détresse avec le pistolet ! Le ciel s'illumine.", 'system_event');
             }, updateUICallbacks, {}, 'Pistolet de détresse');
             break;
         }
-        case 'fire_distress_flare': {
+        case ACTIONS.FIRE_DISTRESS_FLARE: {
             const result = State.consumeItem('Fusée de détresse'); 
             UI.addChatMessage(result.message, result.success ? 'system_event' : 'system_error');
             if (result.success) {
@@ -1142,7 +1147,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             break;
         }
-        case 'place_solar_panel_fixed': {
+        case ACTIONS.PLACE_SOLAR_PANEL_FIXED: {
             const result = State.consumeItem('Panneau solaire fixe'); 
             UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
             if (result.success) {
@@ -1150,7 +1155,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             break;
         }
-        case 'charge_battery_portable_solar': {
+        case ACTIONS.CHARGE_BATTERY_PORTABLE_SOLAR: {
              performToolAction(player, 'weapon', 'charge_battery_portable_solar', (power, toolUsed) => {
                 if (player.inventory['Batterie déchargée'] > 0) {
                     State.applyResourceDeduction({'Batterie déchargée': 1});
@@ -1162,7 +1167,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }, updateUICallbacks, {}, 'Panneau solaire portable');
             break;
         }
-        case 'place_trap': {
+        case ACTIONS.PLACE_TRAP: {
             const result = State.consumeItem('Piège');
             UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
             if (result.success) {
@@ -1170,19 +1175,19 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }
             break;
         }
-        case 'attract_npc_attention': {
+        case ACTIONS.ATTRACT_NPC_ATTENTION: {
              performToolAction(player, 'weapon', 'attract_npc_attention', (power, toolUsed) => {
                 UI.addChatMessage("Vous utilisez le sifflet. Un son strident retentit !", 'system_event');
             }, updateUICallbacks, {}, 'Sifflet');
             break; 
         }
-        case 'find_mine_compass': {
+        case ACTIONS.FIND_MINE_COMPASS: {
             performToolAction(player, 'weapon', 'find_mine_compass', (power, toolUsed) => {
                 UI.addChatMessage("La boussole semble pointer vers une concentration de minerais...", 'system_event');
             }, updateUICallbacks, {}, 'Boussole');
             break;
         }
-        case 'repair_building': { 
+        case ACTIONS.REPAIR_BUILDING: { 
             const buildingIndexToRepair = data.buildingIndex;
             if (buildingIndexToRepair === undefined || !tile.buildings[buildingIndexToRepair]) {
                 UI.addChatMessage("Aucun bâtiment sélectionné à réparer.", "system"); return;
@@ -1205,7 +1210,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             }, updateUICallbacks, {}, 'Kit de réparation');
             break;
         }
-        case 'set_lock': {
+        case ACTIONS.SET_LOCK: {
             const { buildingKey, buildingIndex } = data;
             const buildingInstance = tile.buildings[buildingIndex];
             if (!buildingInstance || buildingInstance.key !== buildingKey || buildingInstance.isLocked) {
@@ -1232,7 +1237,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 }, updateUICallbacks);
             break;
         }
-        case 'remove_lock': {
+        case ACTIONS.REMOVE_LOCK: {
             const { buildingKey, buildingIndex } = data;
             const buildingInstance = tile.buildings[buildingIndex];
             if (!buildingInstance || buildingInstance.key !== buildingKey || !buildingInstance.isLocked) {
@@ -1252,9 +1257,9 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
 
 
-        case 'open_large_map': { UI.showLargeMap(State.state); break; } 
-        case 'talk_to_npc': { if (data.npcId) npcInteractionHandler(data.npcId); break; } 
-        case 'open_building_inventory': {
+        case ACTIONS.OPEN_LARGE_MAP: { UI.showLargeMap(State.state); break; } 
+        case ACTIONS.TALK_TO_NPC: { if (data.npcId) npcInteractionHandler(data.npcId); break; } 
+        case ACTIONS.OPEN_BUILDING_INVENTORY: {
             const { buildingKey, buildingIndex } = data;
             const buildingInstance = tile.buildings[buildingIndex];
             if (!buildingInstance || buildingInstance.key !== buildingKey) { UI.addChatMessage("Coffre introuvable.", "system"); return; }

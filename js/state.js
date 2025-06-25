@@ -331,12 +331,7 @@ export function unequipItem(slot) {
 
     // Remettre l'objet dans l'inventaire en préservant son état
     if (hasState) {
-        // Pour les objets avec état, on ne peut pas les empiler. On doit les stocker comme des instances uniques.
-        // C'est un changement majeur de la structure de l'inventaire.
-        // Pour une solution simple, on ajoute juste l'objet tel quel.
-        // Le nom de la clé sera unique pour éviter les collisions.
-        const uniqueKey = `${itemInstance.name}_${Date.now()}`;
-        player.inventory[uniqueKey] = itemInstance;
+        addResourceToPlayer(itemInstance.name, 1);
     } else {
         // Pour les objets sans état, on incrémente juste le compteur.
         addResourceToPlayer(itemInstance.name, 1);
@@ -348,7 +343,22 @@ export function unequipItem(slot) {
 
 export function addResourceToPlayer(resourceType, amount) {
     const player = gameState.player;
-    player.inventory[resourceType] = (player.inventory[resourceType] || 0) + amount;
+    if (typeof amount !== 'number' || isNaN(amount)) {
+        console.error(`Tentative d'ajout d'une quantité non numérique à l'inventaire:`, { resourceType, amount });
+        return;
+    }
+    if (typeof player.inventory !== 'object' || player.inventory === null) {
+        console.error("L'inventaire du joueur n'est pas un objet valide. Réinitialisation.", player.inventory);
+        player.inventory = {};
+    }
+
+    const currentAmount = player.inventory[resourceType] || 0;
+    if (typeof currentAmount !== 'number') {
+        console.warn(`Le type de ressource '${resourceType}' dans l'inventaire n'est pas un nombre, il sera écrasé.`, currentAmount);
+        player.inventory[resourceType] = amount;
+    } else {
+        player.inventory[resourceType] = currentAmount + amount;
+    }
 }
 
 export function addBuildingToTile(x, y, buildingKey) {

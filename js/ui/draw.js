@@ -57,15 +57,18 @@ export function drawMainBackground(gameState) {
             const imageAspect = imageToDraw.naturalWidth / imageToDraw.naturalHeight; // Should be 1408 / 768
             let sx = 0, sy = 0, sWidth = imageToDraw.naturalWidth, sHeight = imageToDraw.naturalHeight;
 
+            // Ajout de l'animation de balancement
+            const sway = Math.sin(Date.now() / 2000) * 10; // Mouvement de balancement lent
+
             // Calcul pour rogner l'image et remplir le canvas en gardant l'aspect ratio (cover)
             if (imageAspect > canvasAspect) { // Image plus large que le canvas (relativement)
                 sHeight = imageToDraw.naturalHeight;
                 sWidth = sHeight * canvasAspect;
-                sx = (imageToDraw.naturalWidth - sWidth) / 2;
+                sx = (imageToDraw.naturalWidth - sWidth) / 2 + sway;
             } else if (imageAspect < canvasAspect) { // Image plus haute que le canvas (relativement)
                 sWidth = imageToDraw.naturalWidth;
                 sHeight = sWidth / canvasAspect;
-                sy = (imageToDraw.naturalHeight - sHeight) / 2;
+                sy = (imageToDraw.naturalHeight - sHeight) / 2 + sway;
             }
             mainViewCtx.drawImage(imageToDraw, sx, sy, sWidth, sHeight, 0, 0, mainViewCanvas.width, mainViewCanvas.height);
         } else {
@@ -83,51 +86,83 @@ export function drawMainBackground(gameState) {
     }
 }
 
-function drawCharacter(ctx, character, x, y, isPlayer = false) {
-    const headRadius = 18;
-    const bodyWidth = 30;
-    const bodyShoulderWidth = 20;
-    const bodyHeight = 45;
-    const neckHeight = 3;
+function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress = 0) {
+    const headRadius = 15;
+    const bodyWidth = 28;
+    const bodyHeight = 40;
+    const legHeight = 20;
+    const legWidth = 10;
+    const armWidth = 8;
+    const armHeight = 38;
 
     ctx.save();
-    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.lineWidth = 3;
     ctx.fillStyle = character.color;
 
-    // Calcul des positions
-    const headCenterY = y - bodyHeight / 2 - neckHeight - headRadius;
-    const bodyTopY = headCenterY + headRadius + neckHeight;
-    const bodyBottomY = bodyTopY + bodyHeight;
+    // Animation de marche
+    const walkCycle = Math.sin(animationProgress * Math.PI * 2); // Cycle de -1 à 1
+    const legOffset = walkCycle * 5;
+    const armOffset = walkCycle * 4;
 
-    // Dessiner le corps (trapèze)
+    // Position de base
+    const bodyTopY = y - bodyHeight / 2;
+    const bodyBottomY = y + bodyHeight / 2;
+
+    // Bras (derrière le corps)
+    ctx.fillStyle = '#d2b48c'; // Couleur peau
+    // Bras gauche
     ctx.beginPath();
-    ctx.moveTo(x - bodyWidth / 2, bodyBottomY); // Bas gauche
-    ctx.lineTo(x + bodyWidth / 2, bodyBottomY); // Bas droit
-    ctx.lineTo(x + bodyShoulderWidth / 2, bodyTopY); // Haut droit (épaules)
-    ctx.lineTo(x - bodyShoulderWidth / 2, bodyTopY); // Haut gauche (épaules)
-    ctx.closePath();
+    ctx.ellipse(x - bodyWidth / 2 + armWidth / 2, bodyTopY + armHeight / 2, armWidth / 2, armHeight / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // Bras droit
+    ctx.beginPath();
+    ctx.ellipse(x + bodyWidth / 2 - armWidth / 2, bodyTopY + armHeight / 2, armWidth / 2, armHeight / 2, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // Dessiner la tête
+
+    // Jambes
+    ctx.fillStyle = '#5a3a22'; // Couleur pantalon
+    // Jambe gauche
     ctx.beginPath();
-    ctx.arc(x, headCenterY, headRadius, 0, Math.PI * 2);
+    ctx.ellipse(x - bodyWidth / 4, bodyBottomY + legHeight / 2 - legOffset, legWidth / 2, legHeight / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // Jambe droite
+    ctx.beginPath();
+    ctx.ellipse(x + bodyWidth / 4, bodyBottomY + legHeight / 2 + legOffset, legWidth / 2, legHeight / 2, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    // Main du joueur (simplifié)
-    if (isPlayer) {
-        ctx.fillStyle = '#8b4513'; // Brun pour la main
-        ctx.strokeStyle = '#5a2d0c';
-        ctx.lineWidth = 3;
-        const handX = x - bodyWidth / 2 - 12; // Position de la main (à gauche)
-        const handY = bodyTopY + bodyHeight * 0.3;
-        ctx.beginPath();
-        ctx.arc(handX, handY, 6, 0, Math.PI * 2); // Petit cercle pour la main
-        ctx.fill();
-        ctx.stroke();
-    }
+    // Corps
+    ctx.fillStyle = character.color;
+    ctx.beginPath();
+    ctx.ellipse(x, bodyTopY + bodyHeight / 2, bodyWidth / 2, bodyHeight / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Tête
+    ctx.fillStyle = '#d2b48c'; // Couleur peau
+    ctx.beginPath();
+    ctx.arc(x, bodyTopY - headRadius + 5, headRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Yeux
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(x - 5, bodyTopY - headRadius + 3, 3, 0, Math.PI * 2); // Oeil gauche
+    ctx.arc(x + 5, bodyTopY - headRadius + 3, 3, 0, Math.PI * 2); // Oeil droit
+    ctx.fill();
+    ctx.fillStyle = 'black';
+    ctx.beginPath();
+    ctx.arc(x - 5, bodyTopY - headRadius + 3, 1.5, 0, Math.PI * 2); // Pupille gauche
+    ctx.arc(x + 5, bodyTopY - headRadius + 3, 1.5, 0, Math.PI * 2); // Pupille droite
+    ctx.fill();
+
+
     ctx.restore();
 }
 
@@ -189,13 +224,14 @@ export function drawSceneCharacters(gameState) {
                 else if(direction === 'north') modY = distance;  // Vient du haut
                 charactersCtx.globalAlpha = easedProgress; // Fade in
             }
-            drawCharacter(charactersCtx, p.char, p.x + modX, p.y + modY, p.isPlayer);
+            drawCharacter(charactersCtx, p.char, p.x + modX, p.y + modY, p.isPlayer, progress);
         });
         charactersCtx.globalAlpha = 1; // Réinitialiser l'alpha
     } else {
         // Dessiner les personnages normalement si pas d'animation
         charactersOnTile.forEach(p => {
-            drawCharacter(charactersCtx, p.char, p.x, p.y, p.isPlayer);
+            const animProgress = p.isPlayer ? player.animationProgress || 0 : 0;
+            drawCharacter(charactersCtx, p.char, p.x, p.y, p.isPlayer, animProgress);
         });
     }
 

@@ -2,7 +2,7 @@
 import * as UI from './ui.js';
 import { initDOM } from './ui/dom.js'; // Correction du chemin
 import DOM from './ui/dom.js'; // Correction du chemin
-import { CONFIG, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES, SEARCH_ZONE_CONFIG } from './config.js';
+import { CONFIG, ACTIONS, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES, SEARCH_ZONE_CONFIG } from './config.js';
 import * as State from './state.js';
 import { decayStats, getTotalResources } from './player.js';
 import { updateNpcs, npcChatter } from './npc.js';
@@ -10,6 +10,29 @@ import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js';
 import * as Interactions from './interactions.js';
 import { initAdminControls } from './admin.js';
 
+import { ParticleSystem } from './effects.js';
+const particleSystem = new ParticleSystem();
+
+function triggerParticles(type, x, y) {
+    const colors = {
+        harvest: ['#8b4513', '#228B22'],
+        craft: ['#FFA500', '#FFD700'],
+        combat: ['#FF0000', '#8B0000']
+    };
+    const selectedColors = colors[type] || ['#FFFFFF'];
+
+    for (let i = 0; i < 20; i++) {
+        const color = selectedColors[Math.floor(Math.random() * selectedColors.length)];
+        const size = Math.random() * 3 + 1;
+        const speedX = (Math.random() - 0.5) * 100;
+        const speedY = (Math.random() - 0.5) * 100;
+        const life = Math.random() * 1 + 0.5;
+        particleSystem.addParticle(x, y, color, size, speedX, speedY, life);
+    }
+}
+
+// Ajout de la fonction au scope global pour y accéder depuis d'autres modules
+window.triggerParticles = triggerParticles;
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
 let draggedItemInfo = null;
@@ -75,7 +98,7 @@ function updatePossibleActions() {
         enemyStatus.style.color = 'var(--accent-color)';
         enemyStatus.innerHTML = `<strong>DANGER !</strong><br>Un ${enemyOnTile.name} vous bloque le passage.`;
         DOM.actionsEl.appendChild(enemyStatus);
-        createButton(`⚔️ Attaquer ${enemyOnTile.name}`, 'initiate_combat');
+        createButton(`⚔️ Attaquer ${enemyOnTile.name}`, ACTIONS.INITIATE_COMBAT);
         DOM.actionsEl.scrollTop = oldScrollTop;
         return;
     }
@@ -84,11 +107,11 @@ function updatePossibleActions() {
 
     if (tileType.name === TILE_TYPES.PLAGE.name) {
         const canSearchPlage = tile.actionsLeft && tile.actionsLeft.search_zone > 0;
-        createButton(`🔎 Fouiller la plage (${tile.actionsLeft?.search_zone || 0})`, 'search_zone', {}, !canSearchPlage || isInventoryFull,
+        createButton(`🔎 Fouiller la plage (${tile.actionsLeft?.search_zone || 0})`, ACTIONS.SEARCH_ZONE, {}, !canSearchPlage || isInventoryFull,
             !canSearchPlage ? "Plus d'actions de fouille ici" : (isInventoryFull ? "Inventaire plein" : "Chercher des objets"));
 
         const canHarvestSand = tile.actionsLeft && tile.actionsLeft.harvest_sand > 0;
-        createButton(`⏳ Récolter Sable (${tile.actionsLeft?.harvest_sand || 0})`, 'harvest_sand', {}, !canHarvestSand || isInventoryFull,
+        createButton(`⏳ Récolter Sable (${tile.actionsLeft?.harvest_sand || 0})`, ACTIONS.HARVEST_SAND, {}, !canHarvestSand || isInventoryFull,
             !canHarvestSand ? "Plus d'actions de récolte de sable" : (isInventoryFull ? "Inventaire plein" : "Récolter du sable"));
 
         const canFishPlage = tile.actionsLeft && tile.actionsLeft.fish > 0;
@@ -96,20 +119,20 @@ function updatePossibleActions() {
         const hasNetEquipped = player.equipment.weapon && player.equipment.weapon.name === 'Filet de pêche';
 
         if (hasCaneEquipped) {
-             createButton(`🎣 Pêcher (Canne) (${tile.actionsLeft?.fish || 0})`, 'fish', {}, !canFishPlage || isInventoryFull,
+             createButton(`🎣 Pêcher (Canne) (${tile.actionsLeft?.fish || 0})`, ACTIONS.FISH, {}, !canFishPlage || isInventoryFull,
                 !canFishPlage ? "Plus d'actions de pêche" : (isInventoryFull ? "Inventaire plein" : "Pêcher du poisson"));
         }
         if (hasNetEquipped && player.equipment.weapon.currentUses > 0) {
-            createButton(`🥅 Pêcher (Filet) (${player.equipment.weapon.currentUses || ITEM_TYPES['Filet de pêche'].uses} uses)`, 'net_fish', {}, isInventoryFull,
+            createButton(`🥅 Pêcher (Filet) (${player.equipment.weapon.currentUses || ITEM_TYPES['Filet de pêche'].uses} uses)`, ACTIONS.NET_FISH, {}, isInventoryFull,
                 isInventoryFull ? "Inventaire plein" : "Pêcher au filet");
         }
 
         const canHarvestSaltWater = tile.actionsLeft && tile.actionsLeft.harvest_salt_water > 0;
-        createButton(`💧 Récolter Eau Salée (${tile.actionsLeft?.harvest_salt_water || 0})`, 'harvest_salt_water', {}, !canHarvestSaltWater || isInventoryFull,
+        createButton(`💧 Récolter Eau Salée (${tile.actionsLeft?.harvest_salt_water || 0})`, ACTIONS.HARVEST_SALT_WATER, {}, !canHarvestSaltWater || isInventoryFull,
             !canHarvestSaltWater ? "Plus d'actions de récolte d'eau salée" : (isInventoryFull ? "Inventaire plein" : "Récolter de l'eau salée"));
     } else if (tileType.name === TILE_TYPES.FOREST.name || tileType.name === TILE_TYPES.PLAINS.name) {
         const canSearchHere = tile.searchActionsLeft > 0;
-        createButton(`🔎 Fouiller la zone (${tile.searchActionsLeft || 0})`, 'search_zone', {}, !canSearchHere || isInventoryFull,
+        createButton(`🔎 Fouiller la zone (${tile.searchActionsLeft || 0})`, ACTIONS.SEARCH_ZONE, {}, !canSearchHere || isInventoryFull,
             !canSearchHere ? "Zone déjà fouillée" : (isInventoryFull ? "Inventaire plein" : "Chercher des objets..."));
     }
 
@@ -121,26 +144,26 @@ function updatePossibleActions() {
         if (!huntActionsAvailable) huntDisabledReason = "Plus de chasse ici.";
         else if (!canHunt) huntDisabledReason = "Nécessite une arme infligeant des dégâts.";
         else if (player.status.includes('Drogué')) huntDisabledReason = "Impossible de chasser sous l'effet de la drogue.";
-        createButton(`🏹 Chasser (${tile.huntActionsLeft || 0})`, 'hunt', {}, !huntActionsAvailable || !canHunt || player.status.includes('Drogué'), huntDisabledReason);
+        createButton(`🏹 Chasser (${tile.huntActionsLeft || 0})`, ACTIONS.HUNT, {}, !huntActionsAvailable || !canHunt || player.status.includes('Drogué'), huntDisabledReason);
     }
 
     if (tileType.name === TILE_TYPES.PLAINS.name) {
         const canPlant = State.hasResources({ 'Graine d\'arbre': 5, 'Eau pure': 1 }).success;
         if (tile.buildings.length === 0) {
-            createButton("🌱 Planter Arbre", 'plant_tree', {}, !canPlant, !canPlant ? "Nécessite 5 graines, 1 eau pure" : "Transformer cette plaine en forêt");
+            createButton("🌱 Planter Arbre", ACTIONS.PLANT_TREE, {}, !canPlant, !canPlant ? "Nécessite 5 graines, 1 eau pure" : "Transformer cette plaine en forêt");
         }
     }
     if (tileType.name === TILE_TYPES.WASTELAND.name) {
         const costsRegen = TILE_TYPES.WASTELAND.regeneration.cost;
         const canRegen = State.hasResources(costsRegen).success;
-        createButton("🌳 Régénérer Forêt", 'regenerate_forest', {}, !canRegen, !canRegen ? `Nécessite ${costsRegen['Eau pure']} Eau pure, ${costsRegen['Graine d\'arbre']} Graines` : "Transformer cette friche en forêt");
+        createButton("🌳 Régénérer Forêt", ACTIONS.REGENERATE_FOREST, {}, !canRegen, !canRegen ? `Nécessite ${costsRegen['Eau pure']} Eau pure, ${costsRegen['Graine d\'arbre']} Graines` : "Transformer cette friche en forêt");
     }
 
 
     if (tile.type === TILE_TYPES.TREASURE_CHEST) {
         if (!tile.isOpened) {
             const hasKey = player.inventory[TILE_TYPES.TREASURE_CHEST.requiresKey] > 0;
-            createButton("💎 Ouvrir le Trésor", 'open_treasure', {}, !hasKey || isInventoryFull,
+            createButton("💎 Ouvrir le Trésor", ACTIONS.OPEN_TREASURE, {}, !hasKey || isInventoryFull,
                 !hasKey ? `Nécessite : ${TILE_TYPES.TREASURE_CHEST.requiresKey}` : (isInventoryFull ? "Inventaire plein pour recevoir le contenu" : "Utiliser la clé pour ouvrir"));
         } else {
             const p = document.createElement('p');
@@ -151,7 +174,7 @@ function updatePossibleActions() {
     }
 
     if (tile.hiddenItem) {
-        createButton(`🔑 Prendre ${tile.hiddenItem}`, 'take_hidden_item', {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : `Ramasser ${tile.hiddenItem}`);
+        createButton(`🔑 Prendre ${tile.hiddenItem}`, ACTIONS.TAKE_HIDDEN_ITEM, {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : `Ramasser ${tile.hiddenItem}`);
     }
 
     if (tileType.resource && (tile.harvestsLeft > 0 || tile.harvestsLeft === Infinity) && !findEnemyOnTile(player.x, player.y, enemies) && !Interactions.findBuildingOnTile(tile, 'MINE')) {
@@ -160,43 +183,43 @@ function updatePossibleActions() {
             const equippedWeapon = player.equipment.weapon;
             if (equippedWeapon) {
                 if (equippedWeapon.name === 'Hache') {
-                    createButton(`🪓 Couper Bois (Hache) (${tile.woodActionsLeft || 0})`, 'harvest_wood_hache', {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
+                    createButton(`🪓 Couper Bois (Hache) (${tile.woodActionsLeft || 0})`, ACTIONS.HARVEST_WOOD_HACHE, {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
                 } else if (equippedWeapon.name === 'Scie') {
-                    createButton(`🪚 Scier Bois (Scie) (${tile.woodActionsLeft || 0})`, 'harvest_wood_scie', {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
+                    createButton(`🪚 Scier Bois (Scie) (${tile.woodActionsLeft || 0})`, ACTIONS.HARVEST_WOOD_SCIE, {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
                 }
             }
             if (!equippedWeapon) {
-                createButton(`✋ Ramasser Bois (${tile.woodActionsLeft || 0})`, 'harvest_wood_mains', {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
+                createButton(`✋ Ramasser Bois (${tile.woodActionsLeft || 0})`, ACTIONS.HARVEST_WOOD_MAINS, {}, isInventoryFull || !canHarvestWood, isInventoryFull ? "Inventaire plein" : (!canHarvestWood ? "Plus de bois ici" : ""));
             }
         } else if (tileType.name === TILE_TYPES.MINE_TERRAIN.name) {
             const canHarvestStone = tile.harvestsLeft > 0;
             const resourceIcon = ITEM_TYPES[tileType.resource.type]?.icon || '';
-            createButton(`${resourceIcon} Récolter Pierre (${tile.harvestsLeft || 0})`, 'harvest', {}, isInventoryFull || !canHarvestStone, isInventoryFull ? "Inventaire plein" : (!canHarvestStone ? "Plus de pierre ici" : ""));
+            createButton(`${resourceIcon} Récolter Pierre (${tile.harvestsLeft || 0})`, ACTIONS.HARVEST_STONE, {}, isInventoryFull || !canHarvestStone, isInventoryFull ? "Inventaire plein" : (!canHarvestStone ? "Plus de pierre ici" : ""));
         }
     }
 
     const hasPiocheEquipped = player.equipment.weapon && player.equipment.weapon.name === 'Pioche';
     if (tileType.name === TILE_TYPES.MINE_TERRAIN.name && hasPiocheEquipped && !Interactions.findBuildingOnTile(tile, 'MINE')) {
-        createButton("⛏️ Chercher Minerais (Terrain)", 'use_building_action', { buildingKey: null, specificActionId: 'search_ore_tile' });
+        createButton("⛏️ Chercher Minerais (Terrain)", ACTIONS.USE_BUILDING_ACTION, { buildingKey: null, specificActionId: ACTIONS.SEARCH_ORE_TILE });
     }
     if (player.equipment.weapon && player.equipment.weapon.name === 'Guitare') {
-        createButton("🎸 Jouer de la guitare électrique", 'use_building_action', { buildingKey: null, specificActionId: 'play_electric_guitar' });
+        createButton("🎸 Jouer de la guitare électrique", ACTIONS.USE_BUILDING_ACTION, { buildingKey: null, specificActionId: ACTIONS.PLAY_ELECTRIC_GUITAR });
     }
 
     if (player.inventory['Eau salée'] > 0 && tileType.name === TILE_TYPES.PLAGE.name && player.thirst <= player.maxThirst - ITEM_TYPES['Eau salée'].effects.thirst) {
-        createButton("🚱 Boire Eau Salée", 'consume_eau_salee', {itemName: 'Eau salée'});
+        createButton("🚱 Boire Eau Salée", ACTIONS.CONSUME_EAU_SALEE, {itemName: 'Eau salée'});
     }
 
     const parcheminCount = State.countItemTypeInInventory('teachesRecipe');
     if (parcheminCount >= 2) {
-        createButton("📜 Ouvrir tous les Parchemins", 'open_all_parchemins');
+        createButton("📜 Ouvrir tous les Parchemins", ACTIONS.OPEN_ALL_PARCHEMINS);
     }
 
 
     if (!combatState) {
         const npcsOnTile = State.state.npcs.filter(npc => npc.x === player.x && npc.y === player.y);
         npcsOnTile.forEach(npc => {
-            createButton(`💬 Parler à ${npc.name}`, 'talk_to_npc', { npcId: npc.id });
+            createButton(`💬 Parler à ${npc.name}`, ACTIONS.TALK_TO_NPC, { npcId: npc.id });
         });
     }
 
@@ -232,20 +255,20 @@ function updatePossibleActions() {
             DOM.actionsEl.appendChild(buildingNameDisplay);
 
             if (buildingDef.sleepEffect && buildingInstance.durability > 0) {
-                 createButton("😴 Dormir (8h)", 'sleep', { buildingKeyForDamage: buildingInstance.key, buildingIndex: index });
+                 createButton("😴 Dormir (8h)", ACTIONS.SLEEP, { buildingKeyForDamage: buildingInstance.key, buildingIndex: index });
             }
 
             if (buildingInstance.durability > 0 && player.hunger >= 5 && player.thirst >= 5 && player.sleep >= 5) {
-                createButton(`🔩 Démanteler ${buildingDef.name}`, 'dismantle_building', { buildingKey: buildingInstance.key, buildingIndex: index }, false, "Récupérer une partie des matériaux (-5 Faim/Soif/Sommeil)");
+                createButton(`🔩 Démanteler ${buildingDef.name}`, ACTIONS.DISMANTLE_BUILDING, { buildingKey: buildingInstance.key, buildingIndex: index }, false, "Récupérer une partie des matériaux (-5 Faim/Soif/Sommeil)");
             } else if (buildingInstance.durability > 0) {
-                 createButton(`🔩 Démanteler ${buildingDef.name}`, 'dismantle_building', { buildingKey: buildingInstance.key, buildingIndex: index }, true, "Trop fatigué pour démanteler (5 Faim/Soif/Sommeil requis)");
+                 createButton(`🔩 Démanteler ${buildingDef.name}`, ACTIONS.DISMANTLE_BUILDING, { buildingKey: buildingInstance.key, buildingIndex: index }, true, "Trop fatigué pour démanteler (5 Faim/Soif/Sommeil requis)");
             }
 
             if ((buildingInstance.key === 'SHELTER_INDIVIDUAL' || buildingInstance.key === 'SHELTER_COLLECTIVE')) {
                 if (buildingInstance.isLocked && tile.playerHasUnlockedThisSession) {
-                    createButton("🔓 Retirer Cadenas", 'remove_lock', { buildingKey: buildingInstance.key, buildingIndex: index });
+                    createButton("🔓 Retirer Cadenas", ACTIONS.REMOVE_LOCK, { buildingKey: buildingInstance.key, buildingIndex: index });
                 } else if (!buildingInstance.isLocked && player.inventory['Cadenas'] > 0) {
-                    createButton("🔒 Poser Cadenas", 'set_lock', { buildingKey: buildingInstance.key, buildingIndex: index });
+                    createButton("🔒 Poser Cadenas", ACTIONS.SET_LOCK, { buildingKey: buildingInstance.key, buildingIndex: index });
                 }
             }
 
@@ -292,25 +315,25 @@ function updatePossibleActions() {
                     }
 
                     titleAction += actionCostText;
-                    createButton(actionInfo.name, 'use_building_action', { buildingKey: buildingInstance.key, specificActionId: actionInfo.id }, disabledAction, titleAction);
+                    createButton(actionInfo.name, ACTIONS.USE_BUILDING_ACTION, { buildingKey: buildingInstance.key, specificActionId: actionInfo.id }, disabledAction, titleAction);
                 });
             }
 
             if (buildingInstance.key === 'MINE' && buildingInstance.durability > 0 && hasPiocheEquipped) { // Utilisation de Interactions.findBuildingOnTile est implicite
-                createButton("⛏️ Chercher Minerais (Bât.)", 'use_building_action', { buildingKey: 'MINE', specificActionId: 'search_ore_building' });
+                createButton("⛏️ Chercher Minerais (Bât.)", ACTIONS.USE_BUILDING_ACTION, { buildingKey: 'MINE', specificActionId: 'search_ore_building' });
             }
             if ((buildingInstance.key === 'ATELIER' || buildingInstance.key === 'ETABLI' || buildingInstance.key === 'FORGE') && buildingInstance.durability > 0) {
-                 createButton(`🛠️ Utiliser ${buildingDef.name}`, 'use_building_action', { buildingKey: buildingInstance.key, specificActionId: TILE_TYPES[buildingInstance.key].action.id});
+                 createButton(`🛠️ Utiliser ${buildingDef.name}`, ACTIONS.USE_BUILDING_ACTION, { buildingKey: buildingInstance.key, specificActionId: TILE_TYPES[buildingInstance.key].action.id});
             }
 
             const kitReparationEquipped = player.equipment.weapon && player.equipment.weapon.name === 'Kit de réparation';
             if (kitReparationEquipped && buildingInstance.durability < buildingInstance.maxDurability && player.equipment.weapon.currentUses > 0) {
-                createButton(`🛠️ Réparer ${buildingDef.name}`, 'repair_building', { buildingKey: buildingInstance.key, buildingIndex: index }, false, `Utiliser Kit de réparation (${player.equipment.weapon.currentUses || ITEM_TYPES['Kit de réparation'].uses} uses)`);
+                createButton(`🛠️ Réparer ${buildingDef.name}`, ACTIONS.REPAIR_BUILDING, { buildingKey: buildingInstance.key, buildingIndex: index }, false, `Utiliser Kit de réparation (${player.equipment.weapon.currentUses || ITEM_TYPES['Kit de réparation'].uses} uses)`);
             }
 
 
             if (buildingDef.inventory && buildingInstance.durability > 0) {
-                const openChestButton = createButton( `🧰 Ouvrir le Coffre (${buildingDef.name})`, 'open_building_inventory', { buildingKey: buildingInstance.key, buildingIndex: index });
+                const openChestButton = createButton( `🧰 Ouvrir le Coffre (${buildingDef.name})`, ACTIONS.OPEN_BUILDING_INVENTORY, { buildingKey: buildingInstance.key, buildingIndex: index });
             }
         });
     }
@@ -400,9 +423,15 @@ function gameLoop(currentTime) {
                 fullUIUpdate();
             }
         }
+    } else {
+        // Ajout d'une animation de marche idle
+        player.animationProgress = (player.animationProgress || 0) + deltaTime * 0.001;
+        if (player.animationProgress > 1) player.animationProgress -= 1;
     }
 
     UI.renderScene(State.state);
+    particleSystem.update(deltaTime / 1000);
+    particleSystem.draw(DOM.mainViewCtx);
     requestAnimationFrame(gameLoop);
 }
 
@@ -601,13 +630,6 @@ function handleConsumeClick(itemName) {
         return;
     }
 
-    if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.teachesRecipe && itemDef.type !== 'key' && itemDef.type !== 'usable') ) {
-        if (itemDef && !itemDef.teachesRecipe) {
-            UI.addChatMessage(`"${itemName}" n'est pas consommable directement depuis l'inventaire de cette manière.`, "system");
-        }
-        return;
-    }
-
     const result = State.consumeItem(itemName);
     UI.addChatMessage(result.message, result.success ? (itemName.startsWith('Parchemin') || itemName === 'Porte bonheur' || itemName === 'Batterie chargée' ? 'system_event' : 'system') : 'system_error');
     if(result.success) {
@@ -678,7 +700,7 @@ window.UI = UI;
 window.handleGlobalPlayerAction = (actionId, data) => {
     const { tutorialState } = State.state;
 
-    if (actionId === 'tutorial_hide_and_move') {
+    if (actionId === ACTIONS.TUTORIAL_HIDE_AND_MOVE) {
         if (tutorialState.active && tutorialState.step === 0) {
             tutorialState.isTemporarilyHidden = true;
             if (DOM.tutorialOverlay) DOM.tutorialOverlay.classList.add('hidden');
@@ -687,13 +709,13 @@ window.handleGlobalPlayerAction = (actionId, data) => {
         }
         return;
     }
-    if (actionId === 'tutorial_next') {
+    if (actionId === ACTIONS.TUTORIAL_NEXT) {
         if (tutorialState.active) {
             UI.advanceTutorial();
         }
         return;
     }
-    if (actionId === 'tutorial_skip') {
+    if (actionId === ACTIONS.TUTORIAL_SKIP) {
         if (tutorialState.active) {
             UI.skipTutorial();
         }
@@ -929,7 +951,7 @@ function setupEventListeners() {
     if (DOM.closeBuildModalBtn) DOM.closeBuildModalBtn.addEventListener('click', UI.hideBuildModal);
     if (DOM.closeWorkshopModalBtn) DOM.closeWorkshopModalBtn.addEventListener('click', UI.hideWorkshopModal);
 
-    if (DOM.enlargeMapBtn) DOM.enlargeMapBtn.addEventListener('click', () => {if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return; handleGlobalPlayerAction('open_large_map', {})});
+    if (DOM.enlargeMapBtn) DOM.enlargeMapBtn.addEventListener('click', () => {if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return; handleGlobalPlayerAction(ACTIONS.OPEN_LARGE_MAP, {})});
     if (DOM.closeLargeMapBtn) DOM.closeLargeMapBtn.addEventListener('click', UI.hideLargeMap);
 
     if (DOM.toggleChatSizeBtn && DOM.bottomBarChatPanelEl) {
@@ -1017,13 +1039,13 @@ function setupEventListeners() {
 
     if (DOM.tutorialNextButton) {
         DOM.tutorialNextButton.addEventListener('click', () => {
-            const action = DOM.tutorialNextButton.dataset.action || 'tutorial_next';
+            const action = DOM.tutorialNextButton.dataset.action || ACTIONS.TUTORIAL_NEXT;
             handleGlobalPlayerAction(action, {});
         });
     }
     if (DOM.tutorialSkipButton) {
         DOM.tutorialSkipButton.addEventListener('click', () => {
-            handleGlobalPlayerAction('tutorial_skip', {});
+            handleGlobalPlayerAction(ACTIONS.TUTORIAL_SKIP, {});
         });
     }
 
@@ -1076,7 +1098,7 @@ function setupEventListeners() {
         else if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'q') handleNavigation('west');
         else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') handleNavigation('east');
         else if (e.key.toLowerCase() === 'e') UI.showEquipmentModal(State.state);
-        else if (e.key.toLowerCase() === 'm') handleGlobalPlayerAction('open_large_map', {});
+        else if (e.key.toLowerCase() === 'm') handleGlobalPlayerAction(ACTIONS.OPEN_LARGE_MAP, {});
         else if (e.key.toLowerCase() === 'c') UI.showBuildModal(State.state);
         else if (e.key.toLowerCase() === 't') {
             const tile = State.state.map[State.state.player.y][State.state.player.x];
@@ -1097,7 +1119,7 @@ function setupEventListeners() {
 
                 const tileHasInv = tile.type.inventory || tile.type.maxInventory;
                 if(buildingWithInv || tileHasInv) {
-                    handleGlobalPlayerAction('open_building_inventory', { buildingKey: buildingWithInv?.key, buildingIndex: tile.buildings.indexOf(buildingWithInv) });
+                    handleGlobalPlayerAction(ACTIONS.OPEN_BUILDING_INVENTORY, { buildingKey: buildingWithInv?.key, buildingIndex: tile.buildings.indexOf(buildingWithInv) });
                 }
             } else if (DOM.inventoryModal) {
                 UI.hideInventoryModal();
