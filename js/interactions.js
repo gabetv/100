@@ -1,10 +1,27 @@
 // js/interactions.js
 import { TILE_TYPES, CONFIG, ACTIONS, ACTION_DURATIONS, ORE_TYPES, COMBAT_CONFIG, ITEM_TYPES, SEARCH_ZONE_CONFIG, ENEMY_TYPES, ALL_SEARCHABLE_ITEMS, TREASURE_COMBAT_KIT } from './config.js';
+import DOM from './ui/dom.js';
 import * as UI from './ui.js';
 import * as State from './state.js';
 import { getTotalResources } from './player.js';
 import { findEnemyOnTile } from './enemy.js';
-import DOM from './ui/dom.js';
+
+// Gestionnaire du menu contextuel
+function handleCanvasRightClick(e) {
+    e.preventDefault();
+    const rect = DOM.mainViewCanvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    DOM.itemContextMenu.style.left = `${x}px`;
+    DOM.itemContextMenu.style.top = `${y}px`;
+    DOM.itemContextMenu.classList.remove('hidden');
+    
+    // Masquer le menu si on clique ailleurs
+    setTimeout(() => window.addEventListener('click', () => {
+        DOM.itemContextMenu.classList.add('hidden');
+    }, { once: true }));
+}
 import { handleNpcInteraction as npcInteractionHandler } from './npc.js';
 
 function applyActionCosts(player, costs) {
@@ -19,44 +36,58 @@ function applyActionCosts(player, costs) {
     }
 }
 
-export function applyRandomStatCost(player, amount = 1, actionNameForLog = "") {
-    let chosenStatName = null;
-    let statIcon = '';
-    const availableStats = [];
-    if (player.thirst > 0) availableStats.push({ name: 'thirst', icon: '💧' });
-    if (player.hunger > 0) availableStats.push({ name: 'hunger', icon: '🍗' });
-    if (player.sleep > 0) availableStats.push({ name: 'sleep', icon: '🌙' });
+export function applyRandomStatCost(player, amount = 1) {
+    const stats = [
+        { name: 'thirst', icon: '💧', condition: player.thirst > 0 },
+        { name: 'hunger', icon: '🍗', condition: player.hunger > 0 },
+        { name: 'sleep', icon: '🌙', condition: player.sleep > 0 }
+    ];
+    
+    const availableStats = stats.filter(stat => stat.condition);
+    
     if (availableStats.length === 0) {
         UI.addChatMessage("Vous êtes à bout de forces !", "warning");
-        return false; // Indicate failure to apply cost if no stats available
+        return false;
     }
 
-    if (player.status.includes('Alcoolisé')) {
-        amount = 2;
-    }
-    const rand = Math.random();
-    let selectedStatChoice = null;
+    if (player.status.includes('Alcoolisé')) amount = 2;
 
-    if (rand < 0.10 && player.thirst > 0) selectedStatChoice = availableStats.find(s => s.name === 'thirst');
-    else if (rand < 0.50 && player.hunger > 0) selectedStatChoice = availableStats.find(s => s.name === 'hunger');
-    else if (player.sleep > 0) selectedStatChoice = availableStats.find(s => s.name === 'sleep');
+    // Calcul des poids basés sur les conditions
+    const weights = availableStats.map(stat => 
+        stat.name === 'thirst' ? 0.10 : 
+        stat.name === 'hunger' ? 0.40 : 
+        0.50
+    );
 
-    if (!selectedStatChoice && availableStats.length > 0) {
-        selectedStatChoice = availableStats[Math.floor(Math.random() * availableStats.length)];
-    }
+    let cumulativeWeight = 0;
+    const randomValue = Math.random();
+    let selectedStat = null;
 
-    if (selectedStatChoice) {
-        chosenStatName = selectedStatChoice.name;
-        statIcon = selectedStatChoice.icon;
-        player[chosenStatName] = Math.max(0, player[chosenStatName] - amount);
-        const maxStatValue = player[`max${chosenStatName.charAt(0).toUpperCase() + chosenStatName.slice(1)}`];
-        if (player[chosenStatName] <= (maxStatValue * 0.1) && player[chosenStatName] > 0 ) {
-            if (chosenStatName === 'sleep') UI.addChatMessage(`Attention, vous avez fortement sommeil !`, "warning");
-            else if (chosenStatName === 'hunger') UI.addChatMessage(`Attention, vous avez trés faim !`, "warning");
-            else if (chosenStatName === 'thirst') UI.addChatMessage(`Attention, vous êtes assoiffé !`, "warning");
-            else UI.addChatMessage(`Attention, votre ${chosenStatName} est très basse !`, "warning");
+    for (let i = 0; i < availableStats.length; i++) {
+        cumulativeWeight += weights[i];
+        if (randomValue < cumulativeWeight) {
+            selectedStat = availableStats[i];
+            break;
         }
     }
+
+    // Fallback si aucune sélection (normalement impossible)
+    selectedStat = selectedStat || availableStats[Math.floor(Math.random() * availableStats.length)];
+
+    // Appliquer la réduction
+    player[selectedStat.name] = Math.max(0, player[selectedStat.name] - amount);
+    const maxStat = player[`max${selectedStat.name.charAt(0).toUpperCase()}${selectedStat.name.slice(1)}`];
+    
+    // Avertissement si stat critique
+    if (player[selectedStat.name] <= maxStat * 0.1 && player[selectedStat.name] > 0) {
+        const messages = {
+            sleep: "Attention, vous avez fortement sommeil !",
+            hunger: "Attention, vous avez très faim !",
+            thirst: "Attention, vous êtes assoiffé !"
+        };
+        UI.addChatMessage(messages[selectedStat.name] || `Attention, votre ${selectedStat.name} est très bas !`, "warning");
+    }
+    
     return true;
 }
 
@@ -83,55 +114,53 @@ function performTimedAction(player, duration, onStart, onComplete, updateUICallb
 
 function performToolAction(player, toolSlot, actionType, onComplete, updateUICallbacks, actionData = {}, specificToolName = null) {
     const tool = player.equipment[toolSlot];
-
-    if (specificToolName) {
-        if (!tool || tool.name !== specificToolName) {
-            UI.addChatMessage(`Vous avez besoin d'un(e) ${specificToolName} équipé(e).`, 'system');
-            if (DOM.equipmentSlotsEl) UI.triggerShake(DOM.equipmentSlotsEl);
-            else if (DOM.bottomBarEquipmentSlotsEl) UI.triggerShake(DOM.bottomBarEquipmentSlotsEl);
-            return;
-        }
-    } else if (actionType) { // General action check (e.g., 'dig')
-        if (!tool || tool.action !== actionType) {
-            UI.addChatMessage(`Vous n'avez pas le bon outil équipé pour "${actionType}".`, 'system');
-             if (DOM.equipmentSlotsEl) UI.triggerShake(DOM.equipmentSlotsEl);
-             else if (DOM.bottomBarEquipmentSlotsEl) UI.triggerShake(DOM.bottomBarEquipmentSlotsEl);
-            return;
-        }
+    let requiredTool = specificToolName || (actionType ? ITEM_TYPES[tool?.name]?.action : null);
+    
+    // Vérification de l'outil requis
+    if (requiredTool && (!tool || tool.name !== requiredTool)) {
+        UI.addChatMessage(`Vous avez besoin d'un(e) ${requiredTool} équipé(e).`, 'system');
+        if (DOM.equipmentSlotsEl) UI.triggerShake(DOM.equipmentSlotsEl);
+        else if (DOM.bottomBarEquipmentSlotsEl) UI.triggerShake(DOM.bottomBarEquipmentSlotsEl);
+        return;
     }
-    // If no specificToolName and no actionType, it implies hands or logic is handled by caller
 
-    let durationKey = actionType ? actionType.toUpperCase() : 'HARVEST';
-    // Normalize duration keys
-    if (actionType === 'harvest_wood') durationKey = 'HARVEST';
-    else if (actionType === 'mine_ore') durationKey = 'HARVEST'; // Mining ore is a type of harvest
-    else if (actionType === 'dig') durationKey = 'DIG';
-    else if (actionType === 'fish') durationKey = 'HARVEST'; // Fishing is a type of harvest
-    else if (actionType === 'play_electric_guitar') durationKey = 'PLAY_GUITAR';
+    // Détermination de la durée de l'action
+    const durationMapping = {
+        harvest_wood: 'HARVEST',
+        mine_ore: 'HARVEST',
+        dig: 'DIG',
+        fish: 'HARVEST',
+        play_electric_guitar: 'PLAY_GUITAR'
+    };
+    
+    const durationKey = durationMapping[actionType] || (actionType ? actionType.toUpperCase() : 'HARVEST');
+    const duration = ACTION_DURATIONS[durationKey] || ACTION_DURATIONS.HARVEST;
 
-
-    performTimedAction(player, ACTION_DURATIONS[durationKey] || ACTION_DURATIONS.HARVEST,
+    performTimedAction(player, duration,
         () => UI.addChatMessage(`Utilisation de ${tool ? tool.name : 'vos mains'}...`, 'system'),
         () => {
-            onComplete(tool ? (tool.power || 1) : 1, tool); // Pass tool instance
-            if (tool) { // Only process tool if one was actually used (not hands)
-                if (tool.hasOwnProperty('breakChance') && Math.random() < tool.breakChance) {
-                    UI.addChatMessage(`${tool.name} s'est cassé !`, 'system_warning');
-                    State.unequipItem(toolSlot);
-                } else if (tool.hasOwnProperty('uses')) { // Check for uses property first (e.g. for tools like Filtre à eau)
-                    // If the item definition has 'uses' but the instance doesn't have 'currentUses', initialize it.
-                    if (typeof tool.currentUses === 'undefined' && typeof tool.uses === 'number') {
-                        tool.currentUses = tool.uses;
-                    }
-                    if (tool.hasOwnProperty('currentUses') && typeof tool.currentUses === 'number') {
+            try {
+                onComplete(tool ? (tool.power || 1) : 1, tool);
+                
+                // Gestion de la durabilité de l'outil
+                if (tool) {
+                    if (tool.breakChance && Math.random() < tool.breakChance) {
+                        UI.addChatMessage(`${tool.name} s'est cassé !`, 'system_warning');
+                        State.unequipItem(toolSlot);
+                    } else if (tool.uses && tool.currentUses !== undefined) {
                         tool.currentUses--;
                         if (tool.currentUses <= 0) {
-                            UI.addChatMessage(`${tool.name} est épuisé !`, 'system_warning'); // Uses 0 -> disappears
-                            State.unequipItem(toolSlot); // Remove from equipment
+                            UI.addChatMessage(`${tool.name} est épuisé !`, 'system_warning');
+                            State.unequipItem(toolSlot);
                         }
                     }
                 }
+            } catch (error) {
+                console.error('Erreur dans performToolAction:', error);
+                UI.addChatMessage("Une erreur s'est produite lors de l'utilisation de l'outil", 'system_error');
             }
+            
+            // Mise à jour de l'UI
             if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.updateEquipmentModal(State.state);
             if (DOM.bottomBarEquipmentSlotsEl) UI.updateBottomBarEquipmentPanel(player);
         },
@@ -312,29 +341,42 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
         case ACTIONS.HARVEST_SALT_WATER: {
             if (tile.type.name !== TILE_TYPES.PLAGE.name) {
-                UI.addChatMessage("Vous ne pouvez récolter de l'eau salée que sur la plage.", "system"); return;
+                UI.addChatMessage("Vous ne pouvez récolter de l'eau salée que sur la plage.", "system"); 
+                return;
             }
             if (!tile.actionsLeft || tile.actionsLeft.harvest_salt_water <= 0) {
-                UI.addChatMessage("Vous ne pouvez plus récolter d'eau salée ici pour le moment.", "system"); return;
+                UI.addChatMessage("Vous ne pouvez plus récolter d'eau salée ici pour le moment.", "system"); 
+                return;
             }
+            
+            // Vérification supplémentaire de l'inventaire
+            const availableSpace = player.maxInventory - getTotalResources(player.inventory);
+            if (availableSpace <= 0) {
+                UI.addChatMessage("Inventaire plein, impossible de récolter.", "system");
+                if (DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
+                return;
+            }
+
             performTimedAction(player, ACTION_DURATIONS.HARVEST,
                 () => UI.addChatMessage(`Récolte d'Eau salée...`, "system"),
                 () => {
                     let amount = 1;
                     let toolUsed = null;
+                    
+                    // Vérification de l'outil après le délai (au cas où l'équipement aurait changé)
                     if (player.equipment.weapon && player.equipment.weapon.name === 'Seau') {
                         amount = 3;
                         toolUsed = player.equipment.weapon;
                     }
 
-                    const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                     if (tile.actionsLeft && tile.actionsLeft.harvest_salt_water > 0) tile.actionsLeft.harvest_salt_water--;
 
                     if (availableSpace >= amount) {
                         State.addResourceToPlayer('Eau salée', amount);
-                        UI.showFloatingText(`+${amount} Eau salée`, 'gain'); UI.triggerActionFlash('gain');
+                        UI.showFloatingText(`+${amount} Eau salée`, 'gain'); 
+                        UI.triggerActionFlash('gain');
                         
-                        if (toolUsed && toolUsed.hasOwnProperty('currentDurability')) {
+                        if (toolUsed && toolUsed.currentDurability !== undefined) {
                             toolUsed.currentDurability--;
                             if (toolUsed.currentDurability <= 0) {
                                 UI.addChatMessage(`${toolUsed.name} s'est cassé !`, 'system_warning');
@@ -342,10 +384,11 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                             }
                         }
                     } else {
-                        UI.addChatMessage("Inventaire plein, impossible de récolter l'eau salée.", "system");
+                        UI.addChatMessage("L'inventaire est devenu plein pendant l'action", "system");
                         if (DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl);
                     }
-                }, updateUICallbacks );
+                }, updateUICallbacks
+            );
             break;
         }
         case ACTIONS.HARVEST_SAND: {

@@ -287,6 +287,26 @@ export function populateBuildModal(gameState) {
     const { player, map, knownRecipes, config } = gameState;
     const tile = map[player.y][player.x];
     DOM.buildModalGridEl.innerHTML = '';
+    
+    // Add hide non-buildable toggle
+    const filterContainer = document.createElement('div');
+    filterContainer.className = 'build-filter';
+    const filterCheckbox = document.createElement('input');
+    filterCheckbox.type = 'checkbox';
+    filterCheckbox.id = 'hide-non-buildable';
+    filterCheckbox.checked = false;
+    filterCheckbox.onchange = () => populateBuildModal(gameState);
+    
+    const filterLabel = document.createElement('label');
+    filterLabel.htmlFor = 'hide-non-buildable';
+    filterLabel.textContent = 'Masquer les constructions impossibles';
+    
+    filterContainer.appendChild(filterCheckbox);
+    filterContainer.appendChild(filterLabel);
+    DOM.buildModalGridEl.appendChild(filterContainer);
+
+    // Get the current state of the hide non-buildable checkbox
+    const hideNonBuildable = document.getElementById('hide-non-buildable') ? document.getElementById('hide-non-buildable').checked : false;
 
     const constructibleBuildings = Object.keys(TILE_TYPES).filter(key => {
         const bt = TILE_TYPES[key];
@@ -313,6 +333,31 @@ export function populateBuildModal(gameState) {
 
     constructibleBuildings.sort().forEach(bKey => {
         const buildingType = TILE_TYPES[bKey];
+        
+        // Calculate if building is buildable
+        const costs = { ...buildingType.cost };
+        const toolReqArray = costs.toolRequired;
+        delete costs.toolRequired;
+
+        const hasEnoughResources = State.hasResources(costs).success;
+        const canBuildHere = tile.type.buildable && tile.type.name !== TILE_TYPES.PLAGE.name || (bKey === 'MINE' || bKey === 'CAMPFIRE' || bKey === 'PETIT_PUIT');
+        let hasRequiredToolForThisBuilding = true;
+        if (toolReqArray && toolReqArray.length > 0) {
+            hasRequiredToolForThisBuilding = toolReqArray.some(toolName =>
+                player.equipment.weapon && player.equipment.weapon.name === toolName
+            );
+        }
+        let isDisabledByStatus = false; 
+        if (player.status.includes('Drogué')) {
+             isDisabledByStatus = true;
+        }
+        const canBuild = hasEnoughResources && hasRequiredToolForThisBuilding && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE && canBuildHere && !isDisabledByStatus;
+
+        // Skip this building if we're hiding non-buildable and it can't be built
+        if (hideNonBuildable && !canBuild) {
+            return;
+        }
+
         const card = document.createElement('div');
         card.className = 'build-item-card';
 
@@ -335,14 +380,21 @@ export function populateBuildModal(gameState) {
         costsDiv.className = 'build-item-costs';
         costsDiv.innerHTML = '<h4>Coûts :</h4>';
         const costsList = document.createElement('ul');
-        const costs = { ...buildingType.cost };
-        const toolReqArray = costs.toolRequired;
-        delete costs.toolRequired;
+        // Costs and tool requirements are already calculated above
+        // (this block is removed since we already have these variables)
 
         if (Object.keys(costs).length > 0) {
             for (const item in costs) {
                 const li = document.createElement('li');
+                const playerAmount = player.inventory[item] || 0;
                 li.textContent = `${costs[item]} ${item}`;
+                
+                // Highlight missing resources in red
+                if (playerAmount < costs[item]) {
+                    li.style.color = 'red';
+                    li.style.fontWeight = 'bold';
+                }
+                
                 costsList.appendChild(li);
             }
         } else {
@@ -356,16 +408,12 @@ export function populateBuildModal(gameState) {
         toolsDiv.className = 'build-item-tools';
         toolsDiv.innerHTML = '<h4>Outils requis :</h4>';
         const toolsList = document.createElement('ul');
-        let hasRequiredToolForThisBuilding = true;
         if (toolReqArray && toolReqArray.length > 0) {
             toolReqArray.forEach(toolName => {
                 const li = document.createElement('li');
                 li.textContent = toolName;
                 toolsList.appendChild(li);
             });
-            hasRequiredToolForThisBuilding = toolReqArray.some(toolName =>
-                player.equipment.weapon && player.equipment.weapon.name === toolName
-            );
         } else {
             const li = document.createElement('li');
             li.textContent = "Aucun outil spécifique";
@@ -378,14 +426,8 @@ export function populateBuildModal(gameState) {
         const buildButton = document.createElement('button');
         buildButton.textContent = "Construire";
 
-        const hasEnoughResources = State.hasResources(costs).success;
-        const canBuildHere = tile.type.buildable && tile.type.name !== TILE_TYPES.PLAGE.name || (bKey === 'MINE' || bKey === 'CAMPFIRE' || bKey === 'PETIT_PUIT');
-        
-        let isDisabledByStatus = false; 
-        if (player.status.includes('Drogué')) {
-             isDisabledByStatus = true;
-        }
-        const canBuild = hasEnoughResources && hasRequiredToolForThisBuilding && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE && canBuildHere && !isDisabledByStatus;
+        // Building status is already calculated above (canBuild variable)
+        // (this block is removed since we already have the canBuild variable)
 
 
         buildButton.disabled = !canBuild || player.isBusy;

@@ -21,9 +21,10 @@
                     <div class="stat"><div class="stat-header"><span class="stat-icon">🍗</span><span>Faim</span><button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button></div><div class="stat-bar-container"><div id="hunger-squares-container" class="stat-squares-container"></div></div></div> 
                     <div class="stat"><div class="stat-header"><span class="stat-icon">🌙</span><span>Sommeil</span></div><div class="stat-bar-container"><div id="sleep-squares-container" class="stat-squares-container"></div></div></div>
                 </section>
-                <section id="minimap-section">
-                    <h3>Carte de l'île <button id="enlarge-map-btn" title="Agrandir la carte">⛶</button></h3>
-                    <div id="minimap-container"><canvas id="minimap-canvas"></canvas></div>
+                <section id="bottom-bar-ground-items" class="droppable" data-owner="ground">
+                    <h3>Objets au sol</h3>
+                    <ul class="inventory-list ground-items-list">
+                    </ul>
                 </section>
             </div>
 
@@ -32,12 +33,30 @@
                 <div id="main-view-container">
                     <div id="survival-vignette"></div><div id="action-flash"></div>
                     <canvas id="main-view-canvas"></canvas><canvas id="characters-canvas"></canvas>
-                    <div id="hud-overlay"></div> 
+                    <div id="hud-overlay">
+                        <div id="tile-info-hud">
+                            <h3></h3>
+                            <p id="tile-details-hud" class="tile-detail"></p>
+                            <p id="biome-display" class="tile-detail">Biome: Forêt</p>
+                            <p id="position-display" class="tile-detail">Position: (0, 0)</p>
+                        </div>
+                    </div> 
                     <div id="main-view-overlay">
                         <div id="navigation-edge-panel">
+                            <div id="game-info-hud" style="position: absolute; top: 10px; left: 100px; color: white; font-weight: bold; background: rgba(0, 0, 0, 0.5); padding: 5px; border-radius: 5px;">
+                                <p id="day-display">Jour: 1</p>
+                                <p id="time-display">Heure: 08:00</p>
+                                <p id="position-display-nav">Position: (0, 0)</p>
+                            </div>
                             <button class="nav-button-overlay" id="nav-nw">↖</button><button class="nav-button-overlay" id="nav-north">↑</button><button class="nav-button-overlay" id="nav-ne">↗</button>
                             <button class="nav-button-overlay" id="nav-west">←</button><button class="nav-button-overlay" id="nav-east">→</button>
                             <button class="nav-button-overlay" id="nav-sw">↙</button><button class="nav-button-overlay" id="nav-south">↓</button><button class="nav-button-overlay" id="nav-se">↘</button>
+                        </div>
+                        <div id="central-actions-panel" class="hidden">
+                            <button class="central-action-button" data-action="build" title="Construire">🛠️</button>
+                            <button class="central-action-button" data-action="harvest" title="Récolter">🪓</button>
+                            <button class="central-action-button" data-action="search" title="Fouiller">🔍</button>
+                            <button class="central-action-button" data-action="interact" title="Interagir">🤝</button>
                         </div>
                     </div>
                 </div>
@@ -45,16 +64,19 @@
 
             <!-- ### PANNEAU DE DROITE ### -->
             <div id="right-panel" class="ui-panel">
-                <section id="tile-info"> 
-                    <h3>
-                        <span id="tile-name">Forêt</span> <span id="hud-coords" class="coords-display">(0,0)</span>
-                        <span id="day-display-tileinfo" class="day-display-tileinfo-class">Jour <span id="day-counter-tileinfo">1</span> / 200</span> 
-                    </h3>
-                    <p id="tile-harvests-info" class="tile-detail"></p></section>
-                <section id="interaction-panel"><h3>Actions sur la tuile</h3><div id="actions"></div></section>
-                <section id="inventory-section"><h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3>
-                    <div id="inventory-categories" class="droppable" data-owner="player-inventory">
-                    </div>
+                <div id="right-panel-tabs">
+                    <button class="tab-button" data-tab="inventory-tab">Inventaire</button>
+                    <button class="tab-button active" data-tab="actions-tab">Actions</button>
+                </div>
+                <section id="inventory-tab" class="tab-content">
+                    <h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3>
+                    <input type="text" id="inventory-search" placeholder="Rechercher un objet...">
+                    <div id="quick-slots" class="droppable" data-owner="quick-slots"></div>
+                    <div id="inventory-categories" class="droppable" data-owner="player-inventory"></div>
+                </section>
+                <section id="actions-tab" class="tab-content active-tab">
+                    <h3>Actions Possibles</h3>
+                    <div id="actions-tab-content"></div>
                 </section>
             </div>
         </div>
@@ -76,10 +98,9 @@
                 </div>
             </div>
 
-            <div id="bottom-bar-ground-items" class="bottom-bar-section droppable" data-owner="ground">
-                <h4>Objets et ressources au sol</h4>
-                <ul class="inventory-list ground-items-list">
-                </ul>
+            <div id="minimap-section" class="bottom-bar-section">
+                <h4 style="display: flex; justify-content: space-between; align-items: center;">Carte de l'île <button id="enlarge-map-btn" title="Agrandir la carte">⛶</button></h4>
+                <div id="minimap-container"><canvas id="minimap-canvas"></canvas></div>
             </div>
         </div>
     </div>

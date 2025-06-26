@@ -13,7 +13,8 @@ export function initDOM() {
     // --- PANNEAUX UI ---
     DOM.tileNameEl = document.getElementById('tile-name');
     DOM.tileDescriptionEl = document.getElementById('tile-description');
-    DOM.actionsEl = document.getElementById('actions');
+    // MODIFIÉ: DOM.actionsEl pointe maintenant vers le conteneur de l'onglet Actions
+    DOM.actionsEl = document.getElementById('actions-tab-content'); 
     DOM.chatInputEl = document.getElementById('chat-input-field');
     DOM.toggleChatSizeBtn = document.getElementById('toggle-chat-size-btn');
     DOM.dayCounterEl = document.getElementById('day-counter');
@@ -66,7 +67,6 @@ export function initDOM() {
     DOM.modalSharedInventoryEl = document.getElementById('modal-shared-inventory');
     DOM.modalPlayerCapacityEl = document.getElementById('modal-player-capacity');
     DOM.modalSharedCapacityEl = document.getElementById('modal-shared-capacity');
-    // AJOUTÉ : Élément de recherche pour l'inventaire partagé
     DOM.sharedInventorySearchEl = document.getElementById('shared-inventory-search');
 
 

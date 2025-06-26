@@ -161,9 +161,13 @@ let lastStatDecayTimestamp = 0;
 let draggedItemInfo = null;
 
 function updatePossibleActions() {
-    if (!DOM.actionsEl) return;
+    // DOM.actionsEl est maintenant #actions-tab-content (le div)
+    if (!DOM.actionsEl) {
+        console.warn("#actions-tab-content element not found in DOM. Skipping update of actions tab.");
+        return;
+    }
     const oldScrollTop = DOM.actionsEl.scrollTop;
-    DOM.actionsEl.innerHTML = '';
+    DOM.actionsEl.innerHTML = ''; // Vide le contenu du div
 
     if (!State.state || !State.state.player) return;
     const { player, map, combatState, enemies, tutorialState } = State.state;
@@ -186,6 +190,7 @@ function updatePossibleActions() {
 
     const createButton = (text, actionId, data = {}, disabled = false, title = '') => {
         const button = document.createElement('button');
+        button.className = 'action-button'; 
         button.textContent = text;
         button.disabled = disabled || player.isBusy;
         button.title = title;
@@ -193,7 +198,6 @@ function updatePossibleActions() {
         DOM.actionsEl.appendChild(button);
         return button;
     };
-
 
     if (combatState || player.isBusy) {
         const statusDiv = document.createElement('div');
@@ -210,6 +214,9 @@ function updatePossibleActions() {
         DOM.actionsEl.scrollTop = oldScrollTop;
         return;
     }
+    
+    // console.log("Updating possible actions for tile:", tileType.name); // Commenté pour réduire le bruit console
+    // UI.addChatMessage("Mise à jour des actions possibles... Consultez l'onglet 'Actions'.", "system_info"); // Commenté pour réduire le bruit console
 
     if (enemyOnTile) {
         const enemyStatus = document.createElement('div');
@@ -354,104 +361,145 @@ function updatePossibleActions() {
     if (tile.buildings && tile.buildings.length > 0) {
         const buildingsHeader = document.createElement('h4');
         buildingsHeader.textContent = "Actions des Bâtiments";
+        buildingsHeader.style.marginTop = '15px';
+        buildingsHeader.style.paddingTop = '10px';
+        buildingsHeader.style.borderTop = '1px solid rgba(255,255,255,0.1)';
         DOM.actionsEl.appendChild(buildingsHeader);
-
-        tile.buildings.forEach((buildingInstance, index) => {
-            const buildingDef = TILE_TYPES[buildingInstance.key];
-            if (!buildingDef) return;
-
-            const buildingNameDisplay = document.createElement('p');
-            buildingNameDisplay.innerHTML = `<strong>${buildingDef.name}</strong> (Durabilité: ${buildingInstance.durability}/${buildingInstance.maxDurability})`;
-            if (buildingDef.maxHarvestsPerCycle) {
-                buildingNameDisplay.innerHTML += ` (Récoltes: ${buildingInstance.harvestsAvailable || 0}/${buildingInstance.maxHarvestsPerCycle || 0})`;
-            }
-            buildingNameDisplay.style.marginBottom = '5px';
-            buildingNameDisplay.style.borderTop = '1px solid #ccc';
-            buildingNameDisplay.style.paddingTop = '5px';
-            DOM.actionsEl.appendChild(buildingNameDisplay);
-
-            if (buildingDef.sleepEffect && buildingInstance.durability > 0) {
-                 createButton("😴 Dormir (8h)", ACTIONS.SLEEP, { buildingKeyForDamage: buildingInstance.key, buildingIndex: index });
-            }
-
-            if (buildingInstance.durability > 0 && player.hunger >= 5 && player.thirst >= 5 && player.sleep >= 5) {
-                createButton(`🔩 Démanteler ${buildingDef.name}`, ACTIONS.DISMANTLE_BUILDING, { buildingKey: buildingInstance.key, buildingIndex: index }, false, "Récupérer une partie des matériaux (-5 Faim/Soif/Sommeil)");
-            } else if (buildingInstance.durability > 0) {
-                 createButton(`🔩 Démanteler ${buildingDef.name}`, ACTIONS.DISMANTLE_BUILDING, { buildingKey: buildingInstance.key, buildingIndex: index }, true, "Trop fatigué pour démanteler (5 Faim/Soif/Sommeil requis)");
-            }
-
-            if ((buildingInstance.key === 'SHELTER_INDIVIDUAL' || buildingInstance.key === 'SHELTER_COLLECTIVE')) {
-                if (buildingInstance.isLocked && tile.playerHasUnlockedThisSession) {
-                    createButton("🔓 Retirer Cadenas", ACTIONS.REMOVE_LOCK, { buildingKey: buildingInstance.key, buildingIndex: index });
-                } else if (!buildingInstance.isLocked && player.inventory['Cadenas'] > 0) {
-                    createButton("🔒 Poser Cadenas", ACTIONS.SET_LOCK, { buildingKey: buildingInstance.key, buildingIndex: index });
-                }
-            }
-
-            if (buildingDef.actions && buildingInstance.durability > 0) {
-                buildingDef.actions.forEach(actionInfo => {
-                    let disabledAction = false;
-                    let titleAction = actionInfo.name;
-                    let actionCostText = "";
-
-                    if (actionInfo.costItem && actionInfo.costAmount) {
-                        if (!player.inventory[actionInfo.costItem] || player.inventory[actionInfo.costItem] < actionInfo.costAmount) {
-                            disabledAction = true;
-                            actionCostText += ` (Nécessite ${actionInfo.costAmount} ${actionInfo.costItem})`;
-                        }
-                    }
-                    if (actionInfo.costItems) {
-                        for (const item in actionInfo.costItems) {
-                            if(!player.inventory[item] || player.inventory[item] < actionInfo.costItems[item]) {
-                                disabledAction = true;
-                                actionCostText += ` (Nécessite ${actionInfo.costItems[item]} ${item})`;
-                            }
-                        }
-                    }
-                    if (buildingInstance.key === 'CAMPFIRE' && actionInfo.id !== 'sleep_by_campfire') {
-                        const woodNeeded = actionInfo.costWood || 1;
-                        if (!player.inventory['Bois'] || player.inventory['Bois'] < woodNeeded) {
-                            disabledAction = true;
-                            actionCostText += ` (Nécessite ${woodNeeded} Bois)`;
-                        }
-                    }
-
-                    if (['harvest_bananeraie', 'harvest_sucrerie', 'harvest_cocoteraie', 'harvest_poulailler', 'harvest_enclos_cochons'].includes(actionInfo.id)) {
-                        if (!buildingInstance.harvestsAvailable || buildingInstance.harvestsAvailable <= 0) {
-                            disabledAction = true;
-                            titleAction = "Rien à récolter (arrosez/abreuvez)";
-                        } else if (isInventoryFull) {
-                            disabledAction = true;
-                            titleAction = "Inventaire plein";
-                        }
-                    }
-                    if (actionInfo.id === 'sleep_by_campfire' && player.sleep >= player.maxSleep) {
-                        disabledAction = true;
-                        titleAction = "Sommeil au maximum";
-                    }
-
-                    titleAction += actionCostText;
-                    createButton(actionInfo.name, ACTIONS.USE_BUILDING_ACTION, { buildingKey: buildingInstance.key, specificActionId: actionInfo.id }, disabledAction, titleAction);
-                });
-            }
-            
-            if (buildingInstance.key === 'MINE' && buildingInstance.durability > 0 && hasPiocheEquipped) {
-                createButton("⛏️ Chercher Minerais (Bât.)", ACTIONS.USE_BUILDING_ACTION, { buildingKey: 'MINE', specificActionId: 'search_ore_building' });
-            }
-            if ((buildingInstance.key === 'ATELIER' || buildingInstance.key === 'ETABLI' || buildingInstance.key === 'FORGE') && buildingInstance.durability > 0) {
-                 createButton(`🛠️ Utiliser ${buildingDef.name}`, ACTIONS.USE_BUILDING_ACTION, { buildingKey: buildingInstance.key, specificActionId: TILE_TYPES[buildingInstance.key].action.id});
-            }
-
-            const kitReparationEquipped = player.equipment.weapon && player.equipment.weapon.name === 'Kit de réparation';
-            if (kitReparationEquipped && buildingInstance.durability < buildingInstance.maxDurability && player.equipment.weapon.currentUses > 0) {
-                createButton(`🛠️ Réparer ${buildingDef.name}`, ACTIONS.REPAIR_BUILDING, { buildingKey: buildingInstance.key, buildingIndex: index }, false, `Utiliser Kit de réparation (${player.equipment.weapon.currentUses || ITEM_TYPES['Kit de réparation'].uses} uses)`);
-            }
-
-            if (buildingDef.inventory && buildingInstance.durability > 0) {
-                const openChestButton = createButton( `🧰 Ouvrir le Coffre (${buildingDef.name})`, ACTIONS.OPEN_BUILDING_INVENTORY, { buildingKey: buildingInstance.key, buildingIndex: index });
-            }
-        });
     }
+
+    tile.buildings.forEach((buildingInstance, index) => {
+        const buildingDef = TILE_TYPES[buildingInstance.key];
+        if (!buildingDef) return;
+
+        const buildingNameDisplay = document.createElement('p');
+        buildingNameDisplay.innerHTML = `<strong>${buildingDef.name}</strong> (Durabilité: ${buildingInstance.durability}/${buildingInstance.maxDurability})`;
+        if (buildingDef.maxHarvestsPerCycle) {
+            buildingNameDisplay.innerHTML += ` (Récoltes: ${buildingInstance.harvestsAvailable || 0}/${buildingInstance.maxHarvestsPerCycle || 0})`;
+        }
+        buildingNameDisplay.style.marginBottom = '5px';
+        buildingNameDisplay.style.fontWeight = '500';
+        DOM.actionsEl.appendChild(buildingNameDisplay);
+
+        if (buildingDef.sleepEffect && buildingInstance.durability > 0) {
+             createButton("😴 Dormir (8h)", ACTIONS.SLEEP, { buildingKeyForDamage: buildingInstance.key, buildingIndex: index });
+        }
+
+        if (buildingInstance.durability > 0 && player.hunger >= 5 && player.thirst >= 5 && player.sleep >= 5) {
+            createButton(`🔩 Démanteler ${buildingDef.name}`, ACTIONS.DISMANTLE_BUILDING, { buildingKey: buildingInstance.key, buildingIndex: index }, false, "Récupérer une partie des matériaux (-5 Faim/Soif/Sommeil)");
+        } else if (buildingInstance.durability > 0) {
+             createButton(`🔩 Démanteler ${buildingDef.name}`, ACTIONS.DISMANTLE_BUILDING, { buildingKey: buildingInstance.key, buildingIndex: index }, true, "Trop fatigué pour démanteler (5 Faim/Soif/Sommeil requis)");
+        }
+
+        if ((buildingInstance.key === 'SHELTER_INDIVIDUAL' || buildingInstance.key === 'SHELTER_COLLECTIVE')) {
+            if (buildingInstance.isLocked && tile.playerHasUnlockedThisSession) {
+                createButton("🔓 Retirer Cadenas", ACTIONS.REMOVE_LOCK, { buildingKey: buildingInstance.key, buildingIndex: index });
+            } else if (!buildingInstance.isLocked && player.inventory['Cadenas'] > 0) {
+                createButton("🔒 Poser Cadenas", ACTIONS.SET_LOCK, { buildingKey: buildingInstance.key, buildingIndex: index });
+            }
+        }
+
+        if (buildingDef.actions && buildingInstance.durability > 0) {
+            buildingDef.actions.forEach(actionInfo => {
+                let disabledAction = false;
+                let titleAction = actionInfo.name;
+                let actionCostText = "";
+
+                if (actionInfo.costItem && actionInfo.costAmount) {
+                    if (!player.inventory[actionInfo.costItem] || player.inventory[actionInfo.costItem] < actionInfo.costAmount) {
+                        disabledAction = true;
+                        actionCostText += ` (Nécessite ${actionInfo.costAmount} ${actionInfo.costItem})`;
+                    }
+                }
+                if (actionInfo.costItems) {
+                    for (const item in actionInfo.costItems) {
+                        if(!player.inventory[item] || player.inventory[item] < actionInfo.costItems[item]) {
+                            disabledAction = true;
+                            actionCostText += ` (Nécessite ${actionInfo.costItems[item]} ${item})`;
+                        }
+                    }
+                }
+                if (buildingInstance.key === 'CAMPFIRE' && actionInfo.id !== 'sleep_by_campfire') {
+                    const woodNeeded = actionInfo.costWood || 1;
+                    if (!player.inventory['Bois'] || player.inventory['Bois'] < woodNeeded) {
+                        disabledAction = true;
+                        actionCostText += ` (Nécessite ${woodNeeded} Bois)`;
+                    }
+                }
+
+                if (['harvest_bananeraie', 'harvest_sucrerie', 'harvest_cocoteraie', 'harvest_poulailler', 'harvest_enclos_cochons'].includes(actionInfo.id)) {
+                    if (!buildingInstance.harvestsAvailable || buildingInstance.harvestsAvailable <= 0) {
+                        disabledAction = true;
+                        titleAction = "Rien à récolter (arrosez/abreuvez)";
+                    } else if (isInventoryFull) {
+                        disabledAction = true;
+                        titleAction = "Inventaire plein";
+                    }
+                }
+                if (actionInfo.id === 'sleep_by_campfire' && player.sleep >= player.maxSleep) {
+                    disabledAction = true;
+                    titleAction = "Sommeil au maximum";
+                }
+
+                titleAction += actionCostText;
+                createButton(actionInfo.name, ACTIONS.USE_BUILDING_ACTION, { buildingKey: buildingInstance.key, specificActionId: actionInfo.id }, disabledAction, titleAction);
+            });
+        }
+        
+        if (buildingInstance.key === 'MINE' && buildingInstance.durability > 0 && hasPiocheEquipped) {
+            createButton("⛏️ Chercher Minerais (Bât.)", ACTIONS.USE_BUILDING_ACTION, { buildingKey: 'MINE', specificActionId: 'search_ore_building' });
+        }
+        if ((buildingInstance.key === 'ATELIER' || buildingInstance.key === 'ETABLI' || buildingInstance.key === 'FORGE') && buildingInstance.durability > 0) {
+             createButton(`🛠️ Utiliser ${buildingDef.name}`, ACTIONS.USE_BUILDING_ACTION, { buildingKey: buildingInstance.key, specificActionId: TILE_TYPES[buildingInstance.key].action.id});
+        }
+
+        const kitReparationEquipped = player.equipment.weapon && player.equipment.weapon.name === 'Kit de réparation';
+        if (kitReparationEquipped && buildingInstance.durability < buildingInstance.maxDurability && player.equipment.weapon.currentUses > 0) {
+            createButton(`🛠️ Réparer ${buildingDef.name}`, ACTIONS.REPAIR_BUILDING, { buildingKey: buildingInstance.key, buildingIndex: index }, false, `Utiliser Kit de réparation (${player.equipment.weapon.currentUses || ITEM_TYPES['Kit de réparation'].uses} uses)`);
+        }
+
+        if (buildingDef.inventory && buildingInstance.durability > 0) {
+            const openChestButton = createButton( `🧰 Ouvrir le Coffre (${buildingDef.name})`, ACTIONS.OPEN_BUILDING_INVENTORY, { buildingKey: buildingInstance.key, buildingIndex: index });
+        }
+    });
+    
+    // Check for distress and signaling actions if player has the items
+    if (player.inventory['Pistolet de détresse'] > 0) {
+        createButton("🔫 Tirer Pistolet de Détresse", ACTIONS.FIRE_DISTRESS_GUN);
+    }
+    if (player.inventory['Fusée de détresse'] > 0) {
+        createButton("🧨 Lancer Fusée de Détresse", ACTIONS.FIRE_DISTRESS_FLARE);
+    }
+    if (player.inventory['Panneau solaire fixe'] > 0 && tile.type.buildable && tile.buildings.length < CONFIG.MAX_BUILDINGS_PER_TILE) {
+        createButton("☀️ Placer Panneau Solaire Fixe", ACTIONS.PLACE_SOLAR_PANEL_FIXED);
+    }
+    if (player.inventory['Piège'] > 0) {
+        createButton("🪤 Placer Piège", ACTIONS.PLACE_TRAP);
+    }
+
+    // Check for equipped items with specific actions
+    if (player.equipment.weapon) {
+        if (player.equipment.weapon.name === 'Panneau solaire portable' && player.equipment.weapon.currentUses > 0) {
+            createButton("🌞 Charger Batterie (Portable)", ACTIONS.CHARGE_BATTERY_PORTABLE_SOLAR);
+        }
+        if (player.equipment.weapon.name === 'Sifflet' && player.equipment.weapon.currentUses > 0) {
+            createButton("😗 Siffler pour Attirer PNJ", ACTIONS.ATTRACT_NPC_ATTENTION);
+        }
+        if (player.equipment.weapon.name === 'Boussole' && player.equipment.weapon.currentUses > 0) {
+            createButton("🧭 Trouver Mine avec Boussole", ACTIONS.FIND_MINE_COMPASS);
+        }
+    }
+    
+    // Message si aucune action contextuelle n'est disponible
+    if (DOM.actionsEl.children.length === 0 &&
+        !combatState && !player.isBusy &&
+        (!tutorialState.active || tutorialState.completed || tutorialState.isTemporarilyHidden)) {
+        const noActionsMsg = document.createElement('p');
+        noActionsMsg.textContent = "Aucune action spécifique disponible sur cette tuile.";
+        noActionsMsg.style.textAlign = 'center';
+        noActionsMsg.style.padding = '10px';
+        DOM.actionsEl.appendChild(noActionsMsg);
+    }
+
     DOM.actionsEl.scrollTop = oldScrollTop;
 }
 
@@ -658,7 +706,7 @@ window.fullUIUpdate = function() {
         return;
     }
     UI.updateAllUI(State.state);
-    updatePossibleActions();
+    updatePossibleActions(); // Assurez-vous que cela met à jour le bon conteneur
 
     if (DOM.equipmentModal && !DOM.equipmentModal.classList.contains('hidden')) UI.updateEquipmentModal(State.state);
     if (DOM.inventoryModal && !DOM.inventoryModal.classList.contains('hidden')) UI.showInventoryModal(State.state);
@@ -696,6 +744,7 @@ window.fullUIUpdate = function() {
             btn.disabled = tutorialIsActiveAndNeedsActionBlocking || playerIsActuallyBusy;
         }
     }
+    UI.updateAllButtonsState(State.state); // Ajouté pour que tous les boutons (y compris ceux des actions) soient mis à jour
 };
 window.State = State;
 
@@ -1209,7 +1258,7 @@ function endGame(isVictory) {
 
     const endModal = document.createElement('div');
     endModal.id = 'end-game-modal';
-    endModal.style.cssText = `position: fixed; inset: 0; background-color: rgba(0,0,0,0.8); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; font-size: 2em; text-align: center; padding: 20px; backdrop-filter: blur(5px);`;
+    endModal.style.cssText = `position: fixed; inset: 0; background-color: rgba(0,0,0,0.85); z-index: 10000; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; font-size: 2em; text-align: center; padding: 20px; backdrop-filter: blur(5px);`;
     const messageEl = document.createElement('p');
     messageEl.textContent = finalMessage;
     const reloadButton = document.createElement('button');
@@ -1247,10 +1296,241 @@ async function init() {
             UI.drawMinimap(State.state, State.state.config);
         }
 
-        window.addEventListener('resize', fullResizeAndRedraw);
-        setupEventListeners();
+    window.addEventListener('resize', fullResizeAndRedraw);
+    setupEventListeners();
 
-        initAdminControls();
+    initAdminControls();
+
+    // Initialize right panel tabs
+    UI.initializeTabs();
+
+    // Initialize actions dropdown for the "Actions" button
+    UI.initializeActionsDropdown();
+    
+    // Initialize central action buttons on the main view
+    UI.initializeCentralActions();
+
+    // Add click event listener for player character representation next to equipment slots to open equipment menu
+    const equipmentPanel = document.getElementById('bottom-bar-equipment-panel');
+    if (equipmentPanel) {
+        equipmentPanel.addEventListener('click', (e) => {
+            if (State.state && State.state.player && !State.state.player.isBusy && !State.state.combatState && !State.state.tutorialState.active) {
+                // Check if the click is on the panel itself or a child element not related to slots
+                if (e.target === equipmentPanel || e.target.classList.contains('equipment-panel-header')) {
+                    UI.showEquipmentModal(State.state);
+                }
+            }
+        });
+    }
+
+    // Setup Actions button in main view
+    const actionButton = document.getElementById('action-button');
+    if (actionButton) {
+        actionButton.addEventListener('click', () => {
+            if (State.state && State.state.player && !State.state.player.isBusy && !State.state.combatState && !State.state.tutorialState.active) {
+                showTileActionsMenu(actionButton);
+            }
+        });
+    }
+
+    let currentTileActions = [];
+
+    function showTileActionsMenu(button) {
+        hideTileActionsMenu();
+        const actions = getTileActions();
+        if (actions.length === 0) {
+            UI.addChatMessage("Aucune action disponible sur cette tuile.", "system");
+            return;
+        }
+
+        currentTileActions = actions;
+        DOM.contextMenuTitle.textContent = "Actions sur la tuile";
+        DOM.contextMenuActions.innerHTML = '';
+
+        actions.forEach((action, index) => {
+            const menuButton = document.createElement('button');
+            menuButton.textContent = action.text;
+            menuButton.disabled = action.disabled;
+            menuButton.onclick = () => {
+                handleTileAction(index);
+                hideTileActionsMenu();
+            };
+            DOM.contextMenuActions.appendChild(menuButton);
+        });
+
+        const rect = button.getBoundingClientRect();
+        const menuWidth = DOM.itemContextMenu.offsetWidth;
+        const menuHeight = DOM.itemContextMenu.offsetHeight;
+        const { innerWidth, innerHeight } = window;
+        
+        let left = rect.right + 5;
+        let top = rect.top;
+
+        if (left + menuWidth > innerWidth) {
+            left = rect.left - menuWidth - 5;
+        }
+        if (top + menuHeight > innerHeight) {
+            top = innerHeight - menuHeight - 5;
+        }
+
+        DOM.itemContextMenu.style.left = `${left}px`;
+        DOM.itemContextMenu.style.top = `${top}px`;
+        DOM.itemContextMenu.classList.remove('hidden');
+    }
+
+    function hideTileActionsMenu() {
+        if (DOM.itemContextMenu) {
+            DOM.itemContextMenu.classList.add('hidden');
+        }
+        currentTileActions = [];
+    }
+
+    // La fonction getTileActions est définie ici pour être utilisée par showTileActionsMenu
+    function getTileActions() {
+        const actions = [];
+        if (!State.state || !State.state.player || !State.state.map) return actions;
+        const { player, map, combatState, enemies, tutorialState } = State.state;
+
+        if (tutorialState.active && !tutorialState.isTemporarilyHidden && tutorialState.step > 0) {
+            return actions;
+        }
+
+        if (!map || !map[player.y] || !map[player.y][player.x]) return actions;
+        const tile = map[player.y][player.x];
+        const tileType = tile.type;
+        const enemyOnTile = findEnemyOnTile(player.x, player.y, enemies);
+
+        const createAction = (text, actionId, data = {}, disabled = false, title = '') => {
+            return { text, actionId, data, disabled, title };
+        };
+
+        if (combatState || player.isBusy) {
+            return actions;
+        }
+
+        if (enemyOnTile) {
+            actions.push(createAction(`⚔️ Attaquer ${enemyOnTile.name}`, ACTIONS.INITIATE_COMBAT));
+            return actions;
+        }
+
+        const isInventoryFull = getTotalResources(player.inventory) >= player.maxInventory;
+
+        // Actions spécifiques à la tuile
+        if (tileType.name === TILE_TYPES.PLAGE.name) {
+            if (tile.actionsLeft?.search_zone > 0) actions.push(createAction(`🔎 Fouiller la plage (${tile.actionsLeft.search_zone})`, ACTIONS.SEARCH_ZONE, {}, isInventoryFull));
+            if (tile.actionsLeft?.harvest_sand > 0) actions.push(createAction(`⏳ Récolter Sable (${tile.actionsLeft.harvest_sand})`, ACTIONS.HARVEST_SAND, {}, isInventoryFull));
+            const hasCane = player.equipment.weapon?.name === 'Canne à pêche';
+            const hasNet = player.equipment.weapon?.name === 'Filet de pêche';
+            if (tile.actionsLeft?.fish > 0 && hasCane) actions.push(createAction(`🎣 Pêcher (Canne) (${tile.actionsLeft.fish})`, ACTIONS.FISH, {}, isInventoryFull));
+            if (hasNet && player.equipment.weapon.currentUses > 0) actions.push(createAction(`🥅 Pêcher (Filet) (${player.equipment.weapon.currentUses})`, ACTIONS.NET_FISH, {}, isInventoryFull));
+            if (tile.actionsLeft?.harvest_salt_water > 0) actions.push(createAction(`💧 Récolter Eau Salée (${tile.actionsLeft.harvest_salt_water})`, ACTIONS.HARVEST_SALT_WATER, {}, isInventoryFull));
+        } else if (tileType.name === TILE_TYPES.FOREST.name || tileType.name === TILE_TYPES.PLAINS.name) {
+            if (tile.searchActionsLeft > 0) actions.push(createAction(`🔎 Fouiller la zone (${tile.searchActionsLeft})`, ACTIONS.SEARCH_ZONE, {}, isInventoryFull));
+        }
+
+        if (tileType.name === TILE_TYPES.FOREST.name || tileType.name === TILE_TYPES.PLAINS.name) {
+            const weapon = player.equipment.weapon;
+            const canHunt = weapon?.stats?.damage > 0;
+            if (tile.huntActionsLeft > 0) actions.push(createAction(`🏹 Chasser (${tile.huntActionsLeft})`, ACTIONS.HUNT, {}, !canHunt || player.status.includes('Drogué')));
+        }
+        
+        if (tileType.name === TILE_TYPES.PLAINS.name && tile.buildings.length === 0 && State.hasResources({ 'Graine d\'arbre': 5, 'Eau pure': 1 }).success) {
+            actions.push(createAction("🌱 Planter Arbre", ACTIONS.PLANT_TREE));
+        }
+        if (tileType.name === TILE_TYPES.WASTELAND.name && State.hasResources(TILE_TYPES.WASTELAND.regeneration.cost).success) {
+            actions.push(createAction("🌳 Régénérer Forêt", ACTIONS.REGENERATE_FOREST));
+        }
+
+        if (tile.type === TILE_TYPES.TREASURE_CHEST && !tile.isOpened && player.inventory[TILE_TYPES.TREASURE_CHEST.requiresKey] > 0) {
+            actions.push(createAction("💎 Ouvrir le Trésor", ACTIONS.OPEN_TREASURE, {}, isInventoryFull));
+        }
+        if (tile.hiddenItem) {
+            actions.push(createAction(`🔑 Prendre ${tile.hiddenItem}`, ACTIONS.TAKE_HIDDEN_ITEM, {}, isInventoryFull));
+        }
+
+        if (tileType.name === TILE_TYPES.FOREST.name && tile.woodActionsLeft > 0 && !enemyOnTile) {
+            const equippedWeapon = player.equipment.weapon;
+            if (equippedWeapon?.name === 'Hache') actions.push(createAction(`🪓 Couper Bois (Hache) (${tile.woodActionsLeft})`, ACTIONS.HARVEST_WOOD_HACHE, {}, isInventoryFull));
+            else if (equippedWeapon?.name === 'Scie') actions.push(createAction(`🪚 Scier Bois (Scie) (${tile.woodActionsLeft})`, ACTIONS.HARVEST_WOOD_SCIE, {}, isInventoryFull));
+            else actions.push(createAction(`✋ Ramasser Bois (${tile.woodActionsLeft})`, ACTIONS.HARVEST_WOOD_MAINS, {}, isInventoryFull));
+        }
+        if (tileType.name === TILE_TYPES.MINE_TERRAIN.name && (tile.harvestsLeft > 0 || tile.harvestsLeft === Infinity) && !Interactions.findBuildingOnTile(tile, 'MINE') && !enemyOnTile) {
+            actions.push(createAction(`${ITEM_TYPES[tileType.resource.type]?.icon || '🪨'} Récolter Pierre (${tile.harvestsLeft})`, ACTIONS.HARVEST_STONE, {}, isInventoryFull));
+        }
+
+        if (tileType.name === TILE_TYPES.MINE_TERRAIN.name && player.equipment.weapon?.name === 'Pioche' && !Interactions.findBuildingOnTile(tile, 'MINE')) {
+            actions.push(createAction("⛏️ Chercher Minerais (Terrain)", ACTIONS.USE_BUILDING_ACTION, { buildingKey: null, specificActionId: ACTIONS.SEARCH_ORE_TILE }));
+        }
+        if (player.equipment.weapon?.name === 'Guitare') {
+            actions.push(createAction("🎸 Jouer de la guitare électrique", ACTIONS.USE_BUILDING_ACTION, { buildingKey: null, specificActionId: ACTIONS.PLAY_ELECTRIC_GUITAR }));
+        }
+        if (State.countItemTypeInInventory('teachesRecipe') >= 2) {
+            actions.push(createAction("📜 Ouvrir tous les Parchemins", ACTIONS.OPEN_ALL_PARCHEMINS));
+        }
+
+        // Actions des bâtiments sur la tuile
+        tile.buildings.forEach((buildingInstance, index) => {
+            const buildingDef = TILE_TYPES[buildingInstance.key];
+            if (!buildingDef) return;
+
+            if (buildingDef.sleepEffect && buildingInstance.durability > 0) actions.push(createAction("😴 Dormir (8h)", ACTIONS.SLEEP, { buildingKeyForDamage: buildingInstance.key, buildingIndex: index }));
+            if (buildingInstance.durability > 0 && player.hunger >= 5 && player.thirst >= 5 && player.sleep >= 5) actions.push(createAction(`🔩 Démanteler ${buildingDef.name}`, ACTIONS.DISMANTLE_BUILDING, { buildingKey: buildingInstance.key, buildingIndex: index }));
+            
+            if ((buildingInstance.key === 'SHELTER_INDIVIDUAL' || buildingInstance.key === 'SHELTER_COLLECTIVE')) {
+                if (buildingInstance.isLocked && tile.playerHasUnlockedThisSession) actions.push(createAction("🔓 Retirer Cadenas", ACTIONS.REMOVE_LOCK, { buildingKey: buildingInstance.key, buildingIndex: index }));
+                else if (!buildingInstance.isLocked && player.inventory['Cadenas'] > 0) actions.push(createAction("🔒 Poser Cadenas", ACTIONS.SET_LOCK, { buildingKey: buildingInstance.key, buildingIndex: index }));
+            }
+
+            if (buildingDef.actions && buildingInstance.durability > 0) {
+                buildingDef.actions.forEach(actionInfo => {
+                    let disabled = false; // Simplifié, la logique de désactivation exacte est dans updatePossibleActions
+                    actions.push(createAction(actionInfo.name, ACTIONS.USE_BUILDING_ACTION, { buildingKey: buildingInstance.key, specificActionId: actionInfo.id }, disabled));
+                });
+            }
+            if (buildingInstance.key === 'MINE' && buildingInstance.durability > 0 && player.equipment.weapon?.name === 'Pioche') {
+                actions.push(createAction("⛏️ Chercher Minerais (Bât.)", ACTIONS.USE_BUILDING_ACTION, { buildingKey: 'MINE', specificActionId: 'search_ore_building' }));
+            }
+            if ((buildingInstance.key === 'ATELIER' || buildingInstance.key === 'ETABLI' || buildingInstance.key === 'FORGE') && buildingInstance.durability > 0) {
+                actions.push(createAction(`🛠️ Utiliser ${buildingDef.name}`, ACTIONS.USE_BUILDING_ACTION, { buildingKey: buildingInstance.key, specificActionId: TILE_TYPES[buildingInstance.key].action.id}));
+            }
+            if (player.equipment.weapon?.name === 'Kit de réparation' && buildingInstance.durability < buildingInstance.maxDurability && player.equipment.weapon.currentUses > 0) {
+                actions.push(createAction(`🛠️ Réparer ${buildingDef.name}`, ACTIONS.REPAIR_BUILDING, { buildingKey: buildingInstance.key, buildingIndex: index }));
+            }
+            if (buildingDef.inventory && buildingInstance.durability > 0) {
+                actions.push(createAction(`🧰 Ouvrir le Coffre (${buildingDef.name})`, ACTIONS.OPEN_BUILDING_INVENTORY, { buildingKey: buildingInstance.key, buildingIndex: index }));
+            }
+        });
+
+        // Actions générales non liées à un objet spécifique
+        if (player.inventory['Pistolet de détresse'] > 0) actions.push(createAction("🔫 Tirer Pistolet de Détresse", ACTIONS.FIRE_DISTRESS_GUN));
+        if (player.inventory['Fusée de détresse'] > 0) actions.push(createAction("🧨 Lancer Fusée de Détresse", ACTIONS.FIRE_DISTRESS_FLARE));
+        if (player.inventory['Panneau solaire fixe'] > 0 && tile.type.buildable && tile.buildings.length < CONFIG.MAX_BUILDINGS_PER_TILE) actions.push(createAction("☀️ Placer Panneau Solaire Fixe", ACTIONS.PLACE_SOLAR_PANEL_FIXED));
+        if (player.inventory['Piège'] > 0) actions.push(createAction("🪤 Placer Piège", ACTIONS.PLACE_TRAP));
+        
+        if (player.equipment.weapon?.name === 'Panneau solaire portable' && player.equipment.weapon.currentUses > 0) actions.push(createAction("🌞 Charger Batterie (Portable)", ACTIONS.CHARGE_BATTERY_PORTABLE_SOLAR));
+        if (player.equipment.weapon?.name === 'Sifflet' && player.equipment.weapon.currentUses > 0) actions.push(createAction("😗 Siffler pour Attirer PNJ", ACTIONS.ATTRACT_NPC_ATTENTION));
+        if (player.equipment.weapon?.name === 'Boussole' && player.equipment.weapon.currentUses > 0) actions.push(createAction("🧭 Trouver Mine avec Boussole", ACTIONS.FIND_MINE_COMPASS));
+
+
+        if (tile.type.buildable && tile.buildings.length < CONFIG.MAX_BUILDINGS_PER_TILE && tile.type.name !== TILE_TYPES.PLAGE.name) {
+            actions.push(createAction("🏗️ Construire...", ACTIONS.OPEN_BUILD_MODAL));
+        }
+
+        if (!combatState) {
+            const npcsOnTile = State.state.npcs.filter(npc => npc.x === player.x && npc.y === player.y);
+            npcsOnTile.forEach(npc => {
+                actions.push(createAction(`💬 Parler à ${npc.name}`, ACTIONS.TALK_TO_NPC, { npcId: npc.id }));
+            });
+        }
+        return actions;
+    }
+    window.getTileActions = getTileActions; // Rendre getTileActions accessible globalement pour l'UI si besoin
+
+    function handleTileAction(actionIndex) {
+        if (actionIndex < 0 || actionIndex >= currentTileActions.length) return;
+        const action = currentTileActions[actionIndex];
+        handleGlobalPlayerAction(action.actionId, action.data);
+    }
 
         UI.initTutorial();
 

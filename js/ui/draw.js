@@ -169,7 +169,7 @@ function drawCharacter(ctx, character, x, y, isPlayer = false, animationProgress
 
 export function drawSceneCharacters(gameState) {
     if (!gameState || !gameState.player) return;
-    const { player, npcs, enemies } = gameState;
+    const { player, npcs, enemies, map } = gameState;
     const { charactersCtx, charactersCanvas } = DOM;
     if (!charactersCtx || !charactersCanvas) return;
 
@@ -249,6 +249,48 @@ export function drawSceneCharacters(gameState) {
         charactersCtx.fillText(enemy.icon || '❓', enemyX, enemyY);
         charactersCtx.restore();
     }
+
+    // Afficher les quantités de ressources restantes sur le côté droit de l'image
+    if (map && map[player.y] && map[player.y][player.x]) {
+        const currentTile = map[player.y][player.x];
+        let resources = [];
+        if (currentTile.type.name === TILE_TYPES.FOREST.name) {
+            resources.push({ icon: '🌲', count: currentTile.woodActionsLeft || 0, label: 'Bois' });
+            resources.push({ icon: '🦊', count: currentTile.huntActionsLeft || 0, label: 'Chasse' });
+            resources.push({ icon: '🔍', count: currentTile.searchActionsLeft || 0, label: 'Fouille' });
+        } else if (currentTile.type.name === TILE_TYPES.PLAINS.name) {
+            resources.push({ icon: '🦊', count: currentTile.huntActionsLeft || 0, label: 'Chasse' });
+            resources.push({ icon: '🔍', count: currentTile.searchActionsLeft || 0, label: 'Fouille' });
+        } else if (currentTile.type.name === TILE_TYPES.MINE_TERRAIN.name) {
+            resources.push({ icon: '⛰️', count: currentTile.harvestsLeft || 0, label: 'Pierre' });
+        } else if (currentTile.type.name === TILE_TYPES.PLAGE.name && currentTile.actionsLeft) {
+            resources.push({ icon: '🔍', count: currentTile.actionsLeft.search_zone || 0, label: 'Fouilles' });
+            resources.push({ icon: '🏖️', count: currentTile.actionsLeft.harvest_sand || 0, label: 'Sable' });
+            resources.push({ icon: '🎣', count: currentTile.actionsLeft.fish || 0, label: 'Pêche' });
+            resources.push({ icon: '💧', count: currentTile.actionsLeft.harvest_salt_water || 0, label: 'Eau salée' });
+        } else if (currentTile.buildings && currentTile.buildings.length > 0 && TILE_TYPES[currentTile.buildings[0].key]?.maxHarvestsPerCycle) {
+            const building = currentTile.buildings[0];
+            resources.push({ icon: '🔨', count: building.harvestsAvailable || 0, label: 'Récoltes' });
+        }
+
+        if (resources.length > 0) {
+            const resourceX = canvasWidth - 100; // Position sur le côté droit
+            const resourceStartY = 30; // Début en haut à droite
+            const resourceHeight = 30; // Hauteur par ressource
+            charactersCtx.save();
+            resources.forEach((res, index) => {
+                const yPos = resourceStartY + index * resourceHeight;
+                charactersCtx.fillStyle = 'rgba(0, 0, 0, 0.3)'; // Fond plus transparent pour la lisibilité
+                charactersCtx.fillRect(resourceX - 40, yPos - 15, 80, 30);
+                charactersCtx.fillStyle = 'white';
+                charactersCtx.font = 'bold 22px sans-serif'; // Texte en gras et plus grand pour meilleure lisibilité
+                charactersCtx.textAlign = 'center';
+                charactersCtx.textBaseline = 'middle';
+                charactersCtx.fillText(`${res.icon} ${res.count}`, resourceX, yPos);
+            });
+            charactersCtx.restore();
+        }
+    }
 }
 
 export function drawMinimap(gameState, config) {
@@ -279,6 +321,29 @@ export function drawMinimap(gameState, config) {
             } else if (map[y] && map[y][x] && map[y][x].type) {
                 minimapCtx.fillStyle = map[y][x].type.color || '#ff00ff'; // Couleur par défaut pour type inconnu
                 minimapCtx.fillRect(x * MINIMAP_DOT_SIZE, y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);
+                
+                // Ajouter un indicateur pour le nombre total d'actions restantes
+                const tile = map[y][x];
+                let totalActions = 0;
+                if (tile.type.name === TILE_TYPES.FOREST.name) {
+                    totalActions = (tile.woodActionsLeft || 0) + (tile.huntActionsLeft || 0) + (tile.searchActionsLeft || 0);
+                } else if (tile.type.name === TILE_TYPES.PLAINS.name) {
+                    totalActions = (tile.huntActionsLeft || 0) + (tile.searchActionsLeft || 0);
+                } else if (tile.type.name === TILE_TYPES.MINE_TERRAIN.name) {
+                    totalActions = tile.harvestsLeft || 0;
+                } else if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsLeft) {
+                    totalActions = (tile.actionsLeft.search_zone || 0) + (tile.actionsLeft.harvest_sand || 0) + (tile.actionsLeft.fish || 0) + (tile.actionsLeft.harvest_salt_water || 0);
+                } else if (tile.buildings && tile.buildings.length > 0 && TILE_TYPES[tile.buildings[0].key]?.maxHarvestsPerCycle) {
+                    totalActions = tile.buildings[0].harvestsAvailable || 0;
+                }
+                
+                if (totalActions > 0) {
+                    minimapCtx.fillStyle = 'white';
+                    minimapCtx.font = `${MINIMAP_DOT_SIZE * 0.6}px sans-serif`;
+                    minimapCtx.textAlign = 'right';
+                    minimapCtx.textBaseline = 'bottom';
+                    minimapCtx.fillText(totalActions, (x + 1) * MINIMAP_DOT_SIZE - 1, (y + 1) * MINIMAP_DOT_SIZE - 1);
+                }
             }
         }
     }
@@ -377,6 +442,28 @@ export function drawLargeMap(gameState, config) {
                 iconOffsetY = cellSize * 0.05;
             }
             largeMapCtx.fillText(icon, drawX + cellSize / 2, drawY + cellSize / 2 + iconOffsetY);
+            
+            // Ajouter un indicateur pour le nombre total d'actions restantes
+            let totalActions = 0;
+            if (tile.type.name === TILE_TYPES.FOREST.name) {
+                totalActions = (tile.woodActionsLeft || 0) + (tile.huntActionsLeft || 0) + (tile.searchActionsLeft || 0);
+            } else if (tile.type.name === TILE_TYPES.PLAINS.name) {
+                totalActions = (tile.huntActionsLeft || 0) + (tile.searchActionsLeft || 0);
+            } else if (tile.type.name === TILE_TYPES.MINE_TERRAIN.name) {
+                totalActions = tile.harvestsLeft || 0;
+            } else if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsLeft) {
+                totalActions = (tile.actionsLeft.search_zone || 0) + (tile.actionsLeft.harvest_sand || 0) + (tile.actionsLeft.fish || 0) + (tile.actionsLeft.harvest_salt_water || 0);
+            } else if (tile.buildings && tile.buildings.length > 0 && TILE_TYPES[tile.buildings[0].key]?.maxHarvestsPerCycle) {
+                totalActions = tile.buildings[0].harvestsAvailable || 0;
+            }
+            
+            if (totalActions > 0) {
+                largeMapCtx.fillStyle = 'white';
+                largeMapCtx.font = `${cellSize * 0.3}px Poppins`;
+                largeMapCtx.textAlign = 'right';
+                largeMapCtx.textBaseline = 'bottom';
+                largeMapCtx.fillText(totalActions, drawX + cellSize - 2, drawY + cellSize - 2);
+            }
         }
     }
 

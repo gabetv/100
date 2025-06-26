@@ -1,6 +1,7 @@
 // js/ui/panels.js
 import { ITEM_TYPES, TILE_TYPES } from '../config.js';
 import { getTotalResources } from '../player.js';
+import { state as gameState } from '../state.js';
 import DOM from './dom.js';
 
 function updateSquaresBar(containerElement, value, maxValue, type) {
@@ -29,7 +30,10 @@ export function updateStatsPanel(player) {
     updateSquaresBar(hungerSquaresContainerEl, player.hunger, player.maxHunger, 'hunger');
     updateSquaresBar(sleepSquaresContainerEl, player.sleep, player.maxSleep, 'sleep');
 
-    if (healthStatusEl) healthStatusEl.textContent = player.status.join(', ') || 'normale';
+    if (healthStatusEl) {
+        const statusText = player.status.join(', ') || 'normale';
+        healthStatusEl.textContent = statusText;
+    }
 
     if (healthSquaresContainerEl) healthSquaresContainerEl.parentElement.classList.toggle('pulsing', player.health <= (player.maxHealth * 0.3));
     if (thirstSquaresContainerEl) thirstSquaresContainerEl.parentElement.classList.toggle('pulsing', player.thirst <= (player.maxThirst * 0.2));
@@ -52,15 +56,11 @@ export function updateInventory(player) {
     DOM.inventoryCapacityEl.textContent = `(${total} / ${player.maxInventory})`;
 
     const categories = {
-        consumableAndUtility: {},
-        toolAndWeapon: {},
-        shield: {},
-        body: {},
-        head: {},
-        feet: {},
-        bag: {},
-        resource: {},
-        key: {},
+        ressources: {},
+        outilsEtArmes: {},
+        nourritureEtSoins: {},
+        equipements: {},
+        divers: {},
     };
 
     // Classify items
@@ -70,34 +70,28 @@ export function updateInventory(player) {
         const baseItemName = typeof itemValue === 'object' && itemValue.name ? itemValue.name : itemName;
         const baseItemDef = ITEM_TYPES[baseItemName] || { type: 'resource', icon: '❓' };
         
-        let type = baseItemDef.type;
+        let type = 'divers';
 
-        if (baseItemDef.type === 'tool' || baseItemDef.type === 'weapon' || (baseItemDef.type === 'usable' && baseItemDef.slot === 'weapon')) {
-            type = 'toolAndWeapon';
-        } else if (baseItemDef.type === 'consumable' || baseItemDef.type === 'usable') {
-            type = 'consumableAndUtility';
+        if (baseItemDef.type === 'resource') {
+            type = 'ressources';
+        } else if (baseItemDef.type === 'tool' || baseItemDef.type === 'weapon' || (baseItemDef.type === 'usable' && baseItemDef.slot === 'weapon')) {
+            type = 'outilsEtArmes';
+        } else if (baseItemDef.type === 'consumable') {
+            type = 'nourritureEtSoins';
         } else if (baseItemDef.slot) {
-            if (categories[baseItemDef.slot]) type = baseItemDef.slot;
+            type = 'equipements';
         }
         
-        const targetCategory = categories[type] || categories.resource;
-        
-        // Group all instances under the same base name, this is a complex part
-        // The original code was not fully handling instance-based items vs stackable
-        // Let's simplify for now to match the provided logic
+        const targetCategory = categories[type];
         targetCategory[itemName] = itemValue;
     }
 
     const categoryOrder = [
-        { key: 'toolAndWeapon', name: 'Outils et Armes' },
-        { key: 'consumableAndUtility', name: 'Consommables et Utilitaires' },
-        { key: 'shield', name: 'Boucliers' },
-        { key: 'body', name: 'Habits' },
-        { key: 'head', name: 'Chapeaux & Casques' }, 
-        { key: 'feet', name: 'Chaussures' },
-        { key: 'bag', name: 'Sacs' }, 
-        { key: 'resource', name: 'Ressources' },
-        { key: 'key', name: 'Clés & Uniques' },
+        { key: 'ressources', name: 'Ressources' },
+        { key: 'outilsEtArmes', name: 'Outils et Armes' },
+        { key: 'nourritureEtSoins', name: 'Nourriture et Soins' },
+        { key: 'equipements', name: 'Équipements' },
+        { key: 'divers', name: 'Divers' },
     ];
     
     let hasItems = false;
@@ -119,7 +113,6 @@ export function updateInventory(player) {
                 let baseItemName = itemName;
                 let instanceData = null;
 
-                // Handle instance objects (like equipped items returned to inventory)
                 if (typeof itemValue === 'object' && itemValue.name) {
                     baseItemName = itemValue.name;
                     instanceData = itemValue;
@@ -130,7 +123,7 @@ export function updateInventory(player) {
                 const li = document.createElement('li');
                 li.className = 'inventory-item';
                 li.classList.add(`rarity-${baseItemDef.rarity}`);
-                 if (baseItemDef.type === 'consumable' || baseItemDef.teachesRecipe || baseItemDef.slot || baseItemDef.type === 'usable' || baseItemDef.type === 'key') {
+                if (baseItemDef.type === 'consumable' || baseItemDef.teachesRecipe || baseItemDef.slot || baseItemDef.type === 'usable' || baseItemDef.type === 'key') {
                     li.classList.add('clickable');
                     if (baseItemDef.slot) {
                         li.addEventListener('click', () => {
@@ -138,9 +131,16 @@ export function updateInventory(player) {
                             UI.updateInventory(player);
                             UI.updateBottomBarEquipmentPanel(player);
                         });
+                    } else if (baseItemDef.type === 'consumable') {
+                        li.addEventListener('click', () => {
+                            if (window.handleGlobalPlayerAction) {
+                                window.handleGlobalPlayerAction('consume_item_context', { itemKey: li.dataset.itemKey });
+                            }
+                            UI.updateInventory(player);
+                        });
                     }
                 }
-                li.dataset.itemKey = itemName; // Use the unique key for interactions
+                li.dataset.itemKey = itemName;
                 li.dataset.itemName = baseItemName;
                 li.setAttribute('draggable', 'true');
                 li.dataset.owner = 'player-inventory';
@@ -163,6 +163,29 @@ export function updateInventory(player) {
     });
 
     if (!hasItems) DOM.inventoryCategoriesEl.innerHTML = '<li class="inventory-empty">(Vide)</li>';
+
+    // Setup inventory search functionality
+    const searchInput = document.getElementById('inventory-search');
+    if (searchInput) {
+        searchInput.oninput = function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const inventoryItems = DOM.inventoryCategoriesEl.querySelectorAll('.inventory-item');
+            inventoryItems.forEach(item => {
+                const itemName = item.dataset.itemName.toLowerCase();
+                if (searchTerm === '' || itemName.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        };
+    }
+
+    // Quick slots removed as per user request
+    const quickSlotsContainer = document.getElementById('quick-slots');
+    if (quickSlotsContainer) {
+        quickSlotsContainer.innerHTML = '';
+    }
 }
 
 export function updateDayCounter(day) {
@@ -172,6 +195,7 @@ export function updateDayCounter(day) {
     }
 }
 
+// Update tile information in both the right panel and the main view HUD
 export function updateTileInfoPanel(tile) {
     if (!tile || !DOM.tileNameEl || !DOM.tileHarvestsInfoEl) return;
 
@@ -189,6 +213,7 @@ export function updateTileInfoPanel(tile) {
         }
     }
 
+    // Update right panel tile info
     DOM.tileNameEl.textContent = mainDisplayName;
 
     let actionCountInfo = "";
@@ -210,6 +235,76 @@ export function updateTileInfoPanel(tile) {
         DOM.tileHarvestsInfoEl.style.display = 'block';
     } else if (DOM.tileHarvestsInfoEl) {
         DOM.tileHarvestsInfoEl.style.display = 'none';
+    }
+
+    // Update tile info in main view HUD - hide all to recover space
+    const tileNameHud = document.getElementById('tile-name-hud');
+    const tileDetailsHud = document.getElementById('tile-details-hud');
+
+    if (tileNameHud) {
+        tileNameHud.style.display = 'none'; // Remove biome type display
+    }
+
+    if (tileDetailsHud) {
+        tileDetailsHud.style.display = 'none'; // Remove position and resources display to recover space
+    }
+}
+
+// Initialize tab functionality for right panel
+export function initializeTabs() {
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // Remove active class from all buttons and contents
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active-tab'));
+
+            // Add active class to clicked button and corresponding content
+            button.classList.add('active');
+            const tabId = button.dataset.tab;
+            document.getElementById(tabId).classList.add('active-tab');
+        });
+    });
+}
+
+// Update the actions tab content with possible actions
+export function updateActionsTab() {
+    const actionsEl = document.getElementById('actions-tab-content');
+    if (!actionsEl) return;
+
+    actionsEl.innerHTML = '';
+    if (typeof window.getTileActions === 'function') {
+        const actions = window.getTileActions();
+        if (actions.length > 0) {
+            actions.forEach(action => {
+                const button = document.createElement('button');
+                button.className = 'action-button';
+                button.setAttribute('data-action', action.actionId);
+                button.setAttribute('title', action.title || action.text);
+                button.textContent = action.text;
+                button.disabled = action.disabled;
+                button.addEventListener('click', () => {
+                    if (typeof window.handleGlobalPlayerAction === 'function') {
+                        window.handleGlobalPlayerAction(action.actionId, action.data || {});
+                    }
+                });
+                actionsEl.appendChild(button);
+            });
+        } else {
+            const noActionsMsg = document.createElement('p');
+            noActionsMsg.textContent = "Aucune action disponible pour cette tuile.";
+            noActionsMsg.style.textAlign = 'center';
+            noActionsMsg.style.padding = '10px';
+            actionsEl.appendChild(noActionsMsg);
+        }
+    } else {
+        const noActionsMsg = document.createElement('p');
+        noActionsMsg.textContent = "Actions non disponibles pour le moment.";
+        noActionsMsg.style.textAlign = 'center';
+        noActionsMsg.style.padding = '10px';
+        actionsEl.appendChild(noActionsMsg);
     }
 }
 
