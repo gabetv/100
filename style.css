@@ -1,15 +1,22 @@
 /* ---- VARIABLES ET STYLES GLOBAUX ---- */
 :root {
-    --bg-main: #1d3557; --bg-panel: rgba(38, 70, 83, 0.7); --bg-view: #000;
-    --text-light: #f1faee; --text-secondary: #a8dadc; --accent-color: #e63946;
-    --action-color: #457b9d; --border-radius: 12px;
-    --shadow-color: rgba(0, 0, 0, 0.3);
+    --bg-main: linear-gradient(135deg, #1a2a3a 0%, #1d3557 100%);
+    --bg-panel: rgba(38, 70, 83, 0.85);
+    --bg-view: #000;
+    --text-light: #f8f9fa;
+    --text-secondary: #b8e0f2;
+    --accent-color: #ff4d6d;
+    --action-color: linear-gradient(135deg, #457b9d 0%, #3a6b8a 100%);
+    --border-radius: 12px;
+    --shadow-color: rgba(0, 0, 0, 0.4);
     --deposit-color: #2a9d8f;
+    --highlight-glow: 0 0 15px rgba(69, 123, 157, 0.6);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
     font-family: 'Poppins', sans-serif;
-    background-color: var(--bg-main);
+    background: url('../assets/bg_forest_1.png') center/cover no-repeat fixed, 
+                var(--bg-main);
     color: var(--text-light);
     overflow: hidden;
     display: flex;
@@ -26,9 +33,14 @@ body {
     flex-direction: column;
     width: 100%;
     height: 100%;
-    max-width: 1800px; 
+    max-width: 1800px;
     gap: 10px;
     margin: auto;
+    background-color: rgba(26, 42, 58, 0.7);
+    backdrop-filter: blur(2px);
+    border-radius: 16px;
+    padding: 15px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.6);
 }
 
 #main-area {
@@ -40,19 +52,24 @@ body {
 }
 
 .ui-panel {
-    background-color: var(--bg-panel);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: var(--bg-panel);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-radius: var(--border-radius);
     padding: 20px;
     display: flex;
     flex-direction: column;
     gap: 15px;
     overflow-y: auto;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 4px 15px var(--shadow-color);
-    position: relative; 
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px var(--shadow-color);
+    position: relative;
     z-index: 30;
+    border-image: linear-gradient(
+        to bottom right,
+        rgba(255, 255, 255, 0.1),
+        rgba(255, 255, 255, 0)
+    ) 1;
 }
 
 #main-view-wrapper {
@@ -95,16 +112,19 @@ body {
 }
 .ui-panel section { background-color: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
 .stat { margin-bottom: 12px; } .stat-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; } .stat-icon { font-size: 1.1em; text-align: center; width: 20px; } .stat span:not(.stat-icon) { font-size: 0.9em; flex-grow: 1; }
-.stat-bar-container { 
-    width: 100%; 
-    height: 20px; 
-    background-color: rgba(0,0,0,0.4); 
-    border-radius: 10px; 
-    padding: 3px; 
+.stat-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 20px;
+    background-color: rgba(0,0,0,0.4);
+    border-radius: 10px;
+    padding: 8px;
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
 }
 
-.stat-bar-fill {
+.stat-bar-fill { /* Kept for reference, but no longer used for status bars */
     height: 100%;
     border-radius: 7px;
     transition: width 0.5s ease-out, background-color 0.5s ease;
@@ -112,12 +132,59 @@ body {
     box-shadow: 0 0 10px rgba(255,255,255,0.2);
 }
 
-#health-bar { background-color: var(--accent-color); }
-#thirst-bar { background-color: #a8dadc; }
-#hunger-bar { background-color: #f4a261; }
-#sleep-bar { background-color: #e9c46a; }
-.consume-btn { background-color: var(--action-color); color: var(--text-light); border: none; width: 22px; height: 22px; border-radius: 50%; font-size: 1.2em; line-height: 22px; cursor: pointer; transition: all 0.2s; }
-.consume-btn:hover:not(:disabled) { background-color: #5e9ac4; transform: scale(1.1); } .consume-btn:disabled { background-color: #2f4553; opacity: 0.4; cursor: not-allowed; }
+/* Styles for square status bars */
+.stat-squares-container {
+    display: flex;
+    gap: 2px; /* Small gap between squares */
+    height: 100%;
+    width: 100%;
+    /* The padding, background-color, border-radius, and box-shadow are now on this container */
+    /* They were previously on .stat-bar-container, but moved here for better visual grouping */
+    /* The .stat-bar-container will now only handle the pulsing effect */
+}
+
+.stat-square {
+    flex-grow: 1; /* Each square takes equal space */
+    height: 100%;
+    border-radius: 3px; /* Slightly rounded corners for squares */
+    background-color: #333; /* Default background for empty squares */
+    border: 1px solid rgba(255,255,255,0.1); /* Subtle border */
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+    transition: background-color 0.3s ease;
+}
+
+/* Filled square colors */
+.filled-health { background-color: var(--accent-color); } /* Red */
+.filled-thirst { background-color: #a8dadc; } /* Light blue */
+.filled-hunger { background-color: #f4a261; } /* Orange */
+.filled-sleep { background-color: #e9c46a; } /* Yellow */
+
+.consume-btn {
+    background-color: var(--action-color);
+    color: var(--text-light);
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 1.2em;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    margin-left: 8px;
+}
+.consume-btn:hover:not(:disabled) {
+    background-color: #5e9ac4;
+    transform: scale(1.1);
+    box-shadow: 0 0 10px rgba(69, 123, 157, 0.8);
+}
+.consume-btn:disabled {
+    background-color: #2f4553;
+    opacity: 0.4;
+    cursor: not-allowed;
+}
 
 
 #inventory-section { flex-grow: 1; display: flex; flex-direction: column; }
@@ -149,44 +216,63 @@ body {
 .day-display-tileinfo-class { font-size: 0.8em; font-weight: 600; color: var(--text-light); background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 6px; margin-left: 5px;}
 
 #actions { display: flex; flex-direction: column; gap: 10px; max-height: 250px; overflow-y: auto; padding-right: 5px;}
+#interaction-panel h3 { /* Renommé en Actions sur la tuile dans l'HTML */
+    text-align: center;}
 /* === NOUVEAU STYLE DE BOUTONS === */
 button, input[type="button"], input[type="submit"] {
-    background-color: var(--action-color);
+    background: var(--action-color);
     color: var(--text-light);
     border: none;
-    padding: 10px 18px; /* Un peu plus de padding horizontal */
+    padding: 12px 20px;
     border-radius: 8px;
     cursor: pointer;
     font-family: 'Poppins', sans-serif;
     font-weight: 600;
     font-size: 0.9rem;
-    /* Transition plus ciblée pour de meilleures performances */
-    transition: background-color 0.2s ease-in-out, transform 0.15s ease-in-out, box-shadow 0.2s ease-in-out;
-    box-shadow: 0 3px 0 #2c5b7c, 0 4px 6px rgba(0,0,0,0.2); /* Effet 3D subtil */
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 0 rgba(44, 91, 124, 0.6), 0 5px 10px rgba(0,0,0,0.2);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-bottom: 1px solid rgba(0,0,0,0.2); /* Ligne de fond pour la profondeur */
+    position: relative;
+    overflow: hidden;
 }
 
 button:hover:not(:disabled) {
-    background-color: #5a9ac4; /* Un peu plus clair au survol */
-    transform: translateY(-2px); /* Léger soulèvement */
-    box-shadow: 0 5px 0 #2c5b7c, 0 6px 8px rgba(0,0,0,0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 rgba(44, 91, 124, 0.6), 0 7px 14px rgba(0,0,0,0.25);
+    filter: brightness(1.1);
 }
 
 button:active:not(:disabled) {
-    transform: translateY(1px); /* Effet d'enfoncement */
-    box-shadow: 0 1px 0 #2c5b7c, 0 2px 3px rgba(0,0,0,0.2);
-    transition: transform 0.05s, box-shadow 0.05s; /* Réaction plus rapide au clic */
+    transform: translateY(1px);
+    box-shadow: 0 2px 0 rgba(44, 91, 124, 0.6), 0 3px 5px rgba(0,0,0,0.2);
+    transition: all 0.05s ease;
 }
 
 button:disabled {
-    background-color: #2f4553;
+    background: #2f4553;
     color: #a0aec0;
     cursor: not-allowed;
     opacity: 0.7;
-    box-shadow: 0 3px 0 #1e2a33; /* Ombre portée même désactivé */
+    box-shadow: 0 3px 0 #1e2a33;
     transform: translateY(0);
+}
+
+button::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.2) 0%,
+        rgba(255, 255, 255, 0) 50%,
+        rgba(0, 0, 0, 0.1) 51%,
+        rgba(0, 0, 0, 0) 100%
+    );
+    border-radius: 8px;
 }
 #actions::-webkit-scrollbar { width: 6px; }
 #actions::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 3px; }
@@ -348,7 +434,7 @@ button:disabled {
 #survival-vignette { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 100; pointer-events: none; border-radius: var(--border-radius); box-shadow: inset 0 0 0 0 rgba(135, 23, 23, 0); transition: box-shadow 1s ease-out; } #survival-vignette.active { box-shadow: inset 0 0 150px 20px rgba(135, 23, 23, 0.75); }
 #action-flash { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 99; pointer-events: none; opacity: 0; } #action-flash.flash-gain { animation: flash-green 0.4s ease-out; } #action-flash.flash-cost { animation: flash-red 0.4s ease-out; } @keyframes flash-green { from { opacity: 1; background-color: rgba(46, 204, 113, 0.2); } to { opacity: 0; background-color: rgba(46, 204, 113, 0); } } @keyframes flash-red { from { opacity: 1; background-color: rgba(231, 76, 60, 0.2); } to { opacity: 0; background-color: rgba(231, 76, 60, 0); } }
 
-.stat-bar-container-squares.pulsing {
+.stat-bar-container.pulsing { /* Pulsing class moved to the parent container */
     animation: pulse-warning 1.5s infinite ease-in-out;
 }
 
@@ -1099,4 +1185,71 @@ button:disabled {
 
 .inventory-item.rarity-veryRare {
     border-left: 5px solid #9f7aea;
+} /* ---- NOUVEAU : STYLES POUR LE MENU CONTEXTUEL ---- */
+#item-context-menu {
+    position: fixed; /* Positionné par rapport à la fenêtre */
+    z-index: 9999;
+    background-color: var(--bg-main);
+    border: 1px solid var(--action-color);
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 180px;
+    opacity: 0;
+    transform: scale(0.95);
+    transition: opacity 0.1s ease-out, transform 0.1s ease-out;
+    pointer-events: none;
+}
+
+#item-context-menu:not(.hidden) {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+}
+
+#context-menu-title {
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    text-align: center;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+#context-menu-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+#context-menu-actions button {
+    background-color: transparent;
+    color: var(--text-light);
+    border: none;
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 400; /* Plus léger que les boutons d'action principaux */
+    font-size: 0.9em;
+    text-align: left;
+    transition: background-color 0.2s;
+    text-transform: none; /* Pas de majuscules */
+    letter-spacing: normal;
+    box-shadow: none; /* Pas d'effet 3D */
+    display: block; /* S'assure que le bouton prend toute la largeur */
+    width: 100%;
+}
+
+
+#context-menu-actions button:hover {
+    background-color: var(--action-color);
+}
+
+.inventory-item {
+    user-select: none; /* Empêche la sélection de texte lors du clic */
 }

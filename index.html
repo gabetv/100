@@ -16,10 +16,10 @@
             <div id="left-panel" class="ui-panel">
                 <section id="player-stats">
                     <h3>Statut</h3>
-                    <div class="stat"><div class="stat-header"><span class="stat-icon">❤️</span><span>Santé (<span id="health-status">normale</span>)</span><button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button></div><div class="stat-bar-container"><div id="health-bar" class="stat-bar-fill"></div></div></div>
-                    <div class="stat"><div class="stat-header"><span class="stat-icon">💧</span><span>Soif</span><button class="consume-btn" id="consume-thirst-btn" title="Boire de l'eau">+</button></div><div class="stat-bar-container"><div id="thirst-bar" class="stat-bar-fill"></div></div></div>
-                    <div class="stat"><div class="stat-header"><span class="stat-icon">🍗</span><span>Faim</span><button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button></div><div class="stat-bar-container"><div id="hunger-bar" class="stat-bar-fill"></div></div></div> 
-                    <div class="stat"><div class="stat-header"><span class="stat-icon">🌙</span><span>Sommeil</span></div><div class="stat-bar-container"><div id="sleep-bar" class="stat-bar-fill"></div></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">❤️</span><span>Santé (<span id="health-status">normale</span>)</span><button class="consume-btn" id="consume-health-btn" title="Utiliser un soin">+</button></div><div class="stat-bar-container"><div id="health-squares-container" class="stat-squares-container"></div></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">💧</span><span>Soif</span><button class="consume-btn" id="consume-thirst-btn" title="Boire de l'eau">+</button></div><div class="stat-bar-container"><div id="thirst-squares-container" class="stat-squares-container"></div></div></div>
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">🍗</span><span>Faim</span><button class="consume-btn" id="consume-hunger-btn" title="Manger">+</button></div><div class="stat-bar-container"><div id="hunger-squares-container" class="stat-squares-container"></div></div></div> 
+                    <div class="stat"><div class="stat-header"><span class="stat-icon">🌙</span><span>Sommeil</span></div><div class="stat-bar-container"><div id="sleep-squares-container" class="stat-squares-container"></div></div></div>
                 </section>
                 <section id="minimap-section">
                     <h3>Carte de l'île <button id="enlarge-map-btn" title="Agrandir la carte">⛶</button></h3>
@@ -51,7 +51,7 @@
                         <span id="day-display-tileinfo" class="day-display-tileinfo-class">Jour <span id="day-counter-tileinfo">1</span> / 200</span> 
                     </h3>
                     <p id="tile-harvests-info" class="tile-detail"></p></section>
-                <section id="interaction-panel"><h3>Actions Possibles</h3><div id="actions"></div></section>
+                <section id="interaction-panel"><h3>Actions sur la tuile</h3><div id="actions"></div></section>
                 <section id="inventory-section"><h3>Votre Inventaire <span id="inventory-capacity-display" class="capacity-display"></span></h3>
                     <div id="inventory-categories" class="droppable" data-owner="player-inventory">
                     </div>
@@ -100,18 +100,15 @@
             <div id="inventory-modal-grid">
                 <div class="inventory-container">
                     <h3>Votre Inventaire (<span id="modal-player-capacity">0 / 0</span>)</h3>
-                    <!-- AJOUTÉ : Wrapper pour la liste d'inventaire du joueur -->
                     <div class="inventory-list-wrapper">
                         <ul id="modal-player-inventory" class="inventory-list droppable" data-owner="player-inventory"></ul>
                     </div>
                 </div>
                 <div class="inventory-container">
                     <h3>Stockage Commun (<span id="modal-shared-capacity">0 / ∞</span>)</h3>
-                    <!-- AJOUTÉ : Barre de recherche -->
                     <div class="search-bar-wrapper">
                         <input type="text" id="shared-inventory-search" placeholder="Rechercher un objet...">
                     </div>
-                    <!-- AJOUTÉ : Wrapper pour la liste du stockage partagé -->
                     <div class="inventory-list-wrapper">
                         <ul id="modal-shared-inventory" class="inventory-list droppable" data-owner="shared"></ul>
                     </div>
@@ -185,11 +182,6 @@
         </div>
     </div>
 
-    <div id="item-context-menu" class="hidden">
-        <h4 id="context-menu-title"></h4>
-        <div id="context-menu-actions"></div>
-    </div>
-
     <!-- MODALE DE CONSTRUCTION -->
     <div id="build-modal" class="hidden">
         <div id="build-modal-content">
@@ -244,7 +236,7 @@
         </div>
     </div>
 
-    <!-- OVERLAY TUTORIEL (NOUVEAU) -->
+    <!-- OVERLAY TUTORIEL -->
     <div id="tutorial-overlay" class="hidden">
         <div id="tutorial-box">
             <p id="tutorial-message">Message du tutoriel ici.</p>
@@ -255,6 +247,13 @@
         </div>
     </div>
 
+    <!-- NOUVEAU: MENU CONTEXTUEL (caché par défaut) -->
+    <div id="item-context-menu" class="hidden">
+        <div id="context-menu-title">Titre de l'objet</div>
+        <div id="context-menu-actions">
+            <!-- Les boutons d'action seront ajoutés ici par JS -->
+        </div>
+    </div>
 
     <script type="module" src="js/main.js"></script>
 </body>

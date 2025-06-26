@@ -673,47 +673,57 @@ export function consumeItem(itemName) {
 export function dropItemOnGround(item, quantity) {
     const player = gameState.player;
     const itemName = typeof item === 'string' ? item : item.name;
+    let itemKey = item; // Store the original item key
 
-    if (!player.inventory[itemName] || player.inventory[itemName] < quantity) {
+    if (typeof item === 'object') {
+        itemKey = Object.keys(player.inventory).find(key => player.inventory[key] === item);
+        if (!itemKey) {
+            return { success: false, message: "Objet introuvable dans l'inventaire." };
+        }
+    }
+
+    if (!player.inventory[itemKey]) {
         return { success: false, message: "Quantité insuffisante dans l'inventaire." };
     }
 
     const tile = gameState.map[player.y][player.x];
     if (!tile.groundItems) tile.groundItems = {};
 
-    player.inventory[itemName] -= quantity;
-    if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
-
-    if (!tile.groundItems[itemName]) {
-        tile.groundItems[itemName] = 0;
+    if (!tile.groundItems[itemKey]) {
+        tile.groundItems[itemKey] = null;
     }
-    tile.groundItems[itemName] += quantity;
 
-    return { success: true, message: `Vous avez déposé ${quantity} ${itemName} au sol.` };
+    const itemToDrop = player.inventory[itemKey];
+    delete player.inventory[itemKey];
+
+    if (!tile.groundItems) tile.groundItems = {};
+    tile.groundItems[itemKey] = itemToDrop;
+
+    return { success: true, message: `Vous avez déposé ${itemToDrop.name} au sol.` };
 }
 
 export function pickUpItemFromGround(item, quantity) {
     const player = gameState.player;
     const tile = gameState.map[player.y][player.x];
-    const itemName = typeof item === 'string' ? item : item.name;
 
-    if (!tile.groundItems || !tile.groundItems[itemName] || tile.groundItems[itemName] < quantity) {
+    let itemKey = item;
+     if (typeof item === 'string') {
+        itemKey = Object.keys(tile.groundItems).find(key => key === item);
+        if (!itemKey) {
+            return { success: false, message: "Objet introuvable au sol." };
+        }
+    }
+
+    if (!tile.groundItems || !tile.groundItems[itemKey]) {
         return { success: false, message: "Quantité insuffisante au sol." };
     }
 
-    const currentTotalResources = getTotalResources(player.inventory);
-    if (currentTotalResources + quantity > player.maxInventory) {
-        return { success: false, message: "Inventaire plein." };
-    }
+    const itemToPickUp = tile.groundItems[itemKey];
+    delete tile.groundItems[itemKey];
 
-    tile.groundItems[itemName] -= quantity;
-    if (tile.groundItems[itemName] <= 0) {
-        delete tile.groundItems[itemName];
-    }
+    addResourceToPlayer(itemToPickUp, 1);
 
-    addResourceToPlayer(itemName, quantity);
-
-    return { success: true, message: `Vous avez ramassé ${quantity} ${itemName}.` };
+    return { success: true, message: `Vous avez ramassé ${itemToPickUp.name}.` };
 }
 
 export function countItemTypeInInventory(itemTypeIdentifier) {

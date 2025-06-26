@@ -1,31 +1,31 @@
 //js/config.js
 
 export const ACTIONS = {
-    // Player Actions
+    // Player Actions (existantes)
     INITIATE_COMBAT: 'initiate_combat',
-    CONSUME_EAU_SALEE: 'consume_eau_salee',
+    CONSUME_EAU_SALEE: 'consume_eau_salee', // Cette action pourrait être fusionnée avec CONSUME_ITEM_CONTEXT si elle n'a pas de logique spécifique
     HARVEST_SALT_WATER: 'harvest_salt_water',
     HARVEST_SAND: 'harvest_sand',
-    HARVEST_STONE: 'harvest',
+    HARVEST_STONE: 'harvest', // Renommé de 'harvest' à HARVEST_STONE si c'est spécifique
     HARVEST_WOOD_HACHE: 'harvest_wood_hache',
     HARVEST_WOOD_SCIE: 'harvest_wood_scie',
     HARVEST_WOOD_MAINS: 'harvest_wood_mains',
     FISH: 'fish',
     NET_FISH: 'net_fish',
     HUNT: 'hunt',
-    BUILD_STRUCTURE: 'build_structure',
+    BUILD_STRUCTURE: 'build_structure', // Reste pour ouvrir la modale de construction via le panneau
     REGENERATE_FOREST: 'regenerate_forest',
     PLANT_TREE: 'plant_tree',
     SLEEP: 'sleep',
     SLEEP_BY_CAMPFIRE: 'sleep_by_campfire',
-    COOK: 'cook',
+    COOK: 'cook', // Peut être conservé si des actions de cuisson directes sont encore voulues hors atelier
     SEARCH_ZONE: 'search_zone',
     TAKE_HIDDEN_ITEM: 'take_hidden_item',
     OPEN_TREASURE: 'open_treasure',
     USE_BUILDING_ACTION: 'use_building_action',
     CRAFT_ITEM_WORKSHOP: 'craft_item_workshop',
     DISMANTLE_BUILDING: 'dismantle_building',
-    OPEN_ALL_PARCHEMINS: 'open_all_parchemins',
+    OPEN_ALL_PARCHEMINS: 'open_all_parchemins', // Cette action pourrait aussi être déplacée dans un menu contextuel si on clique sur un parchemin
     FIRE_DISTRESS_GUN: 'fire_distress_gun',
     FIRE_DISTRESS_FLARE: 'fire_distress_flare',
     PLACE_SOLAR_PANEL_FIXED: 'place_solar_panel_fixed',
@@ -40,7 +40,7 @@ export const ACTIONS = {
     TALK_TO_NPC: 'talk_to_npc',
     OPEN_BUILDING_INVENTORY: 'open_building_inventory',
 
-    // Building specific actions
+    // Building specific actions (existantes)
     SEARCH_ORE_TILE: 'search_ore_tile',
     PLAY_ELECTRIC_GUITAR: 'play_electric_guitar',
     USE_ATELIER: 'use_atelier',
@@ -49,10 +49,18 @@ export const ACTIONS = {
     OBSERVE_WEATHER: 'observe_weather',
     GENERATE_PLAN: 'generate_plan',
 
-    // Tutorial Actions
+    // Tutorial Actions (existantes)
     TUTORIAL_HIDE_AND_MOVE: 'tutorial_hide_and_move',
     TUTORIAL_NEXT: 'tutorial_next',
     TUTORIAL_SKIP: 'tutorial_skip',
+
+    // NOUVELLES ACTIONS POUR LE MENU CONTEXTUEL ET AUTRES INTERACTIONS DIRECTES
+    CONSUME_ITEM_CONTEXT: 'consume_item_context',     // Utiliser un objet depuis le menu contextuel
+    EQUIP_ITEM_CONTEXT: 'equip_item_context',         // Équiper un objet depuis le menu contextuel
+    UNEQUIP_ITEM_CONTEXT: 'unequip_item_context',     // Déséquiper un objet depuis le menu contextuel
+    DROP_ITEM_CONTEXT: 'drop_item_context',           // Jeter un objet depuis le menu contextuel
+    PICKUP_ITEM_CONTEXT: 'pickup_item_context',       // Ramasser un objet depuis le menu contextuel (sol)
+    OPEN_BUILD_MODAL: 'open_build_modal',             // Pour le bouton "Construire..." qui ouvre la modale
 };
 
 export const CONFIG = {

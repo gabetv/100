@@ -1,7 +1,6 @@
-// js/main.js
 import * as UI from './ui.js';
-import { initDOM } from './ui/dom.js'; // Correction du chemin
-import DOM from './ui/dom.js'; // Correction du chemin
+import { initDOM } from './ui/dom.js';
+import DOM from './ui/dom.js';
 import { CONFIG, ACTIONS, ACTION_DURATIONS, SPRITESHEET_PATHS, TILE_TYPES, ITEM_TYPES, SEARCH_ZONE_CONFIG } from './config.js';
 import * as State from './state.js';
 import { decayStats, getTotalResources } from './player.js';
@@ -9,8 +8,118 @@ import { updateNpcs, npcChatter } from './npc.js';
 import { updateEnemies, findEnemyOnTile, spawnSingleEnemy } from './enemy.js';
 import * as Interactions from './interactions.js';
 import { initAdminControls } from './admin.js';
-
 import { ParticleSystem } from './effects.js';
+
+let currentContextItemInfo = null;
+
+function showItemContextMenu(itemInfo, x, y) {
+    hideItemContextMenu();
+    currentContextItemInfo = itemInfo;
+
+    const { itemName, itemKey, owner, slotType } = itemInfo;
+    const itemDef = ITEM_TYPES[itemName];
+    if (!itemDef) return;
+
+    DOM.contextMenuTitle.textContent = itemName;
+    DOM.contextMenuActions.innerHTML = '';
+
+    const createMenuButton = (text, action, data = {}) => {
+        const button = document.createElement('button');
+        button.textContent = text;
+        button.onclick = () => {
+            handleContextAction(action, data);
+            hideItemContextMenu();
+        };
+        DOM.contextMenuActions.appendChild(button);
+    };
+
+    if (owner === 'player-inventory' || owner.startsWith('modal-player-inventory')) {
+        if (itemDef.type === 'consumable' || itemDef.teachesRecipe || (itemDef.type === 'usable' && !itemDef.slot)) {
+            createMenuButton('Utiliser', 'use');
+        }
+        if (itemDef.slot) {
+            createMenuButton('Équiper', 'equip');
+        }
+    } else if (owner === 'equipment') {
+        createMenuButton('Déséquiper', 'unequip');
+    } else if (owner === 'ground') {
+        createMenuButton('Ramasser', 'pickup');
+        if (itemInfo.itemCount > 1) {
+            createMenuButton('Ramasser X...', 'pickup_x');
+        }
+    }
+
+    if (owner === 'player-inventory' || owner.startsWith('modal-player-inventory') || owner === 'equipment') {
+        createMenuButton('Jeter', 'drop');
+        if (itemInfo.itemCount > 1) {
+            createMenuButton('Jeter X...', 'drop_x');
+        }
+    }
+    
+    const menuWidth = DOM.itemContextMenu.offsetWidth;
+    const menuHeight = DOM.itemContextMenu.offsetHeight;
+    const { innerWidth, innerHeight } = window;
+    
+    let left = x + 5;
+    let top = y + 5;
+
+    if (left + menuWidth > innerWidth) {
+        left = x - menuWidth - 5;
+    }
+    if (top + menuHeight > innerHeight) {
+        top = y - menuHeight - 5;
+    }
+
+    DOM.itemContextMenu.style.left = `${left}px`;
+    DOM.itemContextMenu.style.top = `${top}px`;
+    DOM.itemContextMenu.classList.remove('hidden');
+}
+
+function hideItemContextMenu() {
+    if (DOM.itemContextMenu) {
+        DOM.itemContextMenu.classList.add('hidden');
+    }
+    currentContextItemInfo = null;
+}
+
+function handleContextAction(action) {
+    if (!currentContextItemInfo) return;
+    const { itemName, itemKey, owner, slotType, itemCount } = currentContextItemInfo;
+    const player = State.state.player;
+
+    if (player.isBusy || player.animationState) {
+        UI.addChatMessage("Vous êtes occupé.", "system");
+        return;
+    }
+
+    switch(action) {
+        case 'use':
+            handleGlobalPlayerAction(ACTIONS.CONSUME_ITEM_CONTEXT, { itemKey: itemKey || itemName });
+            break;
+        case 'equip':
+            handleGlobalPlayerAction(ACTIONS.EQUIP_ITEM_CONTEXT, { itemKey: itemKey });
+            break;
+        case 'unequip':
+            handleGlobalPlayerAction(ACTIONS.UNEQUIP_ITEM_CONTEXT, { slotType: slotType });
+            break;
+        case 'drop':
+            handleGlobalPlayerAction(ACTIONS.DROP_ITEM_CONTEXT, { itemKey: itemKey, quantity: 1 });
+            break;
+        case 'drop_x':
+            UI.showQuantityModal(`Jeter ${itemName}`, itemCount, (amount) => {
+                if (amount > 0) handleGlobalPlayerAction(ACTIONS.DROP_ITEM_CONTEXT, { itemKey: itemKey, quantity: amount });
+            });
+            break;
+        case 'pickup':
+             handleGlobalPlayerAction(ACTIONS.PICKUP_ITEM_CONTEXT, { itemKey: itemKey, quantity: 1 });
+            break;
+        case 'pickup_x':
+            UI.showQuantityModal(`Ramasser ${itemName}`, itemCount, (amount) => {
+                if (amount > 0) handleGlobalPlayerAction(ACTIONS.PICKUP_ITEM_CONTEXT, { itemKey: itemKey, quantity: amount });
+            });
+            break;
+    }
+}
 
 function handleInventoryItemClick(e) {
     if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return;
@@ -20,32 +129,7 @@ function handleInventoryItemClick(e) {
         header.classList.toggle('open');
         const content = header.nextElementSibling;
         if (content) content.classList.toggle('visible');
-        return; // Ne pas traiter comme un clic d'item
-    }
-
-    const itemEl = e.target.closest('.inventory-item');
-    if (!itemEl || !itemEl.dataset.itemKey) return;
-
-    const ownerEl = itemEl.closest('[data-owner="player-inventory"]');
-    if (!ownerEl) return;
-
-    const itemKey = itemEl.dataset.itemKey;
-    const itemName = itemEl.dataset.itemName; // Utilisation du bon dataset
-
-    if (!itemName) {
-        console.error("Erreur: itemName est undefined. itemKey:", itemKey, "Élément:", itemEl);
-        UI.addChatMessage("Erreur interne: Impossible d'identifier l'objet.", "system_error");
         return;
-    }
-
-    const itemDef = ITEM_TYPES[itemName];
-
-    if (itemDef && itemDef.slot) {
-        const equipResult = State.equipItem(itemKey);
-        UI.addChatMessage(equipResult.message, equipResult.success ? 'system' : 'system_error');
-        if (equipResult.success) window.fullUIUpdate();
-    } else {
-        handleConsumeClick(itemName);
     }
 }
 
@@ -71,7 +155,6 @@ function triggerParticles(type, x, y) {
     }
 }
 
-// Ajout de la fonction au scope global pour y accéder depuis d'autres modules
 window.triggerParticles = triggerParticles;
 let lastFrameTimestamp = 0;
 let lastStatDecayTimestamp = 0;
@@ -83,7 +166,7 @@ function updatePossibleActions() {
     DOM.actionsEl.innerHTML = '';
 
     if (!State.state || !State.state.player) return;
-    const { player, map, combatState, enemies, knownRecipes, tutorialState } = State.state;
+    const { player, map, combatState, enemies, tutorialState } = State.state;
 
     if (tutorialState.active && !tutorialState.isTemporarilyHidden && tutorialState.step > 0) {
         const p = document.createElement('p');
@@ -101,16 +184,13 @@ function updatePossibleActions() {
     const tileType = tile.type;
     const enemyOnTile = findEnemyOnTile(player.x, player.y, enemies);
 
-    const createButton = (text, actionId, data = {}, disabled = false, title = '', parent = DOM.actionsEl) => {
+    const createButton = (text, actionId, data = {}, disabled = false, title = '') => {
         const button = document.createElement('button');
         button.textContent = text;
-        button.disabled = disabled || (tutorialState.active && !tutorialState.isTemporarilyHidden && tutorialState.step > 0) || player.isBusy;
+        button.disabled = disabled || player.isBusy;
         button.title = title;
-        button.onclick = (e) => {
-            if ((tutorialState.active && !tutorialState.isTemporarilyHidden && tutorialState.step > 0) || player.isBusy) return;
-            handleGlobalPlayerAction(actionId, data);
-        };
-        parent.appendChild(button);
+        button.onclick = () => handleGlobalPlayerAction(actionId, data);
+        DOM.actionsEl.appendChild(button);
         return button;
     };
 
@@ -217,7 +297,6 @@ function updatePossibleActions() {
         createButton(`🔑 Prendre ${tile.hiddenItem}`, ACTIONS.TAKE_HIDDEN_ITEM, {}, isInventoryFull, isInventoryFull ? "Inventaire plein" : `Ramasser ${tile.hiddenItem}`);
     }
 
-    // Condition pour afficher les actions de récolte (bois, pierre, etc.)
     const canHarvestWood = tileType.name === TILE_TYPES.FOREST.name && tile.woodActionsLeft > 0;
     const canHarvestStone = tileType.name === TILE_TYPES.MINE_TERRAIN.name && (tile.harvestsLeft > 0 || tile.harvestsLeft === Infinity) && !Interactions.findBuildingOnTile(tile, 'MINE');
 
@@ -247,16 +326,11 @@ function updatePossibleActions() {
     if (player.equipment.weapon && player.equipment.weapon.name === 'Guitare') {
         createButton("🎸 Jouer de la guitare électrique", ACTIONS.USE_BUILDING_ACTION, { buildingKey: null, specificActionId: ACTIONS.PLAY_ELECTRIC_GUITAR });
     }
-
-    if (player.inventory['Eau salée'] > 0 && tileType.name === TILE_TYPES.PLAGE.name && player.thirst <= player.maxThirst - ITEM_TYPES['Eau salée'].effects.thirst) {
-        createButton("🚱 Boire Eau Salée", ACTIONS.CONSUME_EAU_SALEE, {itemName: 'Eau salée'});
-    }
-
+    
     const parcheminCount = State.countItemTypeInInventory('teachesRecipe');
     if (parcheminCount >= 2) {
         createButton("📜 Ouvrir tous les Parchemins", ACTIONS.OPEN_ALL_PARCHEMINS);
     }
-
 
     if (!combatState) {
         const npcsOnTile = State.state.npcs.filter(npc => npc.x === player.x && npc.y === player.y);
@@ -269,10 +343,10 @@ function updatePossibleActions() {
         const mainBuildButton = document.createElement('button');
         mainBuildButton.id = 'main-build-btn';
         mainBuildButton.textContent = "🏗️ Construire...";
-        mainBuildButton.disabled = (tutorialState.active && !tutorialState.isTemporarilyHidden && tutorialState.step > 0) || player.isBusy;
+        mainBuildButton.disabled = player.isBusy;
         mainBuildButton.onclick = () => {
-            if ((tutorialState.active && !tutorialState.isTemporarilyHidden && tutorialState.step > 0) || player.isBusy) return;
-            UI.showBuildModal(State.state);
+            if (player.isBusy) return;
+            handleGlobalPlayerAction(ACTIONS.OPEN_BUILD_MODAL);
         };
         DOM.actionsEl.appendChild(mainBuildButton);
     }
@@ -360,8 +434,8 @@ function updatePossibleActions() {
                     createButton(actionInfo.name, ACTIONS.USE_BUILDING_ACTION, { buildingKey: buildingInstance.key, specificActionId: actionInfo.id }, disabledAction, titleAction);
                 });
             }
-
-            if (buildingInstance.key === 'MINE' && buildingInstance.durability > 0 && hasPiocheEquipped) { // Utilisation de Interactions.findBuildingOnTile est implicite
+            
+            if (buildingInstance.key === 'MINE' && buildingInstance.durability > 0 && hasPiocheEquipped) {
                 createButton("⛏️ Chercher Minerais (Bât.)", ACTIONS.USE_BUILDING_ACTION, { buildingKey: 'MINE', specificActionId: 'search_ore_building' });
             }
             if ((buildingInstance.key === 'ATELIER' || buildingInstance.key === 'ETABLI' || buildingInstance.key === 'FORGE') && buildingInstance.durability > 0) {
@@ -372,7 +446,6 @@ function updatePossibleActions() {
             if (kitReparationEquipped && buildingInstance.durability < buildingInstance.maxDurability && player.equipment.weapon.currentUses > 0) {
                 createButton(`🛠️ Réparer ${buildingDef.name}`, ACTIONS.REPAIR_BUILDING, { buildingKey: buildingInstance.key, buildingIndex: index }, false, `Utiliser Kit de réparation (${player.equipment.weapon.currentUses || ITEM_TYPES['Kit de réparation'].uses} uses)`);
             }
-
 
             if (buildingDef.inventory && buildingInstance.durability > 0) {
                 const openChestButton = createButton( `🧰 Ouvrir le Coffre (${buildingDef.name})`, ACTIONS.OPEN_BUILDING_INVENTORY, { buildingKey: buildingInstance.key, buildingIndex: index });
@@ -406,7 +479,6 @@ function handleEvents() {
             activeEvent.type = 'Abondance';
             activeEvent.duration = 2;
             activeEvent.data = { resource: abundantResource };
-            // Message "les ... sont abondants" supprimé
         }
     }
 }
@@ -466,7 +538,6 @@ function gameLoop(currentTime) {
             }
         }
     } else {
-        // Ajout d'une animation de marche idle
         player.animationProgress = (player.animationProgress || 0) + deltaTime * 0.001;
         if (player.animationProgress > 1) player.animationProgress -= 1;
     }
@@ -489,7 +560,6 @@ function handleNavigation(direction) {
         UI.addChatMessage("Cliquez d'abord sur 'Compris, je vais bouger !' dans le message du tutoriel.", "system");
         return;
     }
-
 
     if (player.isBusy || player.animationState || combatState) {
         return;
@@ -555,7 +625,7 @@ function handleSpecificConsume(statType) {
         case 'thirst':
             if (inventory['Eau pure'] > 0 && player.thirst < player.maxThirst) itemToConsume = 'Eau pure';
             else if (inventory['Noix de coco'] > 0 && player.thirst < player.maxThirst) itemToConsume = 'Noix de coco';
-            else if (inventory['Alcool'] > 0 && player.thirst < player.maxThirst -1 ) itemToConsume = 'Alcool';
+            else if (inventory['Alcool'] > 0 && player.thirst < player.maxThirst - 1 ) itemToConsume = 'Alcool';
             break;
         case 'hunger':
             const foodItems = ['Viande cuite', 'Poisson cuit', 'Oeuf cuit', 'Barre Énergétique', 'Banane', 'Sucre', 'Sel'];
@@ -569,7 +639,9 @@ function handleSpecificConsume(statType) {
         default: UI.addChatMessage("Type de consommation inconnu via bouton rapide.", "system"); return;
     }
 
-    if (!itemToConsume) {
+    if (itemToConsume) {
+        handleGlobalPlayerAction(ACTIONS.CONSUME_ITEM_CONTEXT, { itemKey: itemToConsume });
+    } else {
         let message = "Vous n'avez rien pour ";
         let targetButton = null;
         if (statType === 'health' && DOM.consumeHealthBtn) { message += "vous soigner (ou vous n'êtes pas dans l'état requis / santé max)."; targetButton = DOM.consumeHealthBtn; }
@@ -577,49 +649,7 @@ function handleSpecificConsume(statType) {
         else if (statType === 'hunger' && DOM.consumeHungerBtn) { message += "calmer votre faim (ou faim max)."; targetButton = DOM.consumeHungerBtn; }
         UI.addChatMessage(message, "system");
         if (targetButton) UI.triggerShake(targetButton);
-        return;
     }
-    const result = State.consumeItem(itemToConsume);
-    UI.addChatMessage(result.message, result.success ? (itemToConsume === 'Porte bonheur' ? 'system_event' : 'system') : 'system_error');
-    if (result.success) {
-        UI.triggerActionFlash('gain');
-        if (result.floatingTexts && result.floatingTexts.length > 0) {
-            result.floatingTexts.forEach(textObjOrString => {
-                const text = typeof textObjOrString === 'string' ? textObjOrString : textObjOrString.text;
-                const type = typeof textObjOrString === 'string' ? (text.startsWith('+') ? 'gain' : (text.startsWith('-') ? 'cost' : 'info')) : textObjOrString.type;
-
-                if (text.toLowerCase().includes('statut:')) UI.showFloatingText(text, type);
-                else if (itemToConsume === 'Porte bonheur' && text.includes('+1')) UI.showFloatingText(text, type);
-                else if (!text.toLowerCase().includes('statut:') && itemToConsume !== 'Porte bonheur') {
-                    UI.showFloatingText(text, type);
-                }
-            });
-        }
-        fullUIUpdate();
-    } else { if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl); }
-}
-
-
-function handleConsumeClick(itemName) {
-    if (!State.state || !State.state.player) return;
-    const { player } = State.state;
-    if (player.isBusy || player.animationState) { UI.addChatMessage("Vous êtes occupé.", "system"); return; }
-
-    const result = State.consumeItem(itemName);
-    UI.addChatMessage(result.message, result.success ? (itemName.startsWith('Parchemin') || itemName === 'Porte bonheur' || itemName === 'Batterie chargée' ? 'system_event' : 'system') : 'system_error');
-    if(result.success) {
-        if (itemName !== 'Breuvage étrange' || (result.floatingTexts && result.floatingTexts.some(ft => (typeof ft === 'string' ? ft : ft.text).includes('+')))) {
-             UI.triggerActionFlash('gain');
-        }
-        if (result.floatingTexts && result.floatingTexts.length > 0) {
-            result.floatingTexts.forEach(textObjOrString => {
-                const text = typeof textObjOrString === 'string' ? textObjOrString : textObjOrString.text;
-                const type = typeof textObjOrString === 'string' ? (text.startsWith('+') ? 'gain' : (text.startsWith('-') ? 'cost' : 'info')) : textObjOrString.type;
-                UI.showFloatingText(text, type);
-            });
-        }
-        fullUIUpdate();
-    } else { if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl); }
 }
 
 window.fullUIUpdate = function() {
@@ -704,11 +734,53 @@ window.handleGlobalPlayerAction = (actionId, data) => {
         return;
     }
 
-    Interactions.handlePlayerAction(actionId, data, {
-        updateAllUI: window.fullUIUpdate,
-        updatePossibleActions: window.updatePossibleActions,
-        updateAllButtonsState: () => window.UI.updateAllButtonsState(State.state)
-    });
+    switch(actionId) {
+        case ACTIONS.CONSUME_ITEM_CONTEXT: {
+            const result = State.consumeItem(data.itemKey);
+            UI.addChatMessage(result.message, result.success ? (data.itemKey.startsWith('Parchemin') ? 'system_event' : 'system') : 'system_error');
+            if (result.success) {
+                if(result.floatingTexts) result.floatingTexts.forEach(ft => UI.showFloatingText(ft.text || ft, ft.type || 'info'));
+                UI.triggerActionFlash('gain');
+                window.fullUIUpdate();
+            }
+            break;
+        }
+        case ACTIONS.EQUIP_ITEM_CONTEXT: {
+            const result = State.equipItem(data.itemKey);
+            UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+            if (result.success) window.fullUIUpdate();
+            break;
+        }
+        case ACTIONS.UNEQUIP_ITEM_CONTEXT: {
+            const result = State.unequipItem(data.slotType);
+            UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+            if (result.success) window.fullUIUpdate();
+            break;
+        }
+        case ACTIONS.DROP_ITEM_CONTEXT: {
+            const result = State.dropItemOnGround(data.itemKey, data.quantity);
+            UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+            if (result.success) window.fullUIUpdate();
+            break;
+        }
+        case ACTIONS.PICKUP_ITEM_CONTEXT: {
+            const result = State.pickUpItemFromGround(data.itemKey, data.quantity);
+            UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
+            if (result.success) window.fullUIUpdate();
+            break;
+        }
+        case ACTIONS.OPEN_BUILD_MODAL: {
+            UI.showBuildModal(State.state);
+            break;
+        }
+        default: {
+            Interactions.handlePlayerAction(actionId, data, {
+                updateAllUI: window.fullUIUpdate,
+                updatePossibleActions: window.updatePossibleActions,
+                updateAllButtonsState: () => window.UI.updateAllButtonsState(State.state)
+            });
+        }
+    }
 };
 
 
@@ -807,7 +879,7 @@ function handleDrop(e) {
     const itemCount = draggedItemInfo.itemCount;
     const sourceOwner = draggedItemInfo.sourceOwner;
     const sourceSlotType = draggedItemInfo.sourceSlotType;
-    const itemKey = draggedItemInfo.element.dataset.itemKey; // Ajout pour obtenir la clé unique
+    const itemKey = draggedItemInfo.element.dataset.itemKey;
     
     let transferActionInitiated = false;
 
@@ -815,7 +887,7 @@ function handleDrop(e) {
         const itemDef = ITEM_TYPES[itemName];
         if (sourceOwner === 'player-inventory') {
             if (itemDef && itemDef.slot === destSlotType) {
-                State.equipItem(itemKey); // Utiliser itemKey pour équiper
+                State.equipItem(itemKey);
             } else { UI.addChatMessage("Cet objet ne va pas dans cet emplacement.", "system"); }
         }
     } else if (destOwner === 'player-inventory') {
@@ -848,14 +920,14 @@ function handleDrop(e) {
                 transferActionInitiated = true;
                 UI.showQuantityModal(itemName, itemCount, amount => {
                     if (amount > 0) {
-                        const transferResult = State.applyBulkInventoryTransfer(itemKey, amount, currentTransferType); // Utiliser itemKey
+                        const transferResult = State.applyBulkInventoryTransfer(itemKey, amount, currentTransferType);
                         UI.addChatMessage(transferResult.message, transferResult.success ? 'system' : 'system_error');
                     }
                     window.fullUIUpdate();
                     draggedItemInfo = null; 
                 });
             } else {
-                const transferResult = State.applyBulkInventoryTransfer(itemKey, 1, currentTransferType); // Utiliser itemKey
+                const transferResult = State.applyBulkInventoryTransfer(itemKey, 1, currentTransferType);
                 UI.addChatMessage(transferResult.message, transferResult.success ? 'system' : 'system_error');
             }
         }
@@ -865,14 +937,14 @@ function handleDrop(e) {
                 transferActionInitiated = true;
                 UI.showQuantityModal(`Déposer ${itemName}`, itemCount, (amount) => {
                     if (amount > 0) {
-                        const result = State.dropItemOnGround(itemKey, amount); // Utiliser itemKey
+                        const result = State.dropItemOnGround(itemKey, amount);
                         UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
                     }
                     window.fullUIUpdate();
                     draggedItemInfo = null; 
                 });
             } else {
-                const result = State.dropItemOnGround(itemKey, 1); // Utiliser itemKey
+                const result = State.dropItemOnGround(itemKey, 1);
                 UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
             }
         }
@@ -959,12 +1031,13 @@ function setupEventListeners() {
         DOM.bottomBarGroundItemsEl.addEventListener('click', e => {
             if (State.state.tutorialState.active && !State.state.tutorialState.isTemporarilyHidden && State.state.tutorialState.step > 0) return;
             const itemEl = e.target.closest('.inventory-item');
-            if (itemEl && itemEl.dataset.itemName) {
+            if (itemEl && itemEl.dataset.itemKey) {
+                const itemKey = itemEl.dataset.itemKey;
                 const itemName = itemEl.dataset.itemName;
                 const maxAmount = parseInt(itemEl.dataset.itemCount, 10);
                 UI.showQuantityModal(`Ramasser ${itemName}`, maxAmount, (amount) => {
                     if (amount > 0) {
-                        const result = State.pickUpItemFromGround(itemName, amount);
+                        const result = State.pickUpItemFromGround(itemKey, amount);
                         UI.addChatMessage(result.message, result.success ? 'system' : 'system_error');
                         window.fullUIUpdate();
                     }
@@ -1015,10 +1088,36 @@ function setupEventListeners() {
         });
     }
 
+    document.addEventListener('contextmenu', (e) => {
+        const targetItem = e.target.closest('.inventory-item[draggable="true"]');
+        if (!targetItem) {
+            hideItemContextMenu();
+            return;
+        }
+        e.preventDefault();
+        
+        const ownerEl = targetItem.closest('[data-owner], .equipment-slot[data-owner], .equipment-slot-small[data-owner]');
+        if (!ownerEl) return;
+
+        const itemInfo = {
+            itemName: targetItem.dataset.itemName,
+            itemKey: targetItem.dataset.itemKey,
+            itemCount: parseInt(targetItem.dataset.itemCount || '1', 10),
+            owner: ownerEl.dataset.owner,
+            slotType: targetItem.dataset.slotType || ownerEl.dataset.slotType
+        };
+        showItemContextMenu(itemInfo, e.clientX, e.clientY);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#item-context-menu')) {
+            hideItemContextMenu();
+        }
+    });
 
     window.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
-            if (DOM.tutorialOverlay && !DOM.tutorialOverlay.classList.contains('hidden') && !State.state.tutorialState.isTemporarilyHidden) { /* Ne rien faire si tutoriel actif et visible */ }
+            if (DOM.tutorialOverlay && !DOM.tutorialOverlay.classList.contains('hidden') && !State.state.tutorialState.isTemporarilyHidden) { }
             else if (DOM.lockModal && !DOM.lockModal.classList.contains('hidden')) UI.hideLockModal();
             else if (DOM.workshopModal && !DOM.workshopModal.classList.contains('hidden')) UI.hideWorkshopModal();
             else if (DOM.buildModal && !DOM.buildModal.classList.contains('hidden')) UI.hideBuildModal();
@@ -1028,6 +1127,7 @@ function setupEventListeners() {
             else if (DOM.combatModal && !DOM.combatModal.classList.contains('hidden')) UI.hideCombatModal();
             else if (UI.isQuantityModalOpen()) UI.hideQuantityModal();
             else if (DOM.adminModal && !DOM.adminModal.classList.contains('hidden')) document.getElementById('admin-modal').classList.add('hidden');
+            else if (DOM.itemContextMenu && !DOM.itemContextMenu.classList.contains('hidden')) hideItemContextMenu();
             return;
         }
 
@@ -1054,6 +1154,7 @@ function setupEventListeners() {
             (DOM.workshopSearchInputEl && document.activeElement === DOM.workshopSearchInputEl) ||
             (DOM.workshopRecipesContainerEl && DOM.workshopRecipesContainerEl.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') ||
             (DOM.lockModal && !DOM.lockModal.classList.contains('hidden')) ||
+            (DOM.itemContextMenu && !DOM.itemContextMenu.classList.contains('hidden')) ||
             (DOM.tutorialOverlay && !DOM.tutorialOverlay.classList.contains('hidden') && !State.state.tutorialState.isTemporarilyHidden)
            ) {
             return;
@@ -1139,6 +1240,12 @@ async function init() {
         await UI.loadAssets(SPRITESHEET_PATHS);
 
         State.initializeGameState(CONFIG);
+
+        // Immediate UI update to ensure inventory and minimap load on startup
+        if (State.state && State.state.config) {
+            window.fullUIUpdate();
+            UI.drawMinimap(State.state, State.state.config);
+        }
 
         window.addEventListener('resize', fullResizeAndRedraw);
         setupEventListeners();

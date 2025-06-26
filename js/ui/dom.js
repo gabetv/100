@@ -32,10 +32,10 @@ export function initDOM() {
     DOM.inventoryCategoriesEl = document.getElementById('inventory-categories');
 
     // --- STATS JOUEUR ---
-    DOM.healthBarEl = document.getElementById('health-bar');
-    DOM.thirstBarEl = document.getElementById('thirst-bar');
-    DOM.hungerBarEl = document.getElementById('hunger-bar');
-    DOM.sleepBarEl = document.getElementById('sleep-bar');
+    DOM.healthSquaresContainerEl = document.getElementById('health-squares-container');
+    DOM.thirstSquaresContainerEl = document.getElementById('thirst-squares-container');
+    DOM.hungerSquaresContainerEl = document.getElementById('hunger-squares-container');
+    DOM.sleepSquaresContainerEl = document.getElementById('sleep-squares-container');
     DOM.healthStatusEl = document.getElementById('health-status');
 
     DOM.consumeHealthBtn = document.getElementById('consume-health-btn');

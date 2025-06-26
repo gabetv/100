@@ -3,27 +3,38 @@ import { ITEM_TYPES, TILE_TYPES } from '../config.js';
 import { getTotalResources } from '../player.js';
 import DOM from './dom.js';
 
-function updateBar(barElement, value, maxValue) {
-    if (!barElement) return;
-    const percentage = (value / maxValue) * 100;
-    barElement.style.width = `${percentage}%`;
+function updateSquaresBar(containerElement, value, maxValue, type) {
+    if (!containerElement) return;
+
+    containerElement.innerHTML = ''; // Clear existing squares
+
+    const numFilledSquares = Math.round((value / maxValue) * 10); // Calculate how many of 10 squares should be filled
+
+    for (let i = 0; i < 10; i++) {
+        const square = document.createElement('div');
+        square.classList.add('stat-square');
+        if (i < numFilledSquares) {
+            square.classList.add(`filled-${type}`);
+        }
+        containerElement.appendChild(square);
+    }
 }
 
 export function updateStatsPanel(player) {
     if (!player) return;
-    const { healthBarEl, thirstBarEl, hungerBarEl, sleepBarEl, healthStatusEl } = DOM;
+    const { healthSquaresContainerEl, thirstSquaresContainerEl, hungerSquaresContainerEl, sleepSquaresContainerEl, healthStatusEl } = DOM;
 
-    updateBar(healthBarEl, player.health, player.maxHealth);
-    updateBar(thirstBarEl, player.thirst, player.maxThirst);
-    updateBar(hungerBarEl, player.hunger, player.maxHunger);
-    updateBar(sleepBarEl, player.sleep, player.maxSleep);
+    updateSquaresBar(healthSquaresContainerEl, player.health, player.maxHealth, 'health');
+    updateSquaresBar(thirstSquaresContainerEl, player.thirst, player.maxThirst, 'thirst');
+    updateSquaresBar(hungerSquaresContainerEl, player.hunger, player.maxHunger, 'hunger');
+    updateSquaresBar(sleepSquaresContainerEl, player.sleep, player.maxSleep, 'sleep');
 
     if (healthStatusEl) healthStatusEl.textContent = player.status.join(', ') || 'normale';
 
-    if (healthBarEl) healthBarEl.parentElement.classList.toggle('pulsing', player.health <= (player.maxHealth * 0.3));
-    if (thirstBarEl) thirstBarEl.parentElement.classList.toggle('pulsing', player.thirst <= (player.maxThirst * 0.2));
-    if (hungerBarEl) hungerBarEl.parentElement.classList.toggle('pulsing', player.hunger <= (player.maxHunger * 0.2));
-    if (sleepBarEl) sleepBarEl.parentElement.classList.toggle('pulsing', player.sleep <= (player.maxSleep * 0.2));
+    if (healthSquaresContainerEl) healthSquaresContainerEl.parentElement.classList.toggle('pulsing', player.health <= (player.maxHealth * 0.3));
+    if (thirstSquaresContainerEl) thirstSquaresContainerEl.parentElement.classList.toggle('pulsing', player.thirst <= (player.maxThirst * 0.2));
+    if (hungerSquaresContainerEl) hungerSquaresContainerEl.parentElement.classList.toggle('pulsing', player.hunger <= (player.maxHunger * 0.2));
+    if (sleepSquaresContainerEl) sleepSquaresContainerEl.parentElement.classList.toggle('pulsing', player.sleep <= (player.maxSleep * 0.2));
 
     const survivalVignette = document.getElementById('survival-vignette');
     if (survivalVignette) survivalVignette.classList.toggle('active', player.health <= (player.maxHealth * 0.3));
@@ -121,6 +132,13 @@ export function updateInventory(player) {
                 li.classList.add(`rarity-${baseItemDef.rarity}`);
                  if (baseItemDef.type === 'consumable' || baseItemDef.teachesRecipe || baseItemDef.slot || baseItemDef.type === 'usable' || baseItemDef.type === 'key') {
                     li.classList.add('clickable');
+                    if (baseItemDef.slot) {
+                        li.addEventListener('click', () => {
+                            State.equipItem(baseItemName);
+                            UI.updateInventory(player);
+                            UI.updateBottomBarEquipmentPanel(player);
+                        });
+                    }
                 }
                 li.dataset.itemKey = itemName; // Use the unique key for interactions
                 li.dataset.itemName = baseItemName;
@@ -305,18 +323,19 @@ export function updateGroundItemsPanel(tile) {
         li.textContent = '(Rien au sol)';
         list.appendChild(li);
     } else {
-        for (const itemName in groundItems) {
-            if (groundItems[itemName] > 0) {
-                const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
+        for (const itemKey in groundItems) {
+            const item = groundItems[itemKey];
+            if (item) {
+                const itemDef = ITEM_TYPES[item.name] || { icon: '❓' };
                 const li = document.createElement('li');
                 li.className = 'inventory-item clickable';
-                li.dataset.itemKey = itemName; // La clé unique de l'inventaire
-                li.dataset.itemName = itemName; // Le nom de base pour la définition de l'objet
-                li.dataset.itemCount = groundItems[itemName];
+                li.dataset.itemKey = itemKey; // La clé unique de l'inventaire
+                li.dataset.itemName = item.name; // Le nom de base pour la définition de l'objet
+                li.dataset.itemCount = 1;
                 li.setAttribute('draggable', 'true');
                 li.dataset.owner = 'ground';
 
-                li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${groundItems[itemName]}</span>`;
+                li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${item.name}</span><span class="inventory-count">1</span>`;
                 list.appendChild(li);
             }
         }
