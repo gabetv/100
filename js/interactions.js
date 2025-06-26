@@ -230,7 +230,7 @@ function playerAttack() {
         Object.keys(combatState.enemy.loot).forEach(item => {
             const amount = combatState.enemy.loot[item];
             if (amount > 0) {
-                State.addResourceToPlayer(item, amount);
+                State.addResource(player.inventory, item, amount);
                 UI.showFloatingText(`+${amount} ${item}`, 'gain');
             }
         });
@@ -535,7 +535,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     if (forestTileRef.woodActionsLeft > 0) forestTileRef.woodActionsLeft--;
 
                     if (amountToHarvest > 0) {
-                        State.addResourceToPlayer('Bois', amountToHarvest);
+                        State.addResource(player.inventory, 'Bois', amountToHarvest);
                         UI.showFloatingText(`+${amountToHarvest} Bois`, 'gain'); UI.triggerActionFlash('gain');
                         UI.addChatMessage(`Vous obtenez ${amountToHarvest} Bois.`, 'system');
                         if (amountToHarvest < woodYield && availableSpace === 0) UI.addChatMessage("Inventaire plein, récolte partielle.", "system");
@@ -589,7 +589,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                     const amountToAdd = Math.min(fishCaught, availableSpace);
                     if (amountToAdd > 0) {
-                        State.addResourceToPlayer('Poisson cru', amountToAdd);
+                        State.addResource(player.inventory, 'Poisson cru', amountToAdd);
                         UI.showFloatingText(`+${amountToAdd} Poisson cru`, 'gain'); UI.triggerActionFlash('gain');
                         if (amountToAdd < fishCaught) UI.addChatMessage("Inventaire plein, une partie du poisson a été relâchée.", "system");
                     } else {
@@ -934,7 +934,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     for (const item in TREASURE_COMBAT_KIT) {
                         const amount = TREASURE_COMBAT_KIT[item];
                         if (getTotalResources(player.inventory) + amount <= player.maxInventory) {
-                            State.addResourceToPlayer(item, amount);
+                            State.addResource(player.inventory, item, amount);
                             UI.showFloatingText(`+${amount} ${item}`, 'gain');
                         } else {
                             State.dropItemOnGround(item, amount);
