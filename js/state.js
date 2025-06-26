@@ -672,34 +672,41 @@ export function consumeItem(itemName) {
 
 export function dropItemOnGround(item, quantity) {
     const player = gameState.player;
-    const itemName = typeof item === 'string' ? item : item.name;
-    let itemKey = item; // Store the original item key
+    let itemKey = item;
+    let itemName = typeof item === 'string' ? item : item.name;
+    let itemToDrop = null;
 
+    // Handle both string keys and object references
     if (typeof item === 'object') {
         itemKey = Object.keys(player.inventory).find(key => player.inventory[key] === item);
         if (!itemKey) {
             return { success: false, message: "Objet introuvable dans l'inventaire." };
         }
-    }
-
-    if (!player.inventory[itemKey]) {
-        return { success: false, message: "Quantité insuffisante dans l'inventaire." };
+        itemToDrop = player.inventory[itemKey];
+    } else {
+        // For string keys, check if it's a stackable item or unique admin item
+        if (player.inventory[itemKey] && typeof player.inventory[itemKey] === 'number') {
+            // Stackable item
+            itemToDrop = { name: itemKey };
+        } else if (player.inventory[itemKey] && typeof player.inventory[itemKey] === 'object') {
+            // Unique admin item
+            itemToDrop = player.inventory[itemKey];
+            itemName = itemToDrop.name;
+        } else {
+            return { success: false, message: "Quantité insuffisante dans l'inventaire." };
+        }
     }
 
     const tile = gameState.map[player.y][player.x];
     if (!tile.groundItems) tile.groundItems = {};
 
-    if (!tile.groundItems[itemKey]) {
-        tile.groundItems[itemKey] = null;
-    }
-
-    const itemToDrop = player.inventory[itemKey];
+    // Remove from inventory
     delete player.inventory[itemKey];
 
-    if (!tile.groundItems) tile.groundItems = {};
+    // Add to ground items
     tile.groundItems[itemKey] = itemToDrop;
 
-    return { success: true, message: `Vous avez déposé ${itemToDrop.name} au sol.` };
+    return { success: true, message: `Vous avez déposé ${itemName} au sol.` };
 }
 
 export function pickUpItemFromGround(item, quantity) {

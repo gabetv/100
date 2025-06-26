@@ -257,7 +257,7 @@ export const ITEM_TYPES = {
     'Antiseptique': { type: 'consumable', icon: '🧴', effects: { ifStatus: ['Blessé', 'Malade'], status: 'normale', health: 3 } },
     'Bandage': { type: 'consumable', icon: '🩹', effects: { health: 2 } },
     'Kit de Secours': { type: 'consumable', icon: '✚', effects: { ifStatus: ['Malade'], status: 'normale', health: 3 } },
-    'Batterie déchargée': {type: 'resource', icon: '🔋'},
+    'Batterie déchargée': {type: 'resource', icon: '🔋❌'},
     'Venin': { type: 'consumable', icon: '🧪', effects: { status: [{ name: 'Empoisonné', chance: 1.0 }] } },
     'Fiole empoisonnée': { type: 'consumable', icon: '☠️', effects: { health: -1000 } },
     'Fiole anti-poison': { type: 'consumable', icon: '🧪✨', effects: { ifStatus: 'Empoisonné', status: 'normale', health: 10 } },
@@ -336,10 +336,10 @@ export const ITEM_TYPES = {
     'Briquet': { type: 'tool', slot: 'weapon', icon: '🔥', uses: 5, isFireStarter: true, stats: { damage: 1 }, rarity: 'uncommon' },
     'Allumettes': { type: 'tool', slot: 'weapon', icon: ' ম্যাচ', uses: 1, isFireStarter: true, stats: { damage: 1 }, rarity: 'common' },
     'Seau': { type: 'tool', slot: 'weapon', icon: '🪣', breakChance: 0.1, stats: { damage: 1 }, action: 'harvest_sand', rarity: 'common' }, // Can also be a weapon
-    'Radio déchargée': { type: 'tool', slot: 'weapon', icon: '📻🚫', breakChance: 0.05, action: null, stats: { damage: 0 }, rarity: 'rare' },
-    'Téléphone déchargé': { type: 'tool', slot: 'weapon', icon: '📱🚫', breakChance: 0.05, action: null, stats: { damage: 0 }, rarity: 'rare' },
+    'Radio déchargée': { type: 'tool', slot: 'weapon', icon: '📻❌', breakChance: 0.05, action: null, stats: { damage: 0 }, rarity: 'rare' },
+    'Téléphone déchargé': { type: 'tool', slot: 'weapon', icon: '📱❌', breakChance: 0.05, action: null, stats: { damage: 0 }, rarity: 'rare' },
     'Radio chargée': { type: 'tool', slot: 'weapon', icon: '📻⚡', uses: 3, action: 'listen_radio_if_charged', stats: { damage: 0 }, rarity: 'rare' },
-    'Guitare déchargé': { type: 'tool', slot: 'weapon', icon: '🎸🚫', breakChance: 0.05, stats: { damage: 1 }, rarity: 'rare' },
+    'Guitare déchargé': { type: 'tool', slot: 'weapon', icon: '🎸❌', breakChance: 0.05, stats: { damage: 1 }, rarity: 'rare' },
     'Guitare': { type: 'tool', slot: 'weapon', icon: '🎸⚡', uses: 1, action: 'play_electric_guitar', stats: { damage: 1 }, rarity: 'rare' },
     'Téléphone chargé': { type: 'tool', slot: 'weapon', icon: '📱⚡', uses: 5, action: 'attempt_call_if_charged', stats: { damage: 0 }, rarity: 'rare' },
 
