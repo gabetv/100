@@ -91,12 +91,72 @@ export function initializeGameState(config) {
     }
 
 
+    // Set a camp tile near the player's starting position as shelterLocation with initial ground resources
     gameState.shelterLocation = null;
-    const existingShelterTile = gameState.map.flat().find(tile =>
-        tile.buildings && tile.buildings.some(b => b.key === 'SHELTER_COLLECTIVE')
-    );
-    if (existingShelterTile) {
-        gameState.shelterLocation = { x: existingShelterTile.x, y: existingShelterTile.y };
+    const playerStartX = gameState.player.x;
+    const playerStartY = gameState.player.y;
+    let campTile = null;
+    let campAttempts = 0;
+    const maxCampAttempts = 50;
+    const radius = 3; // Search within a 3-tile radius of player start
+    do {
+        const offsetX = Math.floor(Math.random() * (radius * 2 + 1)) - radius;
+        const offsetY = Math.floor(Math.random() * (radius * 2 + 1)) - radius;
+        const checkX = playerStartX + offsetX;
+        const checkY = playerStartY + offsetY;
+        if (checkX >= 0 && checkX < gameState.config.MAP_WIDTH && 
+            checkY >= 0 && checkY < gameState.config.MAP_HEIGHT && 
+            gameState.map[checkY][checkX].type.accessible && 
+            gameState.map[checkY][checkX].type.name === 'Plaines') {
+            campTile = gameState.map[checkY][checkX];
+            gameState.shelterLocation = { x: checkX, y: checkY };
+            // Initialize ground resources for the camp
+            campTile.groundItems = {
+                'Bois': 10,
+                'Pierre': 5
+            };
+            console.log(`Camp tile set at (${checkX}, ${checkY}) with initial resources.`);
+            break;
+        }
+        campAttempts++;
+        if (campAttempts > maxCampAttempts) {
+            console.warn("Could not find suitable camp tile near player start after max attempts. Forcing a nearby tile to Plains.");
+            // Force a nearby accessible tile to Plains if no suitable tile is found
+            for (let dy = -radius; dy <= radius && !campTile; dy++) {
+                for (let dx = -radius; dx <= radius && !campTile; dx++) {
+                    const forceX = playerStartX + dx;
+                    const forceY = playerStartY + dy;
+                    if (forceX >= 0 && forceX < gameState.config.MAP_WIDTH && 
+                        forceY >= 0 && forceY < gameState.config.MAP_HEIGHT && 
+                        gameState.map[forceY][forceX].type.accessible) {
+                        updateTileType(forceX, forceY, 'PLAINS');
+                        campTile = gameState.map[forceY][forceX];
+                        gameState.shelterLocation = { x: forceX, y: forceY };
+                        // Initialize ground resources for the camp
+                        campTile.groundItems = {
+                            'Bois': 10,
+                            'Pierre': 5
+                        };
+                        console.log(`Forced camp tile to Plains at (${forceX}, ${forceY}) with initial resources.`);
+                        break;
+                    }
+                }
+            }
+            if (!campTile) {
+                console.error("Failed to force a camp tile even after attempting to change terrain type.");
+            }
+            break;
+        }
+    } while (!campTile);
+
+    // Fallback to existing shelter if no camp tile was set
+    if (!gameState.shelterLocation) {
+        const existingShelterTile = gameState.map.flat().find(tile =>
+            tile.buildings && tile.buildings.some(b => b.key === 'SHELTER_COLLECTIVE')
+        );
+        if (existingShelterTile) {
+            gameState.shelterLocation = { x: existingShelterTile.x, y: existingShelterTile.y };
+        }
     }
 
     gameState.map.flat().forEach(tile => {
@@ -181,7 +241,19 @@ export function applyBulkInventoryTransfer(itemName, amount, transferType) {
         to = targetInventory;
         success = transferItems(itemName, amount, from, to, targetCapacity);
         if (success) return { success: true, message: `Vous avez déposé ${amount} ${itemName}.` };
-        return { success: false, message: "Le dépôt a échoué. Quantité invalide ou stockage plein ?" };
+        // Provide more specific feedback on why deposit failed
+        let errorMessage = "Le dépôt a échoué. ";
+        if (!from[itemName] || from[itemName] < amount) {
+            errorMessage += `Quantité invalide : vous n'avez pas assez de cet objet. (Clé recherchée: ${itemName}, Quantité disponible: ${from[itemName] || 0})`;
+        } else {
+            const currentTotal = getTotalResources(to);
+            if (currentTotal + amount > targetCapacity) {
+                errorMessage += `Stockage plein : la capacité maximale est de ${targetCapacity}. Espace actuel utilisé : ${currentTotal}.`;
+            } else {
+                errorMessage += "Raison inconnue.";
+            }
+        }
+        return { success: false, message: errorMessage };
     }
 
     if (transferType === 'withdraw') {
@@ -190,7 +262,17 @@ export function applyBulkInventoryTransfer(itemName, amount, transferType) {
         const playerCapacity = player.maxInventory;
         success = transferItems(itemName, amount, from, to, playerCapacity);
         if (success) return { success: true, message: `Vous avez pris ${amount} ${itemName}.` };
-        return { success: false, message: "Le retrait a échoué. Inventaire plein ou stock insuffisant ?" };
+        // Provide more specific feedback on why withdraw failed
+        let errorMessage = "Le retrait a échoué. ";
+        const currentPlayerTotal = getTotalResources(to);
+        if (!from[itemName] || from[itemName] < amount) {
+            errorMessage += "Stock insuffisant dans le coffre.";
+        } else if (currentPlayerTotal + amount > playerCapacity) {
+            errorMessage += `Inventaire plein : votre capacité maximale est de ${playerCapacity}. Espace actuel utilisé : ${currentPlayerTotal}.`;
+        } else {
+            errorMessage += "Raison inconnue.";
+        }
+        return { success: false, message: errorMessage };
     }
 
     return { success: false, message: "Type de transfert inconnu." };

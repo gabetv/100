@@ -378,6 +378,18 @@ export function drawMinimap(gameState, config) {
         }
     });
 
+    // Dessiner le camp tile (shelterLocation) avec un contour noir
+    if (gameState.shelterLocation) {
+        minimapCtx.strokeStyle = 'black';
+        minimapCtx.lineWidth = 2;
+        minimapCtx.strokeRect(
+            gameState.shelterLocation.x * MINIMAP_DOT_SIZE - 1, 
+            gameState.shelterLocation.y * MINIMAP_DOT_SIZE - 1, 
+            MINIMAP_DOT_SIZE + 2, 
+            MINIMAP_DOT_SIZE + 2
+        );
+    }
+
     // Dessiner le joueur (carré avec contour)
     minimapCtx.fillStyle = player.color || 'yellow';
     minimapCtx.fillRect(player.x * MINIMAP_DOT_SIZE, player.y * MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE, MINIMAP_DOT_SIZE);

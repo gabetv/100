@@ -675,6 +675,13 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             if (tile.type.name === TILE_TYPES.PLAGE.name) {
                 UI.addChatMessage("Vous ne pouvez pas construire sur la plage.", "system"); return;
             }
+            // Check if the tile is unrevealed and force it to Plains if selected for base construction
+            const tileKey = `${player.x},${player.y}`;
+            if (!player.visitedTiles.has(tileKey) && !State.state.globallyRevealedTiles.has(tileKey) && 
+                (structureKey === 'SHELTER_INDIVIDUAL' || structureKey === 'SHELTER_COLLECTIVE')) {
+                State.updateTileType(player.x, player.y, 'PLAINS');
+                UI.addChatMessage("Le terrain a été préparé en Plaine pour la construction de la base.", "system");
+            }
             if (!tile.type.buildable && structureKey !== 'MINE' && structureKey !== 'CAMPFIRE' && structureKey !== 'PETIT_PUIT') {
                 UI.addChatMessage("Vous ne pouvez pas construire sur ce type de terrain.", "system"); return;
             }
@@ -1111,10 +1118,32 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         case ACTIONS.CRAFT_ITEM_WORKSHOP: {
             const { recipeName, costs, yields, quantity } = data;
             let hasEnoughResources = true;
+            let resourcesFromGround = {};
+            let resourcesFromInventory = {};
+            const isAtCamp = shelterLocation && player.x === shelterLocation.x && player.y === shelterLocation.y;
+
+            // First, check total resources availability (inventory + ground if at camp)
             for (const itemName in costs) {
-                if ((player.inventory[itemName] || 0) < costs[itemName] * quantity) {
+                const requiredAmount = costs[itemName] * quantity;
+                const inventoryAmount = player.inventory[itemName] || 0;
+                let totalAvailable = inventoryAmount;
+                if (isAtCamp && tile.groundItems[itemName]) {
+                    totalAvailable += tile.groundItems[itemName];
+                }
+                if (totalAvailable < requiredAmount) {
                     hasEnoughResources = false;
                     break;
+                }
+                // Plan deduction: prioritize ground items if at camp
+                if (isAtCamp && tile.groundItems[itemName]) {
+                    const fromGround = Math.min(requiredAmount, tile.groundItems[itemName]);
+                    resourcesFromGround[itemName] = fromGround;
+                    const remaining = requiredAmount - fromGround;
+                    if (remaining > 0) {
+                        resourcesFromInventory[itemName] = remaining;
+                    }
+                } else {
+                    resourcesFromInventory[itemName] = requiredAmount;
                 }
             }
 
@@ -1128,10 +1157,24 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             performTimedAction(player, ACTION_DURATIONS.CRAFT * quantity,
                 () => UI.addChatMessage(`Fabrication de ${quantity}x ${recipeName}...`, "system"),
                 () => {
-                    for (const costItemName in costs) {
-                        State.applyResourceDeduction({ [costItemName]: costs[costItemName] * quantity });
-                        UI.showFloatingText(`-${costs[costItemName] * quantity} ${costItemName}`, 'cost');
+                    // Deduct from ground items first if at camp
+                    for (const itemName in resourcesFromGround) {
+                        const amount = resourcesFromGround[itemName];
+                        if (amount > 0) {
+                            tile.groundItems[itemName] -= amount;
+                            if (tile.groundItems[itemName] <= 0) delete tile.groundItems[itemName];
+                            UI.showFloatingText(`-${amount} ${itemName} (sol)`, 'cost');
+                        }
                     }
+                    // Then deduct from inventory
+                    for (const itemName in resourcesFromInventory) {
+                        const amount = resourcesFromInventory[itemName];
+                        if (amount > 0) {
+                            State.applyResourceDeduction({ [itemName]: amount });
+                            UI.showFloatingText(`-${amount} ${itemName}`, 'cost');
+                        }
+                    }
+                    // Add crafted items
                     for (const yieldItemName in yields) {
                         State.addResourceToPlayer(yieldItemName, yields[yieldItemName] * quantity);
                         UI.showFloatingText(`+${yields[yieldItemName] * quantity} ${yieldItemName}`, 'gain');

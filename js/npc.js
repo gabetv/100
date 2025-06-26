@@ -174,13 +174,15 @@ export function updateNpcs(gameState, deltaTime) {
             }
             if (npc.x === shelterLocation.x && npc.y === shelterLocation.y) {
                 let depositedCount = 0;
+                const campTile = map[shelterLocation.y][shelterLocation.x];
+                if (!campTile.groundItems) campTile.groundItems = {};
                 for (const itemName in npc.inventory) {
                     const count = npc.inventory[itemName];
-                    shelterInventory[itemName] = (shelterInventory[itemName] || 0) + count;
+                    campTile.groundItems[itemName] = (campTile.groundItems[itemName] || 0) + count;
                     depositedCount += count;
                 }
                 if (depositedCount > 0) {
-                     addChatMessage(`${npc.name} a déposé ${depositedCount} ressource(s) à la base.`, 'npc');
+                    addChatMessage(`${npc.name} a déposé ${depositedCount} ressource(s) au camp à (${shelterLocation.x}, ${shelterLocation.y}).`, 'npc');
                 }
                 npc.inventory = {};
 

@@ -217,8 +217,13 @@ export function showQuantityModal(itemName, maxAmount, callback) {
     if (!DOM.quantityModal) return;
     const { quantityModalTitle, quantitySlider, quantityInput, quantityModal } = DOM;
     if(quantityModalTitle) quantityModalTitle.textContent = `Transférer ${itemName}`;
-    if(quantitySlider) { quantitySlider.max = maxAmount; quantitySlider.value = 1; }
-    if(quantityInput) { quantityInput.max = maxAmount; quantityInput.value = 1; }
+    // Ensure the maxAmount does not exceed available inventory for deposit
+    let adjustedMaxAmount = maxAmount;
+    if (window.gameState && window.gameState.player && window.gameState.player.inventory[itemName] && maxAmount > window.gameState.player.inventory[itemName]) {
+        adjustedMaxAmount = window.gameState.player.inventory[itemName];
+    }
+    if(quantitySlider) { quantitySlider.max = adjustedMaxAmount; quantitySlider.value = 1; }
+    if(quantityInput) { quantityInput.max = adjustedMaxAmount; quantityInput.value = 1; }
     quantityConfirmCallback = callback;
     quantityModal.classList.remove('hidden');
 }
