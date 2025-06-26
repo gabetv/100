@@ -39,11 +39,31 @@ export const state = gameState;
 /**
  * Compte le nombre total d'objets dans un inventaire.
  * Les objets empilables comptent pour leur quantité, les objets uniques pour 1.
+ * Peut maintenant compter un objet spécifique ou le total.
  * @param {object} inventory L'inventaire à compter.
- * @returns {number} Le nombre total d'objets.
+ * @param {string} itemName Le nom de l'objet à compter (optionnel).
+ * @returns {number} Le nombre total d'objets ou la quantité de l'objet spécifique.
  */
-export function countItemsInInventory(inventory) {
+export function countItemsInInventory(inventory, itemName = null) {
     if (!inventory) return 0;
+
+    if (itemName) {
+        let count = 0;
+        // Gérer les objets empilables
+        if (typeof inventory[itemName] === 'number') {
+            count += inventory[itemName];
+        }
+        // Gérer les objets uniques (instances)
+        for (const key in inventory) {
+            const item = inventory[key];
+            if (typeof item === 'object' && item.name === itemName) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    // Comportement original si itemName n'est pas fourni
     return Object.values(inventory).reduce((sum, item) => {
         return sum + (typeof item === 'number' ? item : 1);
     }, 0);
@@ -157,15 +177,20 @@ export function removeItemsFromInventory(inventory, keys) {
  * Vérifie si un inventaire contient les ressources nécessaires.
  * @param {object} inventory L'inventaire à vérifier.
  * @param {object} costs Un dictionnaire de { itemName: quantity }.
+ * @param {object} secondaryInventory Un inventaire secondaire optionnel (ex: sol).
  * @returns {{success: boolean, missing: string|null}}
  */
-export function hasResources(inventory, costs) {
+export function hasResources(inventory, costs, secondaryInventory = null) {
     for (const resourceName in costs) {
         const requiredAmount = costs[resourceName];
         if (requiredAmount <= 0) continue;
-        
-        const { found } = findItemsInInventory(inventory, resourceName, requiredAmount);
-        if (!found) {
+
+        let totalAvailable = countItemsInInventory(inventory, resourceName);
+        if (secondaryInventory) {
+            totalAvailable += countItemsInInventory(secondaryInventory, resourceName);
+        }
+
+        if (totalAvailable < requiredAmount) {
             return { success: false, missing: resourceName };
         }
     }
@@ -179,7 +204,8 @@ export function hasResources(inventory, costs) {
  * @returns {boolean} True si la déduction a réussi.
  */
 export function applyResourceDeduction(inventory, costs) {
-    // Vérification préalable pour s'assurer que tout est disponible
+    // Cette fonction ne gère qu'un seul inventaire. Elle est conservée pour la compatibilité
+    // avec les actions qui n'utilisent que l'inventaire du joueur.
     if (!hasResources(inventory, costs).success) {
         console.error("applyResourceDeduction a échoué la vérification préalable.", costs);
         return false;
@@ -191,6 +217,42 @@ export function applyResourceDeduction(inventory, costs) {
 
         const { keys } = findItemsInInventory(inventory, resourceName, requiredAmount);
         removeItemsFromInventory(inventory, keys);
+    }
+    return true;
+}
+
+/**
+ * Applique la déduction de ressources de deux inventaires combinés.
+ * @param {object} playerInventory L'inventaire du joueur.
+ * @param {object} groundInventory L'inventaire du sol.
+ * @param {object} costs Un dictionnaire de { itemName: quantity }.
+ * @returns {boolean} True si la déduction a réussi.
+ */
+export function applyCombinedResourceDeduction(playerInventory, groundInventory, costs) {
+    if (!hasResources(playerInventory, costs, groundInventory).success) {
+        console.error("applyCombinedResourceDeduction a échoué la vérification préalable.", costs);
+        return false;
+    }
+
+    for (const resourceName in costs) {
+        let amountNeeded = costs[resourceName];
+        if (amountNeeded <= 0) continue;
+
+        // 1. Tenter de prendre sur le sol d'abord
+        const groundAmount = countItemsInInventory(groundInventory, resourceName);
+        const toTakeFromGround = Math.min(amountNeeded, groundAmount);
+
+        if (toTakeFromGround > 0) {
+            const { keys } = findItemsInInventory(groundInventory, resourceName, toTakeFromGround);
+            removeItemsFromInventory(groundInventory, keys);
+            amountNeeded -= toTakeFromGround;
+        }
+
+        // 2. Si besoin, compléter depuis l'inventaire du joueur
+        if (amountNeeded > 0) {
+            const { keys } = findItemsInInventory(playerInventory, resourceName, amountNeeded);
+            removeItemsFromInventory(playerInventory, keys);
+        }
     }
     return true;
 }

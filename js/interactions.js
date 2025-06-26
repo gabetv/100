@@ -604,14 +604,18 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
         case ACTIONS.HUNT: {
              const weapon = player.equipment.weapon;
+             // CORRIGÉ : Vérification plus stricte basée sur le type de l'objet.
+             const weaponDef = weapon ? ITEM_TYPES[weapon.name] : null;
+
              const currentTileForHunt = map[player.y][player.x];
              if (!currentTileForHunt.huntActionsLeft || currentTileForHunt.huntActionsLeft <= 0) {
                  UI.addChatMessage("Plus d'opportunités de chasse ici pour le moment.", "system"); return;
              }
-             if (!weapon || !weapon.stats || weapon.stats.damage <= 0) { 
-                 UI.addChatMessage("Vous ne pouvez pas chasser sans arme infligeant des dégâts.", "system"); return;
+             // CORRIGÉ : La nouvelle condition
+             if (!weaponDef || weaponDef.type !== 'weapon') { 
+                 UI.addChatMessage("Vous avez besoin d'une arme (épée, lance, etc.) pour chasser.", "system"); return;
              }
-             if (player.status === 'Drogué') { UI.addChatMessage("Vous ne pouvez pas chasser sous l'effet de la drogue.", "system"); return; }
+             if (player.status.includes('Drogué')) { UI.addChatMessage("Vous ne pouvez pas chasser sous l'effet de la drogue.", "system"); return; }
              performTimedAction(player, ACTION_DURATIONS.SEARCH, 
                 () => UI.addChatMessage(`Vous chassez avec ${weapon.name}...`, "system"),
                 () => {
@@ -654,7 +658,30 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
 
             if (player.status.includes('Drogué')) { UI.addChatMessage("Vous ne pouvez pas construire sous l'effet de la drogue.", "system"); return; }
 
+            let hasEnoughResources = true;
+            const shelterInd = findBuildingOnTile(tile, 'SHELTER_INDIVIDUAL');
+            const shelterCol = findBuildingOnTile(tile, 'SHELTER_COLLECTIVE');
+            const isAtCamp = shelterInd || shelterCol;
+
+            // Auto-pickup resources from ground if at camp
+            if (isAtCamp) {
+                for (const itemName in tile.groundItems) {
+                    const groundAmount = tile.groundItems[itemName];
+                    const invSpace = player.maxInventory - getTotalResources(player.inventory);
+                    const amountToPickup = Math.min(groundAmount, invSpace);
+                    if (amountToPickup > 0) {
+                        tile.groundItems[itemName] -= amountToPickup;
+                        if (tile.groundItems[itemName] <= 0) delete tile.groundItems[itemName];
+                        State.addResource(player.inventory, itemName, amountToPickup);
+                        UI.showFloatingText(`+${amountToPickup} ${itemName} (sol)`, 'gain');
+                        UI.addChatMessage(`Ressources ramassées: ${amountToPickup} ${itemName} du sol.`, "system_event");
+                    }
+                }
+            }
+
+            // Check if there are enough resources in inventory after auto-pickup
             if (!State.hasResources(costs).success) {
+                hasEnoughResources = false;
                 UI.addChatMessage("Ressources insuffisantes pour construire.", "system");
                 if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl); return;
             }
@@ -733,13 +760,15 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             if (tile.type.name !== TILE_TYPES.PLAINS.name) { UI.addChatMessage("Vous ne pouvez planter un arbre que sur une Plaine.", "system"); return; }
             if (tile.buildings.length > 0) { UI.addChatMessage("Vous ne pouvez pas planter un arbre ici, il y a déjà une construction.", "system"); return; } 
             const costs = { 'Graine d\'arbre': 5, 'Eau pure': 1 };
-            if (!State.hasResources(costs).success) { UI.addChatMessage("Nécessite 5 graines et 1 eau pure.", "system"); return; }
+            // CORRIGÉ : On passe l'inventaire du joueur à la fonction de vérification.
+            if (!State.hasResources(player.inventory, costs).success) { UI.addChatMessage("Nécessite 5 graines et 1 eau pure.", "system"); return; }
             performTimedAction(player, ACTION_DURATIONS.PLANT_TREE,
                 () => UI.addChatMessage("Vous plantez un arbre...", "system"),
-                () => { State.applyResourceDeduction(costs); State.updateTileType(player.x, player.y, 'FOREST'); UI.addChatMessage("Un jeune arbre pousse !", "gain"); UI.triggerActionFlash('gain'); },
+                // CORRIGÉ : On passe l'inventaire du joueur pour la déduction.
+                () => { State.applyResourceDeduction(player.inventory, costs); State.updateTileType(player.x, player.y, 'FOREST'); UI.addChatMessage("Un jeune arbre pousse !", "gain"); UI.triggerActionFlash('gain'); },
                 updateUICallbacks);
             break;
-        } 
+        }
         case ACTIONS.SLEEP: {
             let sleepEffect = null; let buildingKeyForDamage = null;
             const shelterInd = findBuildingOnTile(tile, 'SHELTER_INDIVIDUAL');
@@ -1117,38 +1146,18 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
         }
         case ACTIONS.CRAFT_ITEM_WORKSHOP: {
             const { recipeName, costs, yields, quantity } = data;
-            let hasEnoughResources = true;
-            let resourcesFromGround = {};
-            let resourcesFromInventory = {};
-            const isAtCamp = shelterLocation && player.x === shelterLocation.x && player.y === shelterLocation.y;
+            const tile = State.state.map[player.y][player.x];
+            const groundItems = tile.groundItems || {};
 
-            // First, check total resources availability (inventory + ground if at camp)
+            // Calculer les coûts totaux
+            const totalCosts = {};
             for (const itemName in costs) {
-                const requiredAmount = costs[itemName] * quantity;
-                const inventoryAmount = player.inventory[itemName] || 0;
-                let totalAvailable = inventoryAmount;
-                if (isAtCamp && tile.groundItems[itemName]) {
-                    totalAvailable += tile.groundItems[itemName];
-                }
-                if (totalAvailable < requiredAmount) {
-                    hasEnoughResources = false;
-                    break;
-                }
-                // Plan deduction: prioritize ground items if at camp
-                if (isAtCamp && tile.groundItems[itemName]) {
-                    const fromGround = Math.min(requiredAmount, tile.groundItems[itemName]);
-                    resourcesFromGround[itemName] = fromGround;
-                    const remaining = requiredAmount - fromGround;
-                    if (remaining > 0) {
-                        resourcesFromInventory[itemName] = remaining;
-                    }
-                } else {
-                    resourcesFromInventory[itemName] = requiredAmount;
-                }
+                totalCosts[itemName] = costs[itemName] * quantity;
             }
 
-            if (!hasEnoughResources) {
-                UI.addChatMessage("Ressources insuffisantes pour cette fabrication.", "system_error");
+            // MODIFIÉ : Vérifier les ressources combinées (inventaire + sol)
+            if (!State.hasResources(player.inventory, totalCosts, groundItems).success) {
+                UI.addChatMessage("Ressources insuffisantes pour cette fabrication (inventaire + sol).", "system_error");
                 if (DOM.inventoryCategoriesEl) UI.triggerShake(DOM.inventoryCategoriesEl);
                 return;
             }
@@ -1157,24 +1166,15 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             performTimedAction(player, ACTION_DURATIONS.CRAFT * quantity,
                 () => UI.addChatMessage(`Fabrication de ${quantity}x ${recipeName}...`, "system"),
                 () => {
-                    // Deduct from ground items first if at camp
-                    for (const itemName in resourcesFromGround) {
-                        const amount = resourcesFromGround[itemName];
-                        if (amount > 0) {
-                            tile.groundItems[itemName] -= amount;
-                            if (tile.groundItems[itemName] <= 0) delete tile.groundItems[itemName];
-                            UI.showFloatingText(`-${amount} ${itemName} (sol)`, 'cost');
-                        }
+                    // MODIFIÉ : Appliquer la déduction sur les deux inventaires
+                    State.applyCombinedResourceDeduction(player.inventory, groundItems, totalCosts);
+
+                    // Message flottant pour les coûts (simplifié, on ne précise pas la source)
+                    for (const itemName in totalCosts) {
+                        UI.showFloatingText(`-${totalCosts[itemName]} ${itemName}`, 'cost');
                     }
-                    // Then deduct from inventory
-                    for (const itemName in resourcesFromInventory) {
-                        const amount = resourcesFromInventory[itemName];
-                        if (amount > 0) {
-                            State.applyResourceDeduction({ [itemName]: amount });
-                            UI.showFloatingText(`-${amount} ${itemName}`, 'cost');
-                        }
-                    }
-                    // Add crafted items
+                    
+                    // Ajouter les objets fabriqués
                     for (const yieldItemName in yields) {
                         State.addResource(player.inventory, yieldItemName, yields[yieldItemName] * quantity);
                         UI.showFloatingText(`+${yields[yieldItemName] * quantity} ${yieldItemName}`, 'gain');
@@ -1182,6 +1182,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     UI.triggerActionFlash('gain');
                     UI.addChatMessage(`${quantity}x ${recipeName} fabriqué(s) !`, 'gain');
 
+                    // Logique de durabilité de l'atelier (inchangée)
                     let workshopBuildingKey = null;
                     if (findBuildingOnTile(tile, 'ATELIER')) workshopBuildingKey = 'ATELIER';
                     else if (findBuildingOnTile(tile, 'ETABLI')) workshopBuildingKey = 'ETABLI';
@@ -1372,6 +1373,25 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
             State.addResource(player.inventory, 'Cadenas', 1);
             tile.playerHasUnlockedThisSession = false; 
             UI.addChatMessage(`Cadenas retiré de ${TILE_TYPES[buildingKey].name} et ajouté à votre inventaire.`, "system_event");
+            break;
+        }
+        case ACTIONS.PICKUP_ITEM_CONTEXT: {
+            const { itemName, amount } = data;
+            if (!tile.groundItems[itemName] || tile.groundItems[itemName] < amount) {
+                UI.addChatMessage(`Impossible de ramasser ${amount} ${itemName} du sol.`, "system"); return;
+            }
+            const invSpace = player.maxInventory - getTotalResources(player.inventory);
+            const actualAmount = Math.min(amount, invSpace);
+            if (actualAmount <= 0) {
+                UI.addChatMessage("Inventaire plein, impossible de ramasser cet objet.", "system");
+                if (DOM.inventoryCapacityEl) UI.triggerShake(DOM.inventoryCapacityEl); return;
+            }
+            tile.groundItems[itemName] -= actualAmount;
+            if (tile.groundItems[itemName] <= 0) delete tile.groundItems[itemName];
+            State.addResource(player.inventory, itemName, actualAmount);
+            UI.showFloatingText(`+${actualAmount} ${itemName} (sol)`, 'gain');
+            UI.addChatMessage(`Vous avez ramassé ${actualAmount} ${itemName} du sol.`, "system_event");
+            if (window.fullUIUpdate) window.fullUIUpdate();
             break;
         }
 

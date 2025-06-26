@@ -363,6 +363,59 @@ button::after {
     );
     border-radius: 8px;
 }
+
+/* MODIFICATION : Rendre les boutons d'action flexibles */
+.action-button {
+    /* Style de base (peut déjà exister) */
+    background: var(--action-color);
+    color: var(--text-light);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 0 rgba(44, 91, 124, 0.6), 0 5px 10px rgba(0,0,0,0.2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+
+    /* AJOUTS ET CORRECTIONS CLÉS */
+    width: 100%;                  /* Le bouton prend toute la largeur disponible */
+    height: auto;                 /* La hauteur s'ajuste automatiquement au contenu */
+    min-height: 48px;             /* Garde une hauteur minimale pour les boutons courts */
+    padding: 10px 15px;           /* Ajuste le padding pour un meilleur rendu multi-lignes */
+    white-space: normal;          /* Permet au texte de passer à la ligne */
+    line-height: 1.4;             /* Améliore la lisibilité du texte sur plusieurs lignes */
+    display: flex;                /* Utilise flexbox pour un centrage parfait */
+    align-items: center;          /* Centre le contenu verticalement */
+    justify-content: center;      /* Centre le contenu horizontalement */
+    text-align: center;           /* S'assure que le texte est centré s'il passe à la ligne */
+}
+
+/* On s'assure que les styles de survol et désactivé fonctionnent bien avec flex */
+.action-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 rgba(44, 91, 124, 0.6), 0 7px 14px rgba(0,0,0,0.25);
+    filter: brightness(1.1);
+}
+
+.action-button:active:not(:disabled) {
+    transform: translateY(1px);
+    box-shadow: 0 2px 0 rgba(44, 91, 124, 0.6), 0 3px 5px rgba(0,0,0,0.2);
+    transition: all 0.05s ease;
+}
+
+.action-button:disabled {
+    background: #2f4553;
+    color: #a0aec0;
+    cursor: not-allowed;
+    opacity: 0.7;
+    box-shadow: 0 3px 0 #1e2a33;
+    transform: translateY(0);
+}
 #actions::-webkit-scrollbar { width: 6px; }
 #actions::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 3px; }
 #actions::-webkit-scrollbar-thumb { background: rgba(69,123,157,0.5); border-radius: 3px; }

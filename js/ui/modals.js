@@ -481,10 +481,12 @@ export function populateWorkshopModal(gameState) {
     }
 
     currentWorkshopRecipes.sort((a,b) => a.name.localeCompare(b.name));
-    renderWorkshopRecipes(gameState.player);
+    // MODIFIÉ : On passe la tuile actuelle
+    const currentTile = gameState.map[gameState.player.y][gameState.player.x];
+    renderWorkshopRecipes(gameState.player, currentTile);
 }
 
-function renderWorkshopRecipes(player) {
+function renderWorkshopRecipes(player, tile) {
     if (!DOM.workshopRecipesContainerEl) return;
     DOM.workshopRecipesContainerEl.innerHTML = '';
 
@@ -499,6 +501,8 @@ function renderWorkshopRecipes(player) {
         DOM.workshopRecipesContainerEl.innerHTML = '<p class="inventory-empty">Aucune recette ne correspond à vos critères.</p>';
         return;
     }
+
+    const groundItems = tile ? tile.groundItems : {};
 
     filteredRecipes.forEach(recipe => {
         const card = document.createElement('div');
@@ -519,11 +523,15 @@ function renderWorkshopRecipes(player) {
         const costsList = document.createElement('ul');
         for (const itemName in recipe.costs) {
             const requiredAmount = recipe.costs[itemName];
+            // MODIFIÉ : On calcule le total inventaire + sol
             const playerAmount = State.countItemsInInventory(player.inventory, itemName);
+            const groundAmount = State.countItemsInInventory(groundItems, itemName);
+            const totalAvailable = playerAmount + groundAmount;
+
             const itemIcon = ITEM_TYPES[itemName]?.icon || '';
             costsList.innerHTML += `<li data-item-name="${itemName}">
                 <span class="cost-name"><span class="item-icon">${itemIcon}</span>${itemName}</span>
-                <span class="cost-amount">${playerAmount} / ${requiredAmount}</span>
+                <span class="cost-amount">${totalAvailable} / ${requiredAmount}</span>
             </li>`;
         }
         costsDiv.appendChild(costsList);
@@ -531,7 +539,8 @@ function renderWorkshopRecipes(player) {
         const quantityInputWrapper = document.createElement('div');
         quantityInputWrapper.className = 'quantity-input-wrapper';
         quantityInputWrapper.innerHTML = `<label>Quantité:</label><input type="number" min="1" value="1" data-recipe-name="${recipe.name}">`;
-        quantityInputWrapper.querySelector('input').oninput = (e) => handleWorkshopQuantityChange(e, player, recipe);
+        // MODIFIÉ : On passe la tuile à la fonction de gestion du changement
+        quantityInputWrapper.querySelector('input').oninput = (e) => handleWorkshopQuantityChange(e, player, recipe, tile);
         
         const actionDiv = document.createElement('div');
         actionDiv.className = 'workshop-recipe-action';
@@ -571,11 +580,12 @@ function renderWorkshopRecipes(player) {
         card.appendChild(quantityInputWrapper); card.appendChild(actionDiv);
         DOM.workshopRecipesContainerEl.appendChild(card);
         
-        handleWorkshopQuantityChange({ target: card.querySelector('input[type="number"]') }, player, recipe);
+        // MODIFIÉ : On passe la tuile à la fonction de gestion du changement
+        handleWorkshopQuantityChange({ target: card.querySelector('input[type="number"]') }, player, recipe, tile);
     });
 }
 
-function handleWorkshopQuantityChange(event, player, recipe) {
+function handleWorkshopQuantityChange(event, player, recipe, tile) {
     const inputElement = event.target;
     const quantityToCraft = parseInt(inputElement.value, 10);
     const recipeCard = inputElement.closest('.workshop-recipe-card');
@@ -587,15 +597,21 @@ function handleWorkshopQuantityChange(event, player, recipe) {
     }
 
     let canCraftThisQuantity = true;
+    const groundItems = tile ? tile.groundItems : {};
+
     recipeCard.querySelectorAll('.workshop-recipe-costs li').forEach(li => {
         const itemName = li.dataset.itemName;
         const costAmountEl = li.querySelector('.cost-amount');
         const requiredForOne = recipe.costs[itemName];
         const totalRequired = requiredForOne * quantityToCraft;
-        const playerHas = State.countItemsInInventory(player.inventory, itemName);
         
-        costAmountEl.textContent = `${playerHas} / ${totalRequired}`;
-        if (playerHas < totalRequired) {
+        // MODIFIÉ : On calcule le total inventaire + sol
+        const playerHas = State.countItemsInInventory(player.inventory, itemName);
+        const groundHas = State.countItemsInInventory(groundItems, itemName);
+        const totalAvailable = playerHas + groundHas;
+        
+        costAmountEl.textContent = `${totalAvailable} / ${totalRequired}`;
+        if (totalAvailable < totalRequired) {
             costAmountEl.classList.add('insufficient');
             canCraftThisQuantity = false;
         } else {
@@ -612,10 +628,16 @@ export function setupWorkshopModalListeners(gameState) {
         DOM.closeWorkshopModalBtn.addEventListener('click', hideWorkshopModal);
     }
     if (DOM.workshopSearchInputEl) {
-        DOM.workshopSearchInputEl.addEventListener('input', () => renderWorkshopRecipes(gameState.player));
+        DOM.workshopSearchInputEl.addEventListener('input', () => {
+            const currentTile = gameState.map[gameState.player.y][gameState.player.x];
+            renderWorkshopRecipes(gameState.player, currentTile);
+        });
     }
     if (DOM.workshopCategoryFilterEl) {
-        DOM.workshopCategoryFilterEl.addEventListener('change', () => renderWorkshopRecipes(gameState.player));
+        DOM.workshopCategoryFilterEl.addEventListener('change', () => {
+            const currentTile = gameState.map[gameState.player.y][gameState.player.x];
+            renderWorkshopRecipes(gameState.player, currentTile);
+        });
     }
 }
 

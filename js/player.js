@@ -12,28 +12,8 @@ export function initPlayer(config, playerId = 'player1') {
     const inventory = {};
     const initialItems = {
         'Hache': 1,
-        'Pelle en bois': 1,
-        'Briquet': 1,
-        'Eau pure': 5,
-        'Viande crue': 2,
-        'Poisson cru': 2,
-        'Oeuf cru': 2,
-        'Eau croupie': 3,
-        'Eau salée': 3,
-        'Kit de Secours': 2,
-        'Bandage': 2,
-        'Médicaments':1,
-        'Antiseptique': 1,
-        'Savon':1,
-        'Alcool': 2,
-        'Huile de coco':1,
-        'Noix de coco': 2,
-        'Breuvage étrange': 3,
-        'Seau': 1,
-        'Guitare déchargé': 1,
-        'Cadenas': 1,
-        'Radio déchargée': 1,
-        'Batterie chargée': 1,
+        'Eau pure': 3,
+        'Banane': 3,
         'Petit Sac': 1,
     };
 
@@ -177,49 +157,51 @@ export function consumeItem(itemName, player) {
 
     let floatingTexts = [];
 
+    // SUPPRIMEZ CE BLOC DE CODE pour les parchemins
     if (itemName === 'Carte' && itemDef.uses) {
         // La logique est gérée dans State.consumeItem
-    } else if (itemDef.teachesRecipe) {
-        // La logique est gérée dans State.consumeItem
     } else {
-        for (const effect in itemDef.effects) {
-            const value = itemDef.effects[effect];
+        // MODIFIEZ le "else if" en un simple "if" pour les effets
+        if (itemDef.effects) {
+            for (const effect in itemDef.effects) {
+                const value = itemDef.effects[effect];
 
-            if (effect === 'status') {
-                const statusEffect = value;
-                const newStatusName = statusEffect.name || (Array.isArray(statusEffect) ? statusEffect[0].name : null);
-                const chance = statusEffect.chance || (Array.isArray(statusEffect) ? statusEffect[0].chance : 1.0);
-                const ifCurrentStatus = statusEffect.ifStatus || (Array.isArray(statusEffect) ? statusEffect[0].ifStatus : null);
+                if (effect === 'status') {
+                    const statusEffect = value;
+                    const newStatusName = statusEffect.name || (Array.isArray(statusEffect) ? statusEffect[0].name : null);
+                    const chance = statusEffect.chance || (Array.isArray(statusEffect) ? statusEffect[0].chance : 1.0);
+                    const ifCurrentStatus = statusEffect.ifStatus || (Array.isArray(statusEffect) ? statusEffect[0].ifStatus : null);
 
-                const conditionMet = !ifCurrentStatus || player.status.includes(ifCurrentStatus) || (Array.isArray(ifCurrentStatus) && ifCurrentStatus.some(s => player.status.includes(s)));
+                    const conditionMet = !ifCurrentStatus || player.status.includes(ifCurrentStatus) || (Array.isArray(ifCurrentStatus) && ifCurrentStatus.some(s => player.status.includes(s)));
 
-                if (conditionMet && (!chance || Math.random() < chance)) {
-                    if (newStatusName === 'normale') {
-                        player.status = ['normale'];
-                    } else if (!player.status.includes(newStatusName)) {
-                        player.status = player.status.filter(s => s !== 'normale');
-                        player.status.push(newStatusName);
+                    if (conditionMet && (!chance || Math.random() < chance)) {
+                        if (newStatusName === 'normale') {
+                            player.status = ['normale'];
+                        } else if (!player.status.includes(newStatusName)) {
+                            player.status = player.status.filter(s => s !== 'normale');
+                            player.status.push(newStatusName);
+                        }
+                        floatingTexts.push({text: `Statut: ${player.status.join(', ')}`, type: 'info'});
                     }
-                    floatingTexts.push({text: `Statut: ${player.status.join(', ')}`, type: 'info'});
-                }
-            } else if (effect === 'custom') {
-                // La logique custom est gérée dans State.consumeItem
-            } else if (player.hasOwnProperty(effect)) {
-                const maxStatName = `max${effect.charAt(0).toUpperCase() + effect.slice(1)}`;
-                if(player.hasOwnProperty(maxStatName)) {
-                    const oldValue = player[effect];
-                    player[effect] = Math.min(player[maxStatName], player[effect] + value);
-                    const actualChange = player[effect] - oldValue;
-                    if (actualChange !== 0) {
-                        const sign = actualChange >= 0 ? '+' : '';
-                        let icon = '';
-                        if(effect === 'health') icon = '❤️';
-                        else if(effect === 'thirst') icon = '💧';
-                        else if(effect === 'hunger') icon = '🍗';
-                        else if(effect === 'sleep') icon = '🌙';
-                        floatingTexts.push({text: `${sign}${actualChange}${icon}`, type: actualChange > 0 ? 'gain' : 'cost'});
-                        // Déclencher le flash visuel
-                        triggerActionFlash(actualChange > 0 ? 'gain' : 'cost');
+                } else if (effect === 'custom') {
+                    // La logique custom est gérée dans State.consumeItem
+                } else if (player.hasOwnProperty(effect)) {
+                    const maxStatName = `max${effect.charAt(0).toUpperCase() + effect.slice(1)}`;
+                    if(player.hasOwnProperty(maxStatName)) {
+                        const oldValue = player[effect];
+                        player[effect] = Math.min(player[maxStatName], player[effect] + value);
+                        const actualChange = player[effect] - oldValue;
+                        if (actualChange !== 0) {
+                            const sign = actualChange >= 0 ? '+' : '';
+                            let icon = '';
+                            if(effect === 'health') icon = '❤️';
+                            else if(effect === 'thirst') icon = '💧';
+                            else if(effect === 'hunger') icon = '🍗';
+                            else if(effect === 'sleep') icon = '🌙';
+                            floatingTexts.push({text: `${sign}${actualChange}${icon}`, type: actualChange > 0 ? 'gain' : 'cost'});
+                            // Déclencher le flash visuel
+                            triggerActionFlash(actualChange > 0 ? 'gain' : 'cost');
+                        }
                     }
                 }
             }
@@ -233,10 +215,11 @@ export function consumeItem(itemName, player) {
         if (player.inventory[key] <= 0) {
             delete player.inventory[key];
         }
-    } else if (typeof itemToRemove === 'object' && (itemToRemove.uses || itemToRemove.hasOwnProperty('currentDurability'))) {
-        // Pour les objets avec 'uses' (comme la carte), la logique est dans State.consumeItem.
-        // Pour les autres, on supprime juste l'instance.
-        if (itemName !== 'Carte') {
+    // CORRIGÉ : Simplification de la condition pour inclure les parchemins
+    } else if (typeof itemToRemove === 'object') { 
+        // Pour les objets avec 'uses', la logique est dans State.consumeItem.
+        // Pour les autres (y compris parchemins et objets uniques), on supprime l'instance.
+        if (itemName !== 'Carte') { // On garde l'exception pour la carte qui a plusieurs usages
              delete player.inventory[key];
         }
     } else {

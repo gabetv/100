@@ -265,17 +265,22 @@ function updatePossibleActions() {
 
     if (tileType.name === TILE_TYPES.FOREST.name || tileType.name === TILE_TYPES.PLAINS.name) {
         const equippedWeaponForActionsHunt = player.equipment.weapon;
-        const canHunt = equippedWeaponForActionsHunt && (equippedWeaponForActionsHunt.stats && equippedWeaponForActionsHunt.stats.damage > 0);
+        // CORRIGÉ : Vérification plus stricte basée sur le type de l'objet.
+        const weaponDef = equippedWeaponForActionsHunt ? ITEM_TYPES[equippedWeaponForActionsHunt.name] : null;
+        const canHunt = weaponDef && weaponDef.type === 'weapon';
+
         const huntActionsAvailable = tile.huntActionsLeft > 0;
         let huntDisabledReason = "";
         if (!huntActionsAvailable) huntDisabledReason = "Plus de chasse ici.";
-        else if (!canHunt) huntDisabledReason = "Nécessite une arme infligeant des dégâts.";
+        // CORRIGÉ : Le message d'erreur est plus précis
+        else if (!canHunt) huntDisabledReason = "Nécessite une arme (épée, lance, etc.) équipée.";
         else if (player.status.includes('Drogué')) huntDisabledReason = "Impossible de chasser sous l'effet de la drogue.";
         createButton(`🏹 Chasser (${tile.huntActionsLeft || 0})`, ACTIONS.HUNT, {}, !huntActionsAvailable || !canHunt || player.status.includes('Drogué'), huntDisabledReason);
     }
 
     if (tileType.name === TILE_TYPES.PLAINS.name) {
-        const canPlant = State.hasResources({ 'Graine d\'arbre': 5, 'Eau pure': 1 }).success;
+        // CORRIGÉ : On passe l'inventaire du joueur à la fonction de vérification.
+        const canPlant = State.hasResources(player.inventory, { 'Graine d\'arbre': 5, 'Eau pure': 1 }).success;
         if (tile.buildings.length === 0) {
             createButton("🌱 Planter Arbre", ACTIONS.PLANT_TREE, {}, !canPlant, !canPlant ? "Nécessite 5 graines, 1 eau pure" : "Transformer cette plaine en forêt");
         }
