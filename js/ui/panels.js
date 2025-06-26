@@ -3,6 +3,8 @@ import { ITEM_TYPES, TILE_TYPES } from '../config.js';
 import { getTotalResources } from '../player.js';
 import { state as gameState } from '../state.js';
 import DOM from './dom.js';
+import * as State from '../state.js';
+import * as UI from '../ui.js';
 
 function updateSquaresBar(containerElement, value, maxValue, type) {
     if (!containerElement) return;
@@ -64,26 +66,29 @@ export function updateInventory(player) {
     };
 
     // Classify items
-    for (const itemName in player.inventory) {
-        const itemValue = player.inventory[itemName];
-        // This handles cases where items with durability are stored as objects/instances
-        const baseItemName = typeof itemValue === 'object' && itemValue.name ? itemValue.name : itemName;
+    for (const itemKey in player.inventory) {
+        const itemValue = player.inventory[itemKey];
+        const isInstance = typeof itemValue === 'object' && itemValue.name;
+        const baseItemName = isInstance ? itemValue.name : itemKey;
         const baseItemDef = ITEM_TYPES[baseItemName] || { type: 'resource', icon: '❓' };
         
         let type = 'divers';
 
-        if (baseItemDef.type === 'resource') {
+        if (baseItemDef.type === 'resource' || baseItemDef.type === 'component') {
             type = 'ressources';
-        } else if (baseItemDef.type === 'tool' || baseItemDef.type === 'weapon' || (baseItemDef.type === 'usable' && baseItemDef.slot === 'weapon')) {
+        } else if (baseItemDef.type === 'tool' || baseItemDef.type === 'weapon') {
             type = 'outilsEtArmes';
-        } else if (baseItemDef.type === 'consumable') {
+        } else if (baseItemDef.type === 'consumable' || baseItemDef.teachesRecipe) {
             type = 'nourritureEtSoins';
         } else if (baseItemDef.slot) {
             type = 'equipements';
         }
         
-        const targetCategory = categories[type];
-        targetCategory[itemName] = itemValue;
+        // CORRIGÉ: S'assurer que les clés uniques sont préservées
+        if (!categories[type][baseItemName]) {
+            categories[type][baseItemName] = [];
+        }
+        categories[type][baseItemName].push({ key: itemKey, value: itemValue });
     }
 
     const categoryOrder = [
@@ -107,54 +112,48 @@ export function updateInventory(player) {
             const content = document.createElement('ul');
             content.className = 'category-content visible';
             
-            Object.keys(itemsInCategory).sort().forEach(itemName => {
-                const itemValue = itemsInCategory[itemName];
-                const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
-                let baseItemName = itemName;
-                let instanceData = null;
+            Object.keys(itemsInCategory).sort().forEach(baseItemName => {
+                const items = itemsInCategory[baseItemName];
+                const firstItem = items[0].value;
 
-                if (typeof itemValue === 'object' && itemValue.name) {
-                    baseItemName = itemValue.name;
-                    instanceData = itemValue;
-                }
-                
-                const baseItemDef = ITEM_TYPES[baseItemName] || { icon: '❓', rarity: 'common' };
-
-                const li = document.createElement('li');
-                li.className = 'inventory-item';
-                li.classList.add(`rarity-${baseItemDef.rarity}`);
-                if (baseItemDef.type === 'consumable' || baseItemDef.teachesRecipe || baseItemDef.slot || baseItemDef.type === 'usable' || baseItemDef.type === 'key') {
+                if (typeof firstItem === 'number') { // It's a stackable item
+                    const itemDef = ITEM_TYPES[baseItemName] || { icon: '❓', rarity: 'common' };
+                    const li = document.createElement('li');
+                    li.className = `inventory-item rarity-${itemDef.rarity}`;
                     li.classList.add('clickable');
-                    if (baseItemDef.slot) {
-                        li.addEventListener('click', () => {
-                            State.equipItem(baseItemName);
-                            UI.updateInventory(player);
-                            UI.updateBottomBarEquipmentPanel(player);
-                        });
-                    } else if (baseItemDef.type === 'consumable') {
-                        li.addEventListener('click', () => {
-                            if (window.handleGlobalPlayerAction) {
-                                window.handleGlobalPlayerAction('consume_item_context', { itemKey: li.dataset.itemKey });
-                            }
-                            UI.updateInventory(player);
-                        });
-                    }
-                }
-                li.dataset.itemKey = itemName;
-                li.dataset.itemName = baseItemName;
-                li.setAttribute('draggable', 'true');
-                li.dataset.owner = 'player-inventory';
+                    li.dataset.itemKey = baseItemName; // For stackable, key is name
+                    li.dataset.itemName = baseItemName;
+                    li.setAttribute('draggable', 'true');
+                    li.dataset.owner = 'player-inventory';
+                    const count = firstItem;
+                    li.dataset.itemCount = count;
+                    li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${baseItemName}</span><span class="inventory-count">${count}</span>`;
+                    content.appendChild(li);
 
-                let displayName = baseItemName;
-                let count = (typeof itemValue === 'number') ? itemValue : 1;
-                
-                if (instanceData && instanceData.hasOwnProperty('currentDurability')) {
-                    displayName += ` (${instanceData.currentDurability}/${instanceData.durability})`;
-                }
+                } else { // It's one or more unique instances
+                    items.forEach(itemData => {
+                        const { key, value: instanceData } = itemData;
+                        const itemDef = ITEM_TYPES[instanceData.name] || { icon: '❓', rarity: 'common' };
+                         const li = document.createElement('li');
+                        li.className = `inventory-item rarity-${itemDef.rarity}`;
+                        li.classList.add('clickable');
+                        li.dataset.itemKey = key; // Use the unique key
+                        li.dataset.itemName = instanceData.name;
+                        li.setAttribute('draggable', 'true');
+                        li.dataset.owner = 'player-inventory';
+                        li.dataset.itemCount = 1;
+                        
+                        let displayName = instanceData.name;
+                        if (instanceData.hasOwnProperty('currentDurability')) {
+                            displayName += ` (${instanceData.currentDurability}/${instanceData.durability})`;
+                        } else if (instanceData.hasOwnProperty('currentUses')) {
+                            displayName += ` (${instanceData.currentUses}/${instanceData.uses})`;
+                        }
 
-                li.dataset.itemCount = count;
-                li.innerHTML = `<span class="inventory-icon">${baseItemDef.icon}</span><span class="inventory-name">${displayName}</span><span class="inventory-count">${count}</span>`;
-                content.appendChild(li);
+                        li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${displayName}</span><span class="inventory-count">1</span>`;
+                        content.appendChild(li);
+                    });
+                }
             });
             categoryDiv.appendChild(header);
             categoryDiv.appendChild(content);
@@ -181,21 +180,20 @@ export function updateInventory(player) {
         };
     }
 
-    // Quick slots removed as per user request
     const quickSlotsContainer = document.getElementById('quick-slots');
     if (quickSlotsContainer) {
         quickSlotsContainer.innerHTML = '';
     }
 }
 
+
 export function updateDayCounter(day) {
     if (DOM.dayCounterTileInfoEl) {
-        const span = DOM.dayCounterTileInfoEl; // This is the span itself based on new HTML
+        const span = DOM.dayCounterTileInfoEl;
         if (span) span.textContent = day;
     }
 }
 
-// Update tile information in both the right panel and the main view HUD
 export function updateTileInfoPanel(tile) {
     if (!tile || !DOM.tileNameEl || !DOM.tileHarvestsInfoEl) return;
 
@@ -213,16 +211,15 @@ export function updateTileInfoPanel(tile) {
         }
     }
 
-    // Update right panel tile info
     DOM.tileNameEl.textContent = mainDisplayName;
 
     let actionCountInfo = "";
-    if (tile.type.name === TILE_TYPES.FOREST.name) actionCountInfo = `Actions Bois: ${tile.woodActionsLeft || 0}, Chasse: ${tile.huntActionsLeft || 0}, Fouille: ${tile.searchActionsLeft || 0}`;
+    if (tile.type.name === TILE_TYPES.FOREST.name) actionCountInfo = `Bois: ${tile.woodActionsLeft || 0}, Chasse: ${tile.huntActionsLeft || 0}, Fouille: ${tile.searchActionsLeft || 0}`;
     else if (tile.type.name === TILE_TYPES.PLAINS.name) actionCountInfo = `Chasse: ${tile.huntActionsLeft || 0}, Fouille: ${tile.searchActionsLeft || 0}`;
     else if (tile.type.name === TILE_TYPES.MINE_TERRAIN.name) actionCountInfo = `Pierre: ${tile.harvestsLeft || 0}`;
     else if (tile.buildings && tile.buildings.length > 0 && TILE_TYPES[tile.buildings[0].key]?.maxHarvestsPerCycle) {
         const building = tile.buildings[0];
-        actionCountInfo = `Récoltes dispo: ${building.harvestsAvailable || 0}/${building.maxHarvestsPerCycle || 0}`;
+        actionCountInfo = `Récoltes: ${building.harvestsAvailable || 0}/${building.maxHarvestsPerCycle || 0}`;
     } else if (tile.type.name === TILE_TYPES.PLAGE.name && tile.actionsLeft) {
         actionCountInfo = `Fouilles: ${tile.actionsLeft.search_zone}, Sable: ${tile.actionsLeft.harvest_sand}, Pêche: ${tile.actionsLeft.fish}, Eau salée: ${tile.actionsLeft.harvest_salt_water}`;
     }
@@ -237,31 +234,20 @@ export function updateTileInfoPanel(tile) {
         DOM.tileHarvestsInfoEl.style.display = 'none';
     }
 
-    // Update tile info in main view HUD - hide all to recover space
     const tileNameHud = document.getElementById('tile-name-hud');
     const tileDetailsHud = document.getElementById('tile-details-hud');
-
-    if (tileNameHud) {
-        tileNameHud.style.display = 'none'; // Remove biome type display
-    }
-
-    if (tileDetailsHud) {
-        tileDetailsHud.style.display = 'none'; // Remove position and resources display to recover space
-    }
+    if (tileNameHud) tileNameHud.style.display = 'none';
+    if (tileDetailsHud) tileDetailsHud.style.display = 'none';
 }
 
-// Initialize tab functionality for right panel
 export function initializeTabs() {
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
 
     tabButtons.forEach(button => {
         button.addEventListener('click', () => {
-            // Remove active class from all buttons and contents
             tabButtons.forEach(btn => btn.classList.remove('active'));
             tabContents.forEach(content => content.classList.remove('active-tab'));
-
-            // Add active class to clicked button and corresponding content
             button.classList.add('active');
             const tabId = button.dataset.tab;
             document.getElementById(tabId).classList.add('active-tab');
@@ -269,43 +255,8 @@ export function initializeTabs() {
     });
 }
 
-// Update the actions tab content with possible actions
 export function updateActionsTab() {
-    const actionsEl = document.getElementById('actions-tab-content');
-    if (!actionsEl) return;
-
-    actionsEl.innerHTML = '';
-    if (typeof window.getTileActions === 'function') {
-        const actions = window.getTileActions();
-        if (actions.length > 0) {
-            actions.forEach(action => {
-                const button = document.createElement('button');
-                button.className = 'action-button';
-                button.setAttribute('data-action', action.actionId);
-                button.setAttribute('title', action.title || action.text);
-                button.textContent = action.text;
-                button.disabled = action.disabled;
-                button.addEventListener('click', () => {
-                    if (typeof window.handleGlobalPlayerAction === 'function') {
-                        window.handleGlobalPlayerAction(action.actionId, action.data || {});
-                    }
-                });
-                actionsEl.appendChild(button);
-            });
-        } else {
-            const noActionsMsg = document.createElement('p');
-            noActionsMsg.textContent = "Aucune action disponible pour cette tuile.";
-            noActionsMsg.style.textAlign = 'center';
-            noActionsMsg.style.padding = '10px';
-            actionsEl.appendChild(noActionsMsg);
-        }
-    } else {
-        const noActionsMsg = document.createElement('p');
-        noActionsMsg.textContent = "Actions non disponibles pour le moment.";
-        noActionsMsg.style.textAlign = 'center';
-        noActionsMsg.style.padding = '10px';
-        actionsEl.appendChild(noActionsMsg);
-    }
+    // Cette fonction est désormais gérée par updatePossibleActions dans main.js
 }
 
 export function addChatMessage(message, type, author) {
@@ -343,60 +294,36 @@ export function updateAllButtonsState(gameState) {
     });
 
     if (DOM.consumeHealthBtn) {
-        let canHeal = false;
-        if ((player.inventory['Kit de Secours'] > 0 && player.status.includes('Malade')) ||
-            (player.inventory['Médicaments'] > 0 && (player.status.includes('Malade') || player.status.includes('Drogué'))) ||
-            (player.inventory['Antiseptique'] > 0 && (player.status.includes('Blessé') || player.status.includes('Malade')) && player.health < player.maxHealth) ||
-            (player.inventory['Bandage'] > 0 && player.health < player.maxHealth) ||
-            (player.inventory['Savon'] > 0 && player.health < player.maxHealth) ||
-            (player.inventory['Huile de coco'] > 0 && player.health < player.maxHealth)
-        ) {
-            canHeal = true;
-        }
+        let canHeal = (player.inventory['Kit de Secours'] > 0 && player.status.includes('Malade')) ||
+                      (player.inventory['Médicaments'] > 0 && (player.status.includes('Malade') || player.status.includes('Drogué'))) ||
+                      (player.inventory['Antiseptique'] > 0 && (player.status.includes('Blessé') || player.status.includes('Malade')) && player.health < player.maxHealth) ||
+                      (player.inventory['Bandage'] > 0 && player.health < player.maxHealth) ||
+                      (player.inventory['Savon'] > 0 && player.health < player.maxHealth) ||
+                      (player.inventory['Huile de coco'] > 0 && player.health < player.maxHealth);
         DOM.consumeHealthBtn.disabled = isPlayerBusy || !canHeal || player.health >= player.maxHealth;
         DOM.consumeHealthBtn.style.visibility = (!canHeal) ? 'hidden' : 'visible';
     }
     if (DOM.consumeThirstBtn) {
-        let canDrink = false;
-        if ((player.inventory['Eau pure'] > 0 && player.thirst < player.maxThirst) ||
-            (player.inventory['Noix de coco'] > 0 && player.thirst < player.maxThirst) ||
-            (player.inventory['Alcool'] > 0 && player.thirst < player.maxThirst - 1)
-        ) {
-            canDrink = true;
-        }
+        let canDrink = (player.inventory['Eau pure'] > 0 && player.thirst < player.maxThirst) ||
+                       (player.inventory['Noix de coco'] > 0 && player.thirst < player.maxThirst) ||
+                       (player.inventory['Alcool'] > 0 && player.thirst < player.maxThirst - 1);
         DOM.consumeThirstBtn.disabled = isPlayerBusy || !canDrink;
         DOM.consumeThirstBtn.style.visibility = !canDrink ? 'hidden' : 'visible';
     }
     if (DOM.consumeHungerBtn) {
-        let canEat = false;
         const foodItems = ['Viande cuite', 'Poisson cuit', 'Oeuf cuit', 'Barre Énergétique', 'Banane', 'Sucre', 'Sel'];
-        for (const food of foodItems) {
-            if (player.inventory[food] > 0 && player.hunger < player.maxHunger) {
-                canEat = true;
-                break;
-            }
-        }
+        let canEat = foodItems.some(food => player.inventory[food] > 0 && player.hunger < player.maxHunger);
         DOM.consumeHungerBtn.disabled = isPlayerBusy || !canEat;
         DOM.consumeHungerBtn.style.visibility = !canEat ? 'hidden' : 'visible';
-
     }
 
     if (DOM.quickChatButton) DOM.quickChatButton.disabled = isPlayerBusy;
 
-    if (DOM.actionsEl) {
-        DOM.actionsEl.querySelectorAll('button').forEach(b => {
-            if (isPlayerBusy && !b.classList.contains('action-always-enabled')) {
-                b.disabled = true;
-            }
-        });
-    }
-    if (DOM.buildModalGridEl) {
-        DOM.buildModalGridEl.querySelectorAll('button').forEach(b => {
-             if (isPlayerBusy && !b.classList.contains('action-always-enabled')) {
-                b.disabled = true;
-            }
-        });
-    }
+    document.querySelectorAll('.action-button').forEach(b => {
+        if (isPlayerBusy && !b.classList.contains('action-always-enabled')) {
+            b.disabled = true;
+        }
+    });
 }
 
 
@@ -405,13 +332,12 @@ export function updateGroundItemsPanel(tile) {
 
     const groundItems = tile.groundItems || {};
     const list = DOM.bottomBarGroundItemsEl.querySelector('.ground-items-list');
-    if (list) {
-        list.innerHTML = '';
-    } else {
+    if (!list) {
         console.error("Élément .ground-items-list non trouvé dans #bottom-bar-ground-items");
         return;
     }
-
+    list.innerHTML = '';
+    
     if (Object.keys(groundItems).length === 0) {
         const li = document.createElement('li');
         li.className = 'inventory-empty';
@@ -419,20 +345,22 @@ export function updateGroundItemsPanel(tile) {
         list.appendChild(li);
     } else {
         for (const itemKey in groundItems) {
-            const item = groundItems[itemKey];
-            if (item) {
-                const itemDef = ITEM_TYPES[item.name] || { icon: '❓' };
-                const li = document.createElement('li');
-                li.className = 'inventory-item clickable';
-                li.dataset.itemKey = itemKey; // La clé unique de l'inventaire
-                li.dataset.itemName = item.name; // Le nom de base pour la définition de l'objet
-                li.dataset.itemCount = 1;
-                li.setAttribute('draggable', 'true');
-                li.dataset.owner = 'ground';
+            const itemValue = groundItems[itemKey];
+            const isInstance = typeof itemValue === 'object';
+            const itemName = isInstance ? itemValue.name : itemKey;
+            const count = isInstance ? 1 : itemValue;
+            const itemDef = ITEM_TYPES[itemName] || { icon: '❓', rarity: 'common' };
+            
+            const li = document.createElement('li');
+            li.className = `inventory-item clickable rarity-${itemDef.rarity}`;
+            li.dataset.itemKey = itemKey;
+            li.dataset.itemName = itemName;
+            li.dataset.itemCount = count;
+            li.setAttribute('draggable', 'true');
+            li.dataset.owner = 'ground';
 
-                li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${item.name}</span><span class="inventory-count">1</span>`;
-                list.appendChild(li);
-            }
+            li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${count}</span>`;
+            list.appendChild(li);
         }
     }
 }
@@ -453,6 +381,8 @@ export function updateBottomBarEquipmentPanel(player) {
     slotTypesAndLabels.forEach(slotInfo => {
         const slotContainer = document.createElement('div');
         slotContainer.className = 'equipment-slot-container-small droppable';
+        slotContainer.dataset.owner = 'equipment';
+        slotContainer.dataset.slotType = slotInfo.type;
         const label = document.createElement('label');
         label.textContent = slotInfo.label;
         slotContainer.appendChild(label);
@@ -464,14 +394,16 @@ export function updateBottomBarEquipmentPanel(player) {
 
         const equippedItem = player.equipment[slotInfo.type];
         if (equippedItem) {
-            const itemName = equippedItem.name || Object.keys(ITEM_TYPES).find(key => ITEM_TYPES[key] === equippedItem);
-            const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
+            const itemDef = ITEM_TYPES[equippedItem.name] || { icon: '❓' };
             const itemDiv = document.createElement('div');
             itemDiv.className = 'inventory-item';
             itemDiv.setAttribute('draggable', 'true');
-            itemDiv.dataset.itemName = itemName;
+            itemDiv.dataset.itemName = equippedItem.name;
             itemDiv.dataset.owner = 'equipment';
             itemDiv.dataset.slotType = slotInfo.type;
+            // CORRIGÉ: Utiliser une clé unique pour l'item équipé pour le drag & drop
+            itemDiv.dataset.itemKey = `${equippedItem.name}_equipped`;
+
 
             const iconEl = document.createElement('span');
             iconEl.className = 'inventory-icon';

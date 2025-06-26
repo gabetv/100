@@ -1,6 +1,5 @@
 // js/ui/modals.js
 import { ITEM_TYPES, COMBAT_CONFIG, TILE_TYPES } from '../config.js';
-import { getTotalResources } from '../player.js';
 import * as State from '../state.js';
 import DOM from './dom.js';
 import * as Draw from './draw.js';
@@ -8,43 +7,77 @@ import { handleCombatAction, handlePlayerAction } from '../interactions.js';
 
 let quantityConfirmCallback = null;
 
-// MODIFIÉ : Ajout du paramètre searchTerm pour filtrer la liste
 function populateInventoryList(inventory, listElement, owner, searchTerm = '') {
     if (!listElement) return;
-    listElement.innerHTML = ''; // Vider les items précédents
+    listElement.innerHTML = '';
 
-    let items = Object.entries(inventory).filter(([_, count]) => count > 0);
+    const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+    
+    // Regrouper les objets uniques par nom pour l'affichage
+    const groupedItems = {};
+    for (const key in inventory) {
+        const item = inventory[key];
+        const isInstance = typeof item === 'object' && item.name;
+        const itemName = isInstance ? item.name : key;
 
-    // Filtrer par terme de recherche si fourni
-    if (searchTerm.trim() !== '') {
-        const lowerCaseSearchTerm = searchTerm.toLowerCase();
-        items = items.filter(([itemName, _]) => itemName.toLowerCase().includes(lowerCaseSearchTerm));
+        if (lowerCaseSearchTerm && !itemName.toLowerCase().includes(lowerCaseSearchTerm)) {
+            continue;
+        }
+
+        if (!groupedItems[itemName]) {
+            groupedItems[itemName] = [];
+        }
+        groupedItems[itemName].push({ key, value: item });
     }
 
-    if (items.length === 0) {
+    if (Object.keys(groupedItems).length === 0) {
         const li = document.createElement('li');
         li.className = 'inventory-empty';
         li.textContent = searchTerm.trim() !== '' ? '(Aucun résultat)' : '(Vide)';
         listElement.appendChild(li);
-    } else {
-        items.forEach(([itemName, count]) => {
+        return;
+    }
+    
+    Object.keys(groupedItems).sort().forEach(itemName => {
+        const items = groupedItems[itemName];
+        const firstItem = items[0].value;
+
+        if (typeof firstItem === 'number') { // Objet empilable
+            const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
             const li = document.createElement('li');
             li.className = 'inventory-item';
             li.setAttribute('draggable', 'true');
             li.dataset.itemName = itemName;
-            li.dataset.itemCount = count;
+            li.dataset.itemKey = itemName; // Pour les empilables, la clé EST le nom
+            li.dataset.itemCount = firstItem;
             li.dataset.owner = owner;
-
-            const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
-            li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${count}</span>`;
+            li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span><span class="inventory-count">${firstItem}</span>`;
             listElement.appendChild(li);
-        });
-    }
+        } else { // Objets uniques
+            items.forEach(itemData => {
+                const { key, value: instanceData } = itemData;
+                const itemDef = ITEM_TYPES[instanceData.name] || { icon: '❓' };
+                const li = document.createElement('li');
+                li.className = 'inventory-item';
+                li.setAttribute('draggable', 'true');
+                li.dataset.itemName = instanceData.name;
+                li.dataset.itemKey = key; // Utilise la clé unique de l'instance
+                li.dataset.itemCount = 1;
+                li.dataset.owner = owner;
+
+                let displayName = instanceData.name;
+                if (instanceData.hasOwnProperty('currentDurability')) {
+                    displayName += ` (${instanceData.currentDurability}/${instanceData.durability})`;
+                }
+
+                li.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${displayName}</span><span class="inventory-count">1</span>`;
+                listElement.appendChild(li);
+            });
+        }
+    });
 }
 
 
-// --- MODALE D'INVENTAIRE PARTAGÉ ---
-// MODIFIÉ : Ajout de la gestion de la barre de recherche
 export function showInventoryModal(gameState) {
     if (!gameState || !gameState.player || !gameState.map) return;
     const { player, map } = gameState;
@@ -74,35 +107,25 @@ export function showInventoryModal(gameState) {
         currentTileInventory = tile.inventory;
         currentTileMaxInventory = buildingDef.maxInventory || Infinity;
     }
-
-    if (buildingWithInventory && buildingWithInventory.isLocked && !tile.playerHasUnlockedThisSession) {
-        // La logique est gérée par interactions.js
-    }
-
+    
     if (!currentTileInventory) { console.warn("Tentative d'ouverture de l'inventaire sur une tuile sans stockage."); return; }
 
     const { modalPlayerInventoryEl, modalSharedInventoryEl, modalPlayerCapacityEl, inventoryModal, modalSharedCapacityEl } = DOM;
     
-    // Remplissage initial des listes sans filtre
     populateInventoryList(player.inventory, modalPlayerInventoryEl, 'player-inventory');
     populateInventoryList(currentTileInventory, modalSharedInventoryEl, 'shared');
 
-    // Mise à jour des capacités
     if(modalPlayerCapacityEl) {
-        const totalPlayerResources = getTotalResources(player.inventory);
-        modalPlayerCapacityEl.textContent = `${totalPlayerResources} / ${player.maxInventory}`;
+        modalPlayerCapacityEl.textContent = `${State.countItemsInInventory(player.inventory)} / ${player.maxInventory}`;
     }
     if (modalSharedCapacityEl) {
-        const totalSharedResources = getTotalResources(currentTileInventory);
         const maxSharedText = currentTileMaxInventory === Infinity ? "∞" : currentTileMaxInventory;
-        modalSharedCapacityEl.textContent = `${totalSharedResources} / ${maxSharedText}`;
+        modalSharedCapacityEl.textContent = `${State.countItemsInInventory(currentTileInventory)} / ${maxSharedText}`;
     }
 
-    // Gestion de la recherche pour l'inventaire partagé
     const sharedInventorySearchInput = document.getElementById('shared-inventory-search');
     if (sharedInventorySearchInput) {
-        sharedInventorySearchInput.value = ''; // Vider la recherche à chaque ouverture
-        // Attacher l'événement
+        sharedInventorySearchInput.value = '';
         sharedInventorySearchInput.oninput = function() {
             populateInventoryList(currentTileInventory, modalSharedInventoryEl, 'shared', this.value);
         };
@@ -113,7 +136,6 @@ export function showInventoryModal(gameState) {
 
 export function hideInventoryModal() {
     if(DOM.inventoryModal) DOM.inventoryModal.classList.add('hidden');
-    // Vider la recherche en quittant pour éviter les surprises à la prochaine ouverture
     const sharedInventorySearchInput = document.getElementById('shared-inventory-search');
     if (sharedInventorySearchInput) {
         sharedInventorySearchInput.value = '';
@@ -136,8 +158,7 @@ export function updateEquipmentModal(gameState) {
 
     if (equipmentPlayerInventoryEl) populateInventoryList(player.inventory, equipmentPlayerInventoryEl, 'player-inventory'); 
     if (equipmentPlayerCapacityEl) {
-        const totalPlayerResources = getTotalResources(player.inventory);
-        equipmentPlayerCapacityEl.textContent = `${totalPlayerResources} / ${player.maxInventory}`;
+        equipmentPlayerCapacityEl.textContent = `${State.countItemsInInventory(player.inventory)} / ${player.maxInventory}`;
     }
     if (equipmentSlotsEl) {
         equipmentSlotsEl.querySelectorAll('.equipment-slot').forEach(slotEl => {
@@ -146,20 +167,21 @@ export function updateEquipmentModal(gameState) {
             const equippedItem = player.equipment[slotType];
             slotEl.innerHTML = '';
             if (equippedItem) {
-                const itemName = equippedItem.name || Object.keys(ITEM_TYPES).find(key => ITEM_TYPES[key] === equippedItem);
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'inventory-item';
                 itemDiv.setAttribute('draggable', 'true');
-                itemDiv.dataset.itemName = itemName;
+                itemDiv.dataset.itemName = equippedItem.name;
+                itemDiv.dataset.itemKey = `${equippedItem.name}_equipped`;
                 itemDiv.dataset.owner = 'equipment';
                 itemDiv.dataset.slotType = slotType;
 
-                const itemDef = ITEM_TYPES[itemName] || { icon: '❓' };
-                itemDiv.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${itemName}</span>`;
-
-                if (equippedItem.hasOwnProperty('currentDurability') && equippedItem.hasOwnProperty('durability')) {
-                     itemDiv.innerHTML += `<span class="item-durability">${equippedItem.currentDurability}/${equippedItem.durability}</span>`;
+                const itemDef = ITEM_TYPES[equippedItem.name] || { icon: '❓' };
+                let displayName = equippedItem.name;
+                 if (equippedItem.hasOwnProperty('currentDurability') && equippedItem.hasOwnProperty('durability')) {
+                     displayName += ` (${equippedItem.currentDurability}/${equippedItem.durability})`;
                 }
+                itemDiv.innerHTML = `<span class="inventory-icon">${itemDef.icon}</span><span class="inventory-name">${displayName}</span>`;
+                
                 slotEl.appendChild(itemDiv);
             }
         });
@@ -216,14 +238,11 @@ export function updateCombatUI(combatState) {
 export function showQuantityModal(itemName, maxAmount, callback) {
     if (!DOM.quantityModal) return;
     const { quantityModalTitle, quantitySlider, quantityInput, quantityModal } = DOM;
-    if(quantityModalTitle) quantityModalTitle.textContent = `Transférer ${itemName}`;
-    // Ensure the maxAmount does not exceed available inventory for deposit
-    let adjustedMaxAmount = maxAmount;
-    if (window.gameState && window.gameState.player && window.gameState.player.inventory[itemName] && maxAmount > window.gameState.player.inventory[itemName]) {
-        adjustedMaxAmount = window.gameState.player.inventory[itemName];
-    }
-    if(quantitySlider) { quantitySlider.max = adjustedMaxAmount; quantitySlider.value = 1; }
-    if(quantityInput) { quantityInput.max = adjustedMaxAmount; quantityInput.value = 1; }
+    if(quantityModalTitle) quantityModalTitle.textContent = `Choisir la quantité pour ${itemName}`;
+    
+    const adjustedMax = Math.max(1, maxAmount);
+    if(quantitySlider) { quantitySlider.max = adjustedMax; quantitySlider.value = 1; }
+    if(quantityInput) { quantityInput.max = adjustedMax; quantityInput.value = 1; }
     quantityConfirmCallback = callback;
     quantityModal.classList.remove('hidden');
 }
@@ -293,7 +312,6 @@ export function populateBuildModal(gameState) {
     const tile = map[player.y][player.x];
     DOM.buildModalGridEl.innerHTML = '';
     
-    // Add hide non-buildable toggle
     const filterContainer = document.createElement('div');
     filterContainer.className = 'build-filter';
     const filterCheckbox = document.createElement('input');
@@ -301,110 +319,59 @@ export function populateBuildModal(gameState) {
     filterCheckbox.id = 'hide-non-buildable';
     filterCheckbox.checked = false;
     filterCheckbox.onchange = () => populateBuildModal(gameState);
-    
     const filterLabel = document.createElement('label');
     filterLabel.htmlFor = 'hide-non-buildable';
     filterLabel.textContent = 'Masquer les constructions impossibles';
-    
     filterContainer.appendChild(filterCheckbox);
     filterContainer.appendChild(filterLabel);
     DOM.buildModalGridEl.appendChild(filterContainer);
 
-    // Get the current state of the hide non-buildable checkbox
     const hideNonBuildable = document.getElementById('hide-non-buildable') ? document.getElementById('hide-non-buildable').checked : false;
 
     const constructibleBuildings = Object.keys(TILE_TYPES).filter(key => {
         const bt = TILE_TYPES[key];
-        if (!bt.isBuilding || !bt.cost) return false;
-
-        if (key === 'PETIT_PUIT' && bt.cost.toolRequired && bt.cost.toolRequired.length > 0) {
-            const hasRequiredToolForWell = bt.cost.toolRequired.some(toolName =>
-                player.equipment.weapon && player.equipment.weapon.name === toolName
-            );
-            if (!hasRequiredToolForWell) return false;
-        }
-
-        if (tile.type.name === TILE_TYPES.PLAGE.name) {
-            return false;
-        }
-
-        return true;
+        return bt.isBuilding && bt.cost;
     });
 
     if (constructibleBuildings.length === 0) {
-        DOM.buildModalGridEl.innerHTML = '<p class="inventory-empty">Aucune construction disponible ici ou apprise (ou outil requis manquant).</p>';
+        DOM.buildModalGridEl.innerHTML = '<p class="inventory-empty">Aucune construction disponible.</p>';
         return;
     }
 
     constructibleBuildings.sort().forEach(bKey => {
         const buildingType = TILE_TYPES[bKey];
-        
-        // Calculate if building is buildable
         const costs = { ...buildingType.cost };
         const toolReqArray = costs.toolRequired;
         delete costs.toolRequired;
 
-        const hasEnoughResources = State.hasResources(costs).success;
-        const canBuildHere = tile.type.buildable && tile.type.name !== TILE_TYPES.PLAGE.name || (bKey === 'MINE' || bKey === 'CAMPFIRE' || bKey === 'PETIT_PUIT');
-        let hasRequiredToolForThisBuilding = true;
-        if (toolReqArray && toolReqArray.length > 0) {
-            hasRequiredToolForThisBuilding = toolReqArray.some(toolName =>
-                player.equipment.weapon && player.equipment.weapon.name === toolName
-            );
-        }
-        let isDisabledByStatus = false; 
-        if (player.status.includes('Drogué')) {
-             isDisabledByStatus = true;
-        }
-        const canBuild = hasEnoughResources && hasRequiredToolForThisBuilding && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE && canBuildHere && !isDisabledByStatus;
+        const hasEnoughResources = State.hasResources(player.inventory, costs).success;
+        const canBuildHere = tile.type.buildable || (['MINE', 'CAMPFIRE', 'PETIT_PUIT'].includes(bKey));
+        let hasRequiredTool = !toolReqArray || toolReqArray.some(toolName => player.equipment.weapon?.name === toolName);
+        let isDisabledByStatus = player.status.includes('Drogué');
+        const canBuild = hasEnoughResources && hasRequiredTool && tile.buildings.length < config.MAX_BUILDINGS_PER_TILE && canBuildHere && !isDisabledByStatus;
 
-        // Skip this building if we're hiding non-buildable and it can't be built
-        if (hideNonBuildable && !canBuild) {
-            return;
-        }
+        if (hideNonBuildable && !canBuild) return;
 
         const card = document.createElement('div');
         card.className = 'build-item-card';
 
         const header = document.createElement('div');
         header.className = 'build-item-header';
-        const icon = document.createElement('span');
-        icon.className = 'build-item-icon';
-        icon.textContent = buildingType.icon || ITEM_TYPES[buildingType.name]?.icon || '🏛️';
-        const name = document.createElement('span');
-        name.className = 'build-item-name';
-        name.textContent = buildingType.name;
-        header.appendChild(icon);
-        header.appendChild(name);
+        header.innerHTML = `<span class="build-item-icon">${buildingType.icon || '🏛️'}</span><span class="build-item-name">${buildingType.name}</span>`;
 
         const description = document.createElement('p');
         description.className = 'build-item-description';
-        description.textContent = buildingType.description || "Aucune description disponible.";
+        description.textContent = buildingType.description || "Aucune description.";
 
         const costsDiv = document.createElement('div');
         costsDiv.className = 'build-item-costs';
         costsDiv.innerHTML = '<h4>Coûts :</h4>';
         const costsList = document.createElement('ul');
-        // Costs and tool requirements are already calculated above
-        // (this block is removed since we already have these variables)
-
-        if (Object.keys(costs).length > 0) {
-            for (const item in costs) {
-                const li = document.createElement('li');
-                const playerAmount = player.inventory[item] || 0;
-                li.textContent = `${costs[item]} ${item}`;
-                
-                // Highlight missing resources in red
-                if (playerAmount < costs[item]) {
-                    li.style.color = 'red';
-                    li.style.fontWeight = 'bold';
-                }
-                
-                costsList.appendChild(li);
-            }
-        } else {
+        for (const item in costs) {
             const li = document.createElement('li');
-            li.textContent = "Aucun coût en ressource";
+            const playerAmount = State.countItemsInInventory({[item]: player.inventory[item]});
+            li.textContent = `${costs[item]} ${item}`;
+            if (playerAmount < costs[item]) li.style.color = '#ff6b6b';
             costsList.appendChild(li);
         }
         costsDiv.appendChild(costsList);
@@ -413,16 +380,10 @@ export function populateBuildModal(gameState) {
         toolsDiv.className = 'build-item-tools';
         toolsDiv.innerHTML = '<h4>Outils requis :</h4>';
         const toolsList = document.createElement('ul');
-        if (toolReqArray && toolReqArray.length > 0) {
-            toolReqArray.forEach(toolName => {
-                const li = document.createElement('li');
-                li.textContent = toolName;
-                toolsList.appendChild(li);
-            });
+        if (toolReqArray?.length > 0) {
+            toolReqArray.forEach(toolName => toolsList.innerHTML += `<li>${toolName}</li>`);
         } else {
-            const li = document.createElement('li');
-            li.textContent = "Aucun outil spécifique";
-            toolsList.appendChild(li);
+            toolsList.innerHTML = '<li>Aucun</li>';
         }
         toolsDiv.appendChild(toolsList);
 
@@ -430,25 +391,19 @@ export function populateBuildModal(gameState) {
         actionDiv.className = 'build-item-action';
         const buildButton = document.createElement('button');
         buildButton.textContent = "Construire";
-
-        // Building status is already calculated above (canBuild variable)
-        // (this block is removed since we already have the canBuild variable)
-
-
         buildButton.disabled = !canBuild || player.isBusy;
+        let title = "";
         if (!canBuild) {
-            if (tile.buildings.length >= config.MAX_BUILDINGS_PER_TILE) buildButton.title = "Max bâtiments sur tuile";
-            else if (!canBuildHere) buildButton.title = "Ne peut pas être construit sur ce type de terrain.";
-            else if (!hasEnoughResources) buildButton.title = "Ressources manquantes";
-            else if (!hasRequiredToolForThisBuilding) buildButton.title = "Outil requis manquant";
-            else if (isDisabledByStatus) buildButton.title = "Impossible de construire sous l'effet de la drogue."; 
+            if (tile.buildings.length >= config.MAX_BUILDINGS_PER_TILE) title = "Max bâtiments sur tuile";
+            else if (!canBuildHere) title = "Ne peut être construit ici.";
+            else if (!hasEnoughResources) title = "Ressources manquantes";
+            else if (!hasRequiredTool) title = "Outil requis manquant";
+            else if (isDisabledByStatus) title = "Impossible sous l'effet de la drogue."; 
         }
-
+        buildButton.title = title;
         buildButton.onclick = () => {
             if (window.handleGlobalPlayerAction) {
                 window.handleGlobalPlayerAction('build_structure', { structureKey: bKey });
-            } else {
-                 handlePlayerAction('build_structure', { structureKey: bKey }, { updateAllUI: window.fullUIUpdate, updatePossibleActions: window.updatePossibleActions, updateAllButtonsState: () => window.UI.updateAllButtonsState(State.state) });
             }
             hideBuildModal();
         };
@@ -463,15 +418,14 @@ export function populateBuildModal(gameState) {
     });
 }
 
+
 // --- MODALE D'ATELIER ---
 let currentWorkshopRecipes = [];
-let selectedRecipeQuantities = {};
 
 export function showWorkshopModal(gameState) {
     if (!DOM.workshopModal || !DOM.workshopRecipesContainerEl) return;
     populateWorkshopModal(gameState);
     DOM.workshopModal.classList.remove('hidden');
-    selectedRecipeQuantities = {};
 }
 
 export function hideWorkshopModal() {
@@ -489,17 +443,11 @@ function getRecipeCategory(itemName) {
 
 export function populateWorkshopModal(gameState) { 
     if (!DOM.workshopRecipesContainerEl || !gameState || !gameState.player || !gameState.knownRecipes) return;
-    const { player, knownRecipes } = gameState;
-    DOM.workshopRecipesContainerEl.innerHTML = '';
+    
     currentWorkshopRecipes = [];
-
-    let craftableRecipes = [];
-
     for (const itemName in ITEM_TYPES) {
         const itemDef = ITEM_TYPES[itemName];
-        if (itemDef.teachesRecipe && knownRecipes[itemDef.teachesRecipe]) {
-            if (itemDef.isBuildingRecipe) continue;
-
+        if (itemDef.teachesRecipe && gameState.knownRecipes[itemDef.teachesRecipe] && !itemDef.isBuildingRecipe) {
             const costs = {};
             let yieldAmount = 1;
             const description = itemDef.description || "";
@@ -507,29 +455,20 @@ export function populateWorkshopModal(gameState) {
 
             if (match) {
                 const ingredientsString = match[1];
-                const outputAmountString = match[2];
-                if (outputAmountString) yieldAmount = parseInt(outputAmountString, 10) || 1;
-
-                const ingredientParts = ingredientsString.split(/\s+(?:et|\+)\s+/i);
-                ingredientParts.forEach(part => {
+                if (match[2]) yieldAmount = parseInt(match[2], 10) || 1;
+                
+                ingredientsString.split(/\s+(?:et|\+)\s+/i).forEach(part => {
                     const partMatch = part.trim().match(/(\d+)\s+(.+)/);
                     if (partMatch) {
-                        const amount = parseInt(partMatch[1], 10);
-                        const name = partMatch[2].trim();
-                        if (ITEM_TYPES[name]) {
-                           costs[name] = amount;
-                        } else {
-                            console.warn(`Ingrédient inconnu "${name}" dans la recette de ${itemDef.teachesRecipe} via ${itemName}`);
-                        }
+                        costs[partMatch[2].trim()] = parseInt(partMatch[1], 10);
                     }
                 });
             } else {
-                console.warn(`Impossible de parser les coûts pour la recette de ${itemDef.teachesRecipe} (via ${itemName}) à partir de la description: "${description}"`);
                 continue;
             }
 
             if (Object.keys(costs).length > 0) {
-                 craftableRecipes.push({
+                 currentWorkshopRecipes.push({
                     name: itemDef.teachesRecipe,
                     icon: ITEM_TYPES[itemDef.teachesRecipe]?.icon || '🛠️',
                     costs: costs,
@@ -541,8 +480,8 @@ export function populateWorkshopModal(gameState) {
         }
     }
 
-    currentWorkshopRecipes = craftableRecipes.sort((a,b) => a.name.localeCompare(b.name));
-    renderWorkshopRecipes(player);
+    currentWorkshopRecipes.sort((a,b) => a.name.localeCompare(b.name));
+    renderWorkshopRecipes(gameState.player);
 }
 
 function renderWorkshopRecipes(player) {
@@ -552,14 +491,12 @@ function renderWorkshopRecipes(player) {
     const searchTerm = DOM.workshopSearchInputEl ? DOM.workshopSearchInputEl.value.toLowerCase() : '';
     const categoryFilter = DOM.workshopCategoryFilterEl ? DOM.workshopCategoryFilterEl.value : 'all';
 
-    const filteredRecipes = currentWorkshopRecipes.filter(recipe => {
-        const nameMatch = recipe.name.toLowerCase().includes(searchTerm);
-        const categoryMatch = categoryFilter === 'all' || recipe.category === categoryFilter;
-        return nameMatch && categoryMatch;
-    });
+    const filteredRecipes = currentWorkshopRecipes.filter(recipe => 
+        recipe.name.toLowerCase().includes(searchTerm) && (categoryFilter === 'all' || recipe.category === categoryFilter)
+    );
 
     if (filteredRecipes.length === 0) {
-        DOM.workshopRecipesContainerEl.innerHTML = '<p class="inventory-empty">Aucune recette ne correspond à vos critères ou apprise pour l\'atelier.</p>';
+        DOM.workshopRecipesContainerEl.innerHTML = '<p class="inventory-empty">Aucune recette ne correspond à vos critères.</p>';
         return;
     }
 
@@ -570,89 +507,49 @@ function renderWorkshopRecipes(player) {
 
         const header = document.createElement('div');
         header.className = 'workshop-recipe-header';
-        const iconEl = document.createElement('span');
-        iconEl.className = 'workshop-recipe-icon';
-        iconEl.textContent = recipe.icon;
-        const nameEl = document.createElement('span');
-        nameEl.className = 'workshop-recipe-name';
-        nameEl.textContent = recipe.name;
-        header.appendChild(iconEl);
-        header.appendChild(nameEl);
-
+        header.innerHTML = `<span class="workshop-recipe-icon">${recipe.icon}</span><span class="workshop-recipe-name">${recipe.name}</span>`;
+        
         const yieldEl = document.createElement('div');
         yieldEl.className = 'workshop-recipe-yield';
         yieldEl.innerHTML = `Produit: <strong>${recipe.yield}</strong>`;
 
         const costsDiv = document.createElement('div');
         costsDiv.className = 'workshop-recipe-costs';
-        const costsTitle = document.createElement('h5');
-        costsTitle.textContent = 'Coûts (par unité fabriquée):';
+        costsDiv.innerHTML = '<h5>Coûts (par unité):</h5>';
         const costsList = document.createElement('ul');
-
         for (const itemName in recipe.costs) {
             const requiredAmount = recipe.costs[itemName];
-            const playerAmount = player.inventory[itemName] || 0;
+            const playerAmount = State.countItemsInInventory(player.inventory, itemName);
             const itemIcon = ITEM_TYPES[itemName]?.icon || '';
-
-            const li = document.createElement('li');
-            const costNameSpan = document.createElement('span');
-            costNameSpan.className = 'cost-name';
-            costNameSpan.innerHTML = `<span class="item-icon">${itemIcon}</span>${itemName}`;
-            
-            const costAmountSpan = document.createElement('span');
-            costAmountSpan.className = 'cost-amount';
-            costAmountSpan.textContent = `${playerAmount} / ${requiredAmount}`;
-            if (playerAmount < requiredAmount) {
-                costAmountSpan.classList.add('insufficient');
-            }
-            li.appendChild(costNameSpan);
-            li.appendChild(costAmountSpan);
-            costsList.appendChild(li);
+            costsList.innerHTML += `<li data-item-name="${itemName}">
+                <span class="cost-name"><span class="item-icon">${itemIcon}</span>${itemName}</span>
+                <span class="cost-amount">${playerAmount} / ${requiredAmount}</span>
+            </li>`;
         }
-        costsDiv.appendChild(costsTitle);
         costsDiv.appendChild(costsList);
 
         const quantityInputWrapper = document.createElement('div');
         quantityInputWrapper.className = 'quantity-input-wrapper';
-        const quantityLabel = document.createElement('label');
-        quantityLabel.textContent = 'Quantité à fabriquer:';
-        const quantityInput = document.createElement('input');
-        quantityInput.type = 'number';
-        quantityInput.min = '1';
-        quantityInput.value = '1';
-        quantityInput.dataset.recipeName = recipe.name;
-        quantityInput.oninput = (e) => handleWorkshopQuantityChange(e, player, recipe);
+        quantityInputWrapper.innerHTML = `<label>Quantité:</label><input type="number" min="1" value="1" data-recipe-name="${recipe.name}">`;
+        quantityInputWrapper.querySelector('input').oninput = (e) => handleWorkshopQuantityChange(e, player, recipe);
         
-        quantityInputWrapper.appendChild(quantityLabel);
-        quantityInputWrapper.appendChild(quantityInput);
-
         const actionDiv = document.createElement('div');
         actionDiv.className = 'workshop-recipe-action';
         const transformButton = document.createElement('button');
         transformButton.textContent = "Transformer";
-        
         transformButton.onclick = () => {
+            const quantityInput = card.querySelector('.quantity-input-wrapper input');
             const currentQuantityToCraft = parseInt(quantityInput.value, 10);
-            if (isNaN(currentQuantityToCraft) || currentQuantityToCraft <= 0) {
-                if (window.UI && window.UI.addChatMessage) window.UI.addChatMessage("Quantité invalide.", "system_error");
-                else console.error("UI.addChatMessage non disponible");
-                return;
-            }
-
-            let hasEnoughForQuantity = true;
+            if (isNaN(currentQuantityToCraft) || currentQuantityToCraft <= 0) return;
+            
+            const totalCosts = {};
             for (const itemName in recipe.costs) {
-                if ((player.inventory[itemName] || 0) < recipe.costs[itemName] * currentQuantityToCraft) {
-                    hasEnoughForQuantity = false;
-                    break;
-                }
+                totalCosts[itemName] = recipe.costs[itemName] * currentQuantityToCraft;
             }
 
-            if (!hasEnoughForQuantity) {
-                 if (window.UI && window.UI.addChatMessage) {
-                    window.UI.addChatMessage("Ressources insuffisantes pour la quantité demandée.", "system_error");
-                    if (DOM.inventoryCategoriesEl) window.UI.triggerShake(DOM.inventoryCategoriesEl);
-                 } else console.error("UI.addChatMessage non disponible");
-                 return;
+            if (!State.hasResources(player.inventory, totalCosts).success) {
+                if (window.UI?.addChatMessage) window.UI.addChatMessage("Ressources insuffisantes.", "system_error");
+                return;
             }
             
             if (window.handleGlobalPlayerAction) {
@@ -665,19 +562,16 @@ function renderWorkshopRecipes(player) {
                 });
             }
             populateWorkshopModal(State.state); 
-            if (window.UI && window.UI.updateInventory) window.UI.updateInventory(player);
-            if (window.UI && window.UI.updateAllButtonsState) window.UI.updateAllButtonsState(State.state);
+            if (window.UI?.updateInventory) window.UI.updateInventory(player);
+            if (window.UI?.updateAllButtonsState) window.UI.updateAllButtonsState(State.state);
         };
         actionDiv.appendChild(transformButton);
 
-        card.appendChild(header);
-        card.appendChild(yieldEl);
-        card.appendChild(costsDiv);
-        card.appendChild(quantityInputWrapper);
-        card.appendChild(actionDiv);
+        card.appendChild(header); card.appendChild(yieldEl); card.appendChild(costsDiv);
+        card.appendChild(quantityInputWrapper); card.appendChild(actionDiv);
         DOM.workshopRecipesContainerEl.appendChild(card);
         
-        handleWorkshopQuantityChange({ target: quantityInput }, player, recipe);
+        handleWorkshopQuantityChange({ target: card.querySelector('input[type="number"]') }, player, recipe);
     });
 }
 
@@ -689,48 +583,19 @@ function handleWorkshopQuantityChange(event, player, recipe) {
 
     if (isNaN(quantityToCraft) || quantityToCraft <= 0) {
         if (transformButton) transformButton.disabled = true;
-        recipeCard.querySelectorAll('.workshop-recipe-costs li .cost-amount').forEach(costAmountEl => {
-            let costItemName = '';
-            const costNameSpan = costAmountEl.previousElementSibling;
-            if(costNameSpan) {
-                 for (let i = costNameSpan.childNodes.length - 1; i >= 0; i--) {
-                    if (costNameSpan.childNodes[i].nodeType === Node.TEXT_NODE) {
-                        costItemName = costNameSpan.childNodes[i].textContent.trim();
-                        break;
-                    }
-                }
-            }
-            const requiredForOne = recipe.costs[costItemName];
-            const playerHas = player.inventory[costItemName] || 0;
-            costAmountEl.textContent = `${playerHas} / ${requiredForOne}`; 
-            costAmountEl.classList.add('insufficient');
-        });
         return;
     }
 
     let canCraftThisQuantity = true;
-    recipeCard.querySelectorAll('.workshop-recipe-costs li .cost-amount').forEach(costAmountEl => {
-        let costItemName = '';
-        const costNameSpan = costAmountEl.previousElementSibling;
-        if (costNameSpan) {
-            for (let i = costNameSpan.childNodes.length - 1; i >= 0; i--) {
-                if (costNameSpan.childNodes[i].nodeType === Node.TEXT_NODE) {
-                    costItemName = costNameSpan.childNodes[i].textContent.trim();
-                    break;
-                }
-            }
-        }
+    recipeCard.querySelectorAll('.workshop-recipe-costs li').forEach(li => {
+        const itemName = li.dataset.itemName;
+        const costAmountEl = li.querySelector('.cost-amount');
+        const requiredForOne = recipe.costs[itemName];
+        const totalRequired = requiredForOne * quantityToCraft;
+        const playerHas = State.countItemsInInventory(player.inventory, itemName);
         
-        if (!recipe.costs[costItemName]) { 
-            console.warn("Nom d'item de coût non trouvé pour :", costAmountEl.previousElementSibling.innerHTML);
-            return;
-        }
-
-        const requiredForOne = recipe.costs[costItemName];
-        const playerHas = player.inventory[costItemName] || 0;
-        
-        costAmountEl.textContent = `${playerHas} / ${requiredForOne * quantityToCraft}`;
-        if (playerHas < requiredForOne * quantityToCraft) {
+        costAmountEl.textContent = `${playerHas} / ${totalRequired}`;
+        if (playerHas < totalRequired) {
             costAmountEl.classList.add('insufficient');
             canCraftThisQuantity = false;
         } else {

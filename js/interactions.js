@@ -54,9 +54,9 @@ export function applyRandomStatCost(player, amount = 1) {
 
     // Calcul des poids basés sur les conditions
     const weights = availableStats.map(stat => 
-        stat.name === 'thirst' ? 0.10 : 
-        stat.name === 'hunger' ? 0.40 : 
-        0.50
+        stat.name === 'thirst' ? 0.33 : 
+        stat.name === 'hunger' ? 0.33 : 
+        0.34
     );
 
     let cumulativeWeight = 0;
@@ -79,7 +79,7 @@ export function applyRandomStatCost(player, amount = 1) {
     const maxStat = player[`max${selectedStat.name.charAt(0).toUpperCase()}${selectedStat.name.slice(1)}`];
     
     // Avertissement si stat critique
-    if (player[selectedStat.name] <= maxStat * 0.1 && player[selectedStat.name] > 0) {
+    if (player[selectedStat.name] <= maxStat * 0.2 && player[selectedStat.name] > 0) {
         const messages = {
             sleep: "Attention, vous avez fortement sommeil !",
             hunger: "Attention, vous avez très faim !",
@@ -372,7 +372,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     if (tile.actionsLeft && tile.actionsLeft.harvest_salt_water > 0) tile.actionsLeft.harvest_salt_water--;
 
                     if (availableSpace >= amount) {
-                        State.addResourceToPlayer('Eau salée', amount);
+                        State.addResource(player.inventory, 'Eau salée', amount);
                         UI.showFloatingText(`+${amount} Eau salée`, 'gain'); 
                         UI.triggerActionFlash('gain');
                         
@@ -419,7 +419,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     if (tile.actionsLeft && tile.actionsLeft.harvest_sand > 0) tile.actionsLeft.harvest_sand--;
 
                     if (amountToHarvest > 0) {
-                        State.addResourceToPlayer('Sable', amountToHarvest);
+                        State.addResource(player.inventory, 'Sable', amountToHarvest);
                         UI.showFloatingText(`+${amountToHarvest} Sable`, 'gain'); UI.triggerActionFlash('gain');
                         
                         if (toolUsed && toolUsed.hasOwnProperty('currentDurability')) {
@@ -463,7 +463,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     if (tile.harvestsLeft !== Infinity && tile.harvestsLeft > 0) tile.harvestsLeft -= 1; // Toujours décrémenter 1 charge
                     
                     if (amountToHarvest > 0) {
-                        State.addResourceToPlayer(resource.type, amountToHarvest);
+                        State.addResource(player.inventory, resource.type, amountToHarvest);
                         UI.showFloatingText(`+${amountToHarvest} ${resource.type}`, 'gain'); UI.triggerActionFlash('gain');
                         UI.triggerScreenShake();
                         triggerParticles('dust', window.innerWidth / 2, window.innerHeight / 2);
@@ -505,7 +505,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     if (forestTileRef.woodActionsLeft > 0) forestTileRef.woodActionsLeft--;
 
                     if (amountToHarvest > 0) {
-                        State.addResourceToPlayer('Bois', amountToHarvest);
+                        State.addResource(player.inventory, 'Bois', amountToHarvest);
                         UI.showFloatingText(`+${amountToHarvest} Bois`, 'gain'); UI.triggerActionFlash('gain');
                         UI.triggerScreenShake();
                         UI.addChatMessage(`Vous obtenez ${amountToHarvest} Bois avec ${toolUsed.name}.`, 'system');
@@ -565,7 +565,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                         const amountToAdd = Math.min(fishCaught, availableSpace);
                         if (amountToAdd > 0) {
-                            State.addResourceToPlayer('Poisson cru', amountToAdd);
+                            State.addResource(player.inventory, 'Poisson cru', amountToAdd);
                             UI.showFloatingText(`+${amountToAdd} Poisson cru`, 'gain'); UI.triggerActionFlash('gain');
                             if (amountToAdd < fishCaught) UI.addChatMessage("Inventaire plein, une partie du poisson a été relâchée.", "system");
                         } else {
@@ -622,7 +622,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         const availableSpace = player.maxInventory - getTotalResources(player.inventory);
                         const amountToAdd = Math.min(amount, availableSpace);
                         if(amountToAdd > 0) {
-                            State.addResourceToPlayer('Viande crue', amountToAdd);
+                            State.addResource(player.inventory, 'Viande crue', amountToAdd);
                             UI.showFloatingText(`+${amountToAdd} Viande crue`, "gain"); UI.triggerActionFlash('gain');
                             if (amountToAdd < amount) UI.addChatMessage("Inventaire plein, une partie de la chasse a été laissée.", "system");
                         } else {
@@ -809,7 +809,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     State.applyResourceDeduction({ [raw]: 1 });
                     if (buildingKeyForDamage === 'CAMPFIRE') State.applyResourceDeduction({'Bois': 1});
 
-                    State.addResourceToPlayer(cookedItem, 1);
+                    State.addResource(player.inventory, cookedItem, 1);
                     UI.showFloatingText(`+1 ${cookedItem}`, "gain"); UI.triggerActionFlash('gain');
                     const bldIndex = getBuildingIndexOnTile(tile, buildingKeyForDamage);
                     if(bldIndex !== -1) {
@@ -892,7 +892,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                         }
                         if (foundItem) {
                             const amountFound = 1;
-                            State.addResourceToPlayer(foundItem, amountFound);
+                            State.addResource(player.inventory, foundItem, amountFound);
                             if (ITEM_TYPES[foundItem]?.teachesRecipe && ITEM_TYPES[foundItem]?.unique) {
                                 foundUniqueParchemins.add(foundItem);
                             }
@@ -910,7 +910,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                 if (getTotalResources(player.inventory) >= player.maxInventory && (!player.inventory[itemName] || (itemDef && itemDef.unique))) {
                     UI.addChatMessage("Inventaire plein.", "system"); return;
                 }
-                State.addResourceToPlayer(itemName, 1);
+                State.addResource(player.inventory, itemName, 1);
                 UI.showFloatingText(`+1 ${itemName}`, 'gain'); UI.triggerActionFlash('gain');
                 UI.addChatMessage(`Vous avez trouvé : ${itemName} !`, 'gain');
                 tile.hiddenItem = null;
@@ -1007,7 +1007,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                             if (Math.random() < oreResult.chance) {
                                 const amount = Math.ceil(Math.random() * 2); 
                                 if (getTotalResources(player.inventory) + amount <= player.maxInventory) {
-                                    State.addResourceToPlayer(oreResult.item, amount);
+                                    State.addResource(player.inventory, oreResult.item, amount);
                                     UI.showFloatingText(`+${amount} ${oreResult.item}`, "gain");
                                     foundOre = true;
                                 } else { UI.addChatMessage(`Inventaire plein, impossible de récupérer ${oreResult.item}.`, "system"); break; }
@@ -1079,7 +1079,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                             }
                             const amount = actionDef.result[item];
                             if (getTotalResources(player.inventory) + amount <= player.maxInventory) {
-                                State.addResourceToPlayer(item, amount);
+                                State.addResource(player.inventory, item, amount);
                                 UI.showFloatingText(`+${amount} ${item}`, "gain");
                             } else {
                                 UI.addChatMessage(`Inventaire plein, impossible de récupérer ${item}.`, "system");
@@ -1176,7 +1176,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
                     }
                     // Add crafted items
                     for (const yieldItemName in yields) {
-                        State.addResourceToPlayer(yieldItemName, yields[yieldItemName] * quantity);
+                        State.addResource(player.inventory, yieldItemName, yields[yieldItemName] * quantity);
                         UI.showFloatingText(`+${yields[yieldItemName] * quantity} ${yieldItemName}`, 'gain');
                     }
                     UI.triggerActionFlash('gain');
@@ -1278,7 +1278,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
              performToolAction(player, 'weapon', 'charge_battery_portable_solar', (power, toolUsed) => {
                 if (player.inventory['Batterie déchargée'] > 0) {
                     State.applyResourceDeduction({'Batterie déchargée': 1});
-                    State.addResourceToPlayer('Batterie chargée', 1);
+                    State.addResource(player.inventory, 'Batterie chargée', 1);
                     UI.addChatMessage("Vous chargez une batterie avec le panneau solaire portable.", 'gain');
                 } else {
                     UI.addChatMessage("Vous n'avez pas de batterie déchargée à charger.", 'system');
@@ -1369,7 +1369,7 @@ export function handlePlayerAction(actionId, data, updateUICallbacks) {
 
             buildingInstance.isLocked = false;
             buildingInstance.lockCode = null;
-            State.addResourceToPlayer('Cadenas', 1);
+            State.addResource(player.inventory, 'Cadenas', 1);
             tile.playerHasUnlockedThisSession = false; 
             UI.addChatMessage(`Cadenas retiré de ${TILE_TYPES[buildingKey].name} et ajouté à votre inventaire.`, "system_event");
             break;

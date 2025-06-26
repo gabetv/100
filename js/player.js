@@ -3,15 +3,9 @@ import { CONFIG, ITEM_TYPES } from './config.js';
 import * as State from './state.js';
 import { triggerActionFlash } from './ui/effects.js';
 
+// CORRIGÉ : Simplification, la logique principale est maintenant dans State.countItemsInInventory
 export function getTotalResources(inventory) {
-    return Object.values(inventory).reduce((sum, item) => {
-        if (typeof item === 'number') {
-            return sum + item;
-        } else if (typeof item === 'object') {
-            return sum + 1;
-        }
-        return sum;
-    }, 0);
+    return State.countItemsInInventory(inventory);
 }
 
 export function initPlayer(config, playerId = 'player1') {
@@ -43,21 +37,7 @@ export function initPlayer(config, playerId = 'player1') {
         'Petit Sac': 1,
     };
 
-    for (const itemName in initialItems) {
-        const itemDef = ITEM_TYPES[itemName];
-        if (itemDef && (itemDef.hasOwnProperty('breakChance') || itemDef.hasOwnProperty('uses') || itemDef.slot)) {
-            for (let i = 0; i < initialItems[itemName]; i++) {
-                const uniqueKey = `${itemName}_${Date.now()}_${i}`;
-                const newItem = { name: itemName, ...JSON.parse(JSON.stringify(itemDef)) };
-                if(newItem.uses) newItem.currentUses = newItem.uses;
-                inventory[uniqueKey] = newItem;
-            }
-        } else {
-            inventory[itemName] = initialItems[itemName];
-        }
-    }
-
-    return {
+    const playerState = {
         id: playerId,
         x: 0, y: 0, // Initial position, will be updated
         health: 10, thirst: 10, hunger: 10, sleep: 10,
@@ -70,7 +50,26 @@ export function initPlayer(config, playerId = 'player1') {
         color: '#ffd700', isBusy: false, animationState: null,
         visitedTiles: new Set(),
     };
+
+    for (const itemName in initialItems) {
+        State.addResource(playerState.inventory, itemName, initialItems[itemName]);
+    }
+    
+    // Équiper le sac de départ
+    const sacKey = Object.keys(playerState.inventory).find(key => key.startsWith('Petit Sac'));
+    if (sacKey) {
+        const sacInstance = playerState.inventory[sacKey];
+        playerState.equipment.bag = sacInstance;
+        delete playerState.inventory[sacKey];
+        if (sacInstance.stats?.maxInventory) {
+            playerState.maxInventory += sacInstance.stats.maxInventory;
+        }
+    }
+
+
+    return playerState;
 }
+
 
 export function movePlayer(direction, currentPlayerPos) {
     let newX = currentPlayerPos.x, newY = currentPlayerPos.y;
@@ -128,20 +127,8 @@ export function decayStats(gameState) {
     return { message: messages.join(' ') };
 }
 
-export function transferItems(itemName, amount, from, to, toCapacity = Infinity) {
-    if (!itemName || !from[itemName] || from[itemName] < amount || amount <= 0 ) {
-        return false;
-    }
-    const totalInTo = getTotalResources(to);
-    if (totalInTo + amount > toCapacity) { return false; }
-
-    from[itemName] -= amount;
-    to[itemName] = (to[itemName] || 0) + amount;
-    if (from[itemName] <= 0) {
-        delete from[itemName];
-    }
-    return true;
-}
+// CORRIGÉ ET DÉPLACÉ DANS STATE.JS
+// La fonction transferItems est maintenant gérée par State.transferItem pour plus de robustesse.
 
 // CORRIGÉ : Logique de consommation améliorée et centralisée
 export function consumeItem(itemName, player) {
@@ -149,7 +136,9 @@ export function consumeItem(itemName, player) {
     if (!itemDef || (itemDef.type !== 'consumable' && !itemDef.teachesRecipe && itemDef.type !== 'usable' && itemDef.type !== 'key') ) {
         return { success: false, message: `Vous ne pouvez pas utiliser "${itemName}" ainsi.` };
     }
-    if (!player.inventory[itemName] || player.inventory[itemName] <= 0) {
+    
+    const { found, key } = State.findItemsInInventory(player.inventory, itemName, 1);
+    if (!found) {
         return { success: false, message: "Vous n'en avez plus." };
     }
 
@@ -237,15 +226,25 @@ export function consumeItem(itemName, player) {
         }
     }
 
-    if (itemName !== 'Carte' || !itemDef.uses) {
-        if (player.inventory[itemName] > 0) {
-            player.inventory[itemName]--;
-            if (player.inventory[itemName] <= 0) delete player.inventory[itemName];
-        } else {
-            return { success: false, message: "Erreur interne: tentative de consommer un objet non possédé." };
+    // On utilise la clé trouvée pour décrémenter/supprimer l'objet
+    const itemToRemove = player.inventory[key];
+    if (typeof itemToRemove === 'number') {
+        player.inventory[key]--;
+        if (player.inventory[key] <= 0) {
+            delete player.inventory[key];
         }
+    } else if (typeof itemToRemove === 'object' && (itemToRemove.uses || itemToRemove.hasOwnProperty('currentDurability'))) {
+        // Pour les objets avec 'uses' (comme la carte), la logique est dans State.consumeItem.
+        // Pour les autres, on supprime juste l'instance.
+        if (itemName !== 'Carte') {
+             delete player.inventory[key];
+        }
+    } else {
+        // Fallback pour les objets uniques sans 'uses'
+         delete player.inventory[key];
     }
 
+
     const messageAction = itemDef.teachesRecipe ? "apprenez la recette de" : "utilisez";
-    return { success: true, message: `Vous ${messageAction}: ${itemName}.`, floatingTexts };
+    return { success: true, message: `Vous ${messageAction}: ${itemName}.`, floatingTexts, itemKeyUsed: key };
 }

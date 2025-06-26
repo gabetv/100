@@ -80,7 +80,7 @@ function handleGiveAllResources() {
                 console.log(`Admin: Recette ${itemDef.teachesRecipe} marquée comme apprise.`);
             }
 
-            State.addResourceToPlayer(itemName, quantity);
+            State.addResource(State.state.player.inventory, itemName, quantity);
             itemsGivenCount++;
             itemsGivenDetails[itemName] = (itemsGivenDetails[itemName] || 0) + quantity;
         }
@@ -92,7 +92,7 @@ function handleGiveAllResources() {
         const itemDef = ITEM_TYPES[itemName];
         if (itemDef.teachesRecipe && !State.state.knownRecipes[itemDef.teachesRecipe]) {
             if (!itemsGivenDetails[itemName]) { // Si pas déjà donné dans la boucle précédente
-                 State.addResourceToPlayer(itemName, 1);
+                 State.addResource(State.state.player.inventory, itemName, 1);
                  itemsGivenCount++;
                  itemsGivenDetails[itemName] = (itemsGivenDetails[itemName] || 0) + 1;
             }
