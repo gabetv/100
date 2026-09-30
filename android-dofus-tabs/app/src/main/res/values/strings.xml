@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Onglets DT</string>
+    <string name="app_subtitle">Multicompte Dofus Touch — bascule rapide entre tes fenêtres</string>
+
+    <!-- Permissions -->
+    <string name="perm_section">Étape 1 — Autorisations</string>
+    <string name="perm_overlay_title">Affichage par-dessus les autres applications</string>
+    <string name="perm_overlay_hint">Permet d’afficher la barre d’onglets au-dessus du jeu.</string>
+    <string name="perm_access_title">Service d’accessibilité « Onglets DT »</string>
+    <string name="perm_access_hint">Permet de basculer automatiquement entre tes instances du jeu (écran Applications récentes).</string>
+    <string name="perm_notif_title">Notifications</string>
+    <string name="perm_notif_hint">Permet de garder la barre active en arrière-plan (Android 13+).</string>
+    <string name="perm_granted">✓ Accordée</string>
+    <string name="perm_missing">✗ À accorder</string>
+    <string name="btn_grant">Accorder</string>
+
+    <!-- Spécial Xiaomi / MIUI / HyperOS -->
+    <string name="miui_section">Étape 2 — Réglages Xiaomi (MIUI / HyperOS)</string>
+    <string name="miui_autostart">1. Autoriser le démarrage automatique</string>
+    <string name="miui_popup">2. Autoriser « Afficher les fenêtres contextuelles en arrière-plan »</string>
+    <string name="miui_hint">Ces deux réglages Xiaomi évitent que MIUI ferme la barre tout seul. Si un bouton n’ouvre pas le bon écran, va dans Réglages ▸ Applications ▸ Gérer les applications ▸ Onglets DT.</string>
+
+    <!-- Onglets -->
+    <string name="tabs_section">Étape 3 — Tes onglets (comptes)</string>
+    <string name="tabs_count_label">Nombre d’onglets :</string>
+    <string name="tab_default_name_1">Compte A</string>
+    <string name="tab_default_name_2">Compte B</string>
+    <string name="tab_default_name_3">Compte C</string>
+    <string name="tab_default_name_4">Compte D</string>
+
+    <!-- Actions -->
+    <string name="btn_show_bar">▶  Afficher la barre flottante</string>
+    <string name="btn_hide_bar">■  Masquer la barre</string>
+    <string name="btn_test_swap">⇄  Tester la bascule maintenant</string>
+    <string name="toast_overlay_first">Accorde d’abord l’autorisation d’affichage par-dessus les applications</string>
+    <string name="toast_access_needed">Active le service d’accessibilité pour utiliser cet onglet</string>
+    <string name="toast_bar_shown">Barre affichée — ouvre Dofus Touch et touche un onglet pour changer de compte</string>
+    <string name="toast_no_instance">Aucune autre instance de Dofus Touch trouvée dans les applications récentes</string>
+    <string name="toast_pick_manually">Sélection automatique impossible : touche la fenêtre voulue à l’écran</string>
+
+    <!-- Astuces -->
+    <string name="tips_title">💡 Voir plusieurs comptes en même temps (fusion des fenêtres)</string>
+    <string name="tips_body">Android ne permet pas à une application d’afficher l’écran d’une autre application dans la sienne. Mais ta Xiaomi sait déjà « fusionner » les fenêtres, et la barre Onglets DT fonctionne par-dessus :\n\n• Fenêtre flottante MIUI : ouvre Dofus Touch, affiche les Applications récentes, maintiens le doigt sur la carte du jeu → icône fenêtre flottante. Le jeu passe dans une mini-fenêtre redimensionnable pendant qu’une autre instance tourne en plein écran.\n\n• Écran partagé : Applications récentes → maintiens la carte → icône écran partagé, puis choisis la seconde instance.\n\n• Barre latérale / Boîte à outils vidéo : ajoute Dofus Touch pour lancer une seconde instance en bulle.\n\nCombine ces réglages avec la barre d’onglets pour passer d’un compte à l’autre instantanément.</string>
+
+    <string name="multiaccount_title">👥 Créer tes instances (une installation = un compte)</string>
+    <string name="multiaccount_body">• 2ᵉ compte : Réglages ▸ Applications ▸ Applications jumelles ▸ active Dofus Touch.\n• 3ᵉ compte : Réglages ▸ Fonctionnalités spéciales ▸ Second espace (installe Dofus Touch dans l’espace 2).\n• Connecte un compte Ankama différent dans chaque installation.</string>
+
+    <string name="legal_footer">Application non officielle, sans lien avec Ankama. Dofus Touch est une marque d’Ankama. Respecte les règles du serveur sur lequel tu joues (le multicompte est interdit sur les serveurs mono-compte).</string>
+
+    <!-- Mode diffusion (clic propagé sur toutes les instances) -->
+    <string name="broadcast_on_toast">📡 Mode diffusion activé — touche le pavé pour déplacer tous les comptes</string>
+    <string name="broadcast_off_toast">Mode diffusion désactivé</string>
+    <string name="pad_title">📡 Diffusion — déplacement groupé</string>
+    <string name="pad_hint">Touche le pavé : le tap est reproduit à la même position relative dans CHAQUE fenêtre visible de Dofus Touch. Combine avec la fenêtre flottante ou l’écran partagé MIUI.</string>
+    <string name="toast_dispatch_count">Tap diffusé sur %1$d fenêtre(s) du jeu</string>
+    <string name="toast_no_game_windows">Aucune fenêtre de jeu visible — ouvre tes instances en fenêtre flottante ou en écran partagé (voir Astuces dans l’appli)</string>
+    <string name="toast_gesture_failed">Le système a refusé le geste — réactive le service d’accessibilité « Onglets DT »</string>
+
+    <!-- Divers -->
+    <string name="notif_channel_name">Barre flottante</string>
+    <string name="notif_text">Barre d’onglets active — touche pour ouvrir les réglages</string>
+    <string name="access_service_description">Automatise l’écran Applications récentes pour basculer entre plusieurs instances de Dofus Touch lorsque tu touches un onglet de la barre flottante. Aucune donnée n’est collectée ni transmise.</string>
+    <string name="dialog_tab_name_hint">Nom du compte</string>
+</resources>

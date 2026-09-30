@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/padRoot"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:background="@drawable/overlay_bar_bg"
+    android:padding="10dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Poignée de déplacement du pavé -->
+        <TextView
+            android:id="@+id/padHandle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="≡"
+            android:textColor="#AAFFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:padding="4dp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/pad_title"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:padding="4dp" />
+
+        <TextView
+            android:id="@+id/btnPadClose"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="✕"
+            android:textColor="#CCFFFFFF"
+            android:textSize="14sp"
+            android:padding="6dp" />
+    </LinearLayout>
+
+    <!-- Zone tactile : représente l'écran du jeu, à échelle réduite -->
+    <FrameLayout
+        android:id="@+id/padTouch"
+        android:layout_width="280dp"
+        android:layout_height="182dp"
+        android:layout_marginTop="6dp"
+        android:background="#22FFFFFF"
+        android:foregroundGravity="center">
+
+        <!-- Repères : croix centrale -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_gravity="center_vertical"
+            android:background="#33FFFFFF" />
+        <View
+            android:layout_width="1dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="center_horizontal"
+            android:background="#33FFFFFF" />
+    </FrameLayout>
+
+    <TextView
+        android:layout_width="280dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/pad_hint"
+        android:textColor="#B3FFFFFF"
+        android:textSize="10sp"
+        android:gravity="center" />
+</LinearLayout>
