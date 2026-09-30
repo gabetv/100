@@ -1,11 +1,14 @@
 package fr.gabetv.dofustabs.access
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
+import android.graphics.Path
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
 import android.widget.Toast
 import fr.gabetv.dofustabs.R
 
@@ -24,6 +27,7 @@ class DofusAccessService : AccessibilityService() {
         private const val VERIFY_WAIT_MS = 700L
         private const val THROTTLE_MS = 800L
         private const val MAX_AUTO_ATTEMPTS = 4
+        private const val TAP_DURATION_MS = 50L
 
         /** Instance active du service (activé dans les réglages d'accessibilité). */
         @Volatile
@@ -80,6 +84,67 @@ class DofusAccessService : AccessibilityService() {
 
     /** Bascule vers la N-ième carte « Dofus » des récents (0 = la plus récente). */
     fun switchToCard(occurrence: Int) = switchInternal(occurrence.coerceAtLeast(0), auto = false)
+
+    // ------------------------------------------------------------------
+    // Diffusion de taps (mode multibox)
+    // ------------------------------------------------------------------
+
+    /**
+     * Propage un tap exprimé en position RELATIVE (0..1) vers toutes les
+     * fenêtres de Dofus Touch actuellement visibles à l'écran (plein écran,
+     * fenêtre flottante, écran partagé…). Les tracés partent ensemble dans un
+     * même [GestureDescription] : le clic est donc simultané sur toutes les
+     * instances. Retourne le nombre de fenêtres touchées.
+     */
+    fun dispatchToVisible(relativeX: Float, relativeY: Float): Int {
+        val allWindows = try {
+            windows
+        } catch (e: Exception) {
+            null
+        } ?: return noWindows()
+
+        val gameWindows = allWindows.filter { w ->
+            w.type == AccessibilityWindowInfo.TYPE_APPLICATION &&
+                w.packageName?.toString() == DOFUS_PKG
+        }
+        if (gameWindows.isEmpty()) return noWindows()
+
+        val cx = relativeX.coerceIn(0.02f, 0.98f)
+        val cy = relativeY.coerceIn(0.02f, 0.98f)
+        val builder = GestureDescription.Builder()
+        var count = 0
+
+        for (w in gameWindows.take(4)) {
+            val rect = Rect()
+            w.getBoundsInScreen(rect)
+            // Fenêtre réduite au point d'être inutilisable (ex. bulle repliée).
+            if (rect.width() < 100 || rect.height() < 100) continue
+            val x = rect.left + cx * rect.width()
+            val y = rect.top + cy * rect.height()
+            val path = Path()
+            path.moveTo(x, y)
+            builder.addStroke(GestureDescription.StrokeDescription(path, 0, TAP_DURATION_MS))
+            count++
+        }
+        if (count == 0) return noWindows()
+
+        val accepted = dispatchGesture(builder.build(), object : GestureResultCallback() {
+            override fun onCancelled(gestureDescription: GestureDescription?) {
+                toast(getString(R.string.toast_gesture_failed))
+            }
+        }, null)
+        if (!accepted) {
+            toast(getString(R.string.toast_gesture_failed))
+            return 0
+        }
+        toast(getString(R.string.toast_dispatch_count, count))
+        return count
+    }
+
+    private fun noWindows(): Int {
+        toast(getString(R.string.toast_no_game_windows))
+        return 0
+    }
 
     private fun switchInternal(occurrence: Int, auto: Boolean) {
         val now = System.currentTimeMillis()

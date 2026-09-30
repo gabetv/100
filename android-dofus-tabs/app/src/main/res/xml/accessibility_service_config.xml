@@ -4,7 +4,7 @@
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
     android:canRetrieveWindowContent="true"
-    android:canPerformGestures="false"
+    android:canPerformGestures="true"
     android:notificationTimeout="50"
     android:description="@string/access_service_description"
     android:settingsActivity="fr.gabetv.dofustabs.MainActivity" />

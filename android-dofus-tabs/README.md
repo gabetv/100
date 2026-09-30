@@ -26,6 +26,7 @@ Comment ça marche : pour l’instance principale, l’onglet la ramène directe
   - **Instance principale (lancement direct)** — fiable à 100 % ;
   - **Compte suivant (cycle automatique)** — idéal avec 2 instances : à chaque tap, tu passes sur l’autre compte. C’est le mode recommandé pour le duo ;
   - **Carte récente n°2 / 3 / 4** — cible précisément la N-ième instance dans l’écran des récents.
+- 📡 **Mode diffusion (multibox)** : un **pavé tactile** apparaît — chaque tap sur le pavé est rejoué **simultanément et à la même position relative dans toutes les fenêtres du jeu visibles à l'écran** (plein écran + fenêtre flottante + écran partagé). Parfait pour déplacer tous tes persos d'un seul clic.
 - ♻️ **Redémarrage automatique** de la barre après un reboot du téléphone.
 - 🧭 **Assistant intégré** : l’appli vérifie chaque autorisation et t’emmène directement sur le bon écran de réglages, y compris les menus spécifiques à MIUI.
 - 🔒 **Aucune donnée collectée**, aucune connexion Internet, aucune publicité. Le code est entièrement lisible dans ce dépôt.
@@ -87,6 +88,10 @@ Ou **Onglets DT** et suis les étapes affichées :
 |---|---|
 | Tap sur un **onglet** | Bascule vers l’instance configurée |
 | Tap sur **Compte suivant** (mode cycle) | Passe à l’autre compte instantanément — le mode stars du multicompte |
+| Tap sur **📡** | Active/désactive le **mode diffusion** : un pavé tactile s’affiche au-dessus du jeu |
+| Tap sur le **pavé** | Le tap est **propagé à toutes les fenêtres du jeu visibles**, à la même position relative → tous tes persos se déplacent en même temps |
+| Maintien sur **≡ du pavé** | Déplace le pavé |
+| Tap sur **✕ du pavé** | Quitte le mode diffusion |
 | Maintien sur la **poignée ≡** | Déplace la barre où tu veux |
 | Tap sur **–** | Replie la barre en bulle orange |
 | Tap sur la **bulle** | Redéplie la barre |
@@ -99,6 +104,7 @@ Ou **Onglets DT** et suis les étapes affichées :
 2. Ouvre *Applications récentes* → **maintiens la carte** de l’une → icône **fenêtre flottante** : le jeu passe dans une mini-fenêtre redimensionnable au-dessus de l’autre instance.
 3. (Ou icône **écran partagé** : une instance en haut, l’autre en bas.)
 4. La **barre d’onglets reste au-dessus de tout ça** : tu choisis en un tap quelle fenêtre a le focus, et tu passes d’un mode à l’autre à volonté.
+5. 🔥 **Le combo ultime** : une fois tes fenêtres affichées ainsi, active le mode **diffusion (📡)**. Un tap sur le pavé déplace **tous tes persos en même temps**, au même endroit de la carte (la position est reportée relativement dans chaque fenêtre).
 
 ---
 
@@ -107,6 +113,9 @@ Ou **Onglets DT** et suis les étapes affichées :
 | Problème | Solution |
 |---|---|
 | La barre disparaît au bout d’un moment | Autorise *Démarrage automatique* (Étape 2) + batterie *Aucune restriction* |
+| Le pavé diffuse sur une seule fenêtre | La diffusion touche les fenêtres **visibles** du jeu : ouvre les autres instances en fenêtre flottante ou en écran partagé d’abord |
+| « Le système a refusé le geste » | Le service d’accessibilité a été désactivé (souvent après une mise à jour MIUI) : Étape 1 ▸ réactive-le, en acceptant la confirmation |
+| Un clic du pavé n’atterrit pas exactement au même endroit sur une fenêtre | La position est relative : si une fenêtre a un ratio très différent, l’écran y est recadré différemment. Donne des ratios proches à tes fenêtres pour une précision parfaite |
 | L’onglet « cycle » n’arrive pas à sélectionner | Sur certaines versions de MIUI la sélection automatique des cartes échoue : l’écran des récents reste ouvert, touche simplement la fenêtre voulue. Sélectionne aussi *Carte récente n°2* plutôt que le cycle, ou inversement |
 | Le service d’accessibilité s’est désactivé | MIUI le coupe parfois après mise à jour : ouvre *Onglets DT* ▸ Étape 1 ▸ réactive-le |
 | « Accorde d’abord l’autorisation d’affichage » | Fais aussi l’Étape 2 ▸ bouton 2 (fenêtres contextuelles), MIUI a deux réglages distincts |

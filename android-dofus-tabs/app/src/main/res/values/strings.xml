@@ -48,6 +48,15 @@
 
     <string name="legal_footer">Application non officielle, sans lien avec Ankama. Dofus Touch est une marque d’Ankama. Respecte les règles du serveur sur lequel tu joues (le multicompte est interdit sur les serveurs mono-compte).</string>
 
+    <!-- Mode diffusion (clic propagé sur toutes les instances) -->
+    <string name="broadcast_on_toast">📡 Mode diffusion activé — touche le pavé pour déplacer tous les comptes</string>
+    <string name="broadcast_off_toast">Mode diffusion désactivé</string>
+    <string name="pad_title">📡 Diffusion — déplacement groupé</string>
+    <string name="pad_hint">Touche le pavé : le tap est reproduit à la même position relative dans CHAQUE fenêtre visible de Dofus Touch. Combine avec la fenêtre flottante ou l’écran partagé MIUI.</string>
+    <string name="toast_dispatch_count">Tap diffusé sur %1$d fenêtre(s) du jeu</string>
+    <string name="toast_no_game_windows">Aucune fenêtre de jeu visible — ouvre tes instances en fenêtre flottante ou en écran partagé (voir Astuces dans l’appli)</string>
+    <string name="toast_gesture_failed">Le système a refusé le geste — réactive le service d’accessibilité « Onglets DT »</string>
+
     <!-- Divers -->
     <string name="notif_channel_name">Barre flottante</string>
     <string name="notif_text">Barre d’onglets active — touche pour ouvrir les réglages</string>

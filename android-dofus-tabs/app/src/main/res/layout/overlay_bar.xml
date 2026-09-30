@@ -36,6 +36,16 @@
             android:gravity="center_vertical" />
     </HorizontalScrollView>
 
+    <!-- Mode diffusion : propage les taps sur toutes les instances -->
+    <TextView
+        android:id="@+id/btnBroadcast"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="📡"
+        android:textSize="15sp"
+        android:padding="8dp"
+        android:layout_marginStart="4dp" />
+
     <!-- Replier la barre en bulle -->
     <TextView
         android:id="@+id/btnMin"
