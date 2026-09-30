@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Deux flèches horizontales opposées : symbole de bascule entre fenêtres -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M7,7 L13,7 L13,4 L19,8.5 L13,13 L13,10 L7,10 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M17,17 L11,17 L11,20 L5,15.5 L11,11 L11,14 L17,14 Z" />
+</vector>

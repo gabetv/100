@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Modes de chaque onglet (ordre = valeurs de TabMode) -->
+    <string-array name="tab_modes">
+        <item>Instance principale (lancement direct)</item>
+        <item>Compte suivant (cycle automatique)</item>
+        <item>Carte récente n°2</item>
+        <item>Carte récente n°3</item>
+        <item>Carte récente n°4</item>
+    </string-array>
+
+    <string-array name="color_names">
+        <item>Orange</item>
+        <item>Bleu</item>
+        <item>Violet</item>
+        <item>Vert</item>
+    </string-array>
+</resources>

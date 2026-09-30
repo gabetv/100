@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:id="@+id/tvAppTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/app_name"
+            android:textColor="@color/bg_dark"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="18dp"
+            android:text="@string/app_subtitle"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:gravity="center" />
+
+        <!-- ===== Étape 1 : permissions ===== -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/perm_section" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:layout_marginBottom="12dp">
+
+            <TextView style="@style/PermTitle" android:text="@string/perm_overlay_title" />
+            <TextView style="@style/PermHint" android:text="@string/perm_overlay_hint" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="6dp">
+                <TextView
+                    android:id="@+id/tvOverlayStatus"
+                    style="@style/PermStatus"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+                <Button
+                    android:id="@+id/btnOverlayPerm"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="40dp"
+                    android:text="@string/btn_grant" />
+            </LinearLayout>
+
+            <View style="@style/DividerLine" />
+
+            <TextView style="@style/PermTitle" android:text="@string/perm_access_title" />
+            <TextView style="@style/PermHint" android:text="@string/perm_access_hint" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="6dp">
+                <TextView
+                    android:id="@+id/tvAccessStatus"
+                    style="@style/PermStatus"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+                <Button
+                    android:id="@+id/btnAccessPerm"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="40dp"
+                    android:text="@string/btn_grant" />
+            </LinearLayout>
+
+            <View style="@style/DividerLine" />
+
+            <TextView style="@style/PermTitle" android:text="@string/perm_notif_title" />
+            <TextView style="@style/PermHint" android:text="@string/perm_notif_hint" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="6dp">
+                <TextView
+                    android:id="@+id/tvNotifStatus"
+                    style="@style/PermStatus"
+                    android:layout_width="0dp"
+                    android:layout_weight="1" />
+                <Button
+                    android:id="@+id/btnNotifPerm"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="40dp"
+                    android:text="@string/btn_grant" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ===== Étape 2 : réglages Xiaomi ===== -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/miui_section" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:layout_marginBottom="12dp">
+
+            <Button
+                android:id="@+id/btnMiuiAutostart"
+                style="@style/MiuiButton"
+                android:text="@string/miui_autostart" />
+            <Button
+                android:id="@+id/btnMiuiPopup"
+                style="@style/MiuiButton"
+                android:text="@string/miui_popup" />
+            <TextView
+                style="@style/PermHint"
+                android:text="@string/miui_hint" />
+        </LinearLayout>
+
+        <!-- ===== Étape 3 : onglets ===== -->
+        <TextView
+            style="@style/SectionTitle"
+            android:text="@string/tabs_section" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:layout_marginBottom="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tabs_count_label"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp" />
+                <Spinner
+                    android:id="@+id/spTabCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/tabsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- ===== Actions ===== -->
+        <Button
+            android:id="@+id/btnShowBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:minHeight="48dp"
+            android:text="@string/btn_show_bar" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <Button
+                android:id="@+id/btnHideBar"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:minHeight="48dp"
+                android:text="@string/btn_hide_bar" />
+
+            <Button
+                android:id="@+id/btnTestSwap"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:minHeight="48dp"
+                android:text="@string/btn_test_swap" />
+        </LinearLayout>
+
+        <!-- ===== Multicompte / astuces ===== -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:layout_marginBottom="12dp">
+            <TextView style="@style/PermTitle" android:text="@string/multiaccount_title" />
+            <TextView style="@style/PermHint" android:text="@string/multiaccount_body" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_bg"
+            android:layout_marginBottom="12dp">
+            <TextView style="@style/PermTitle" android:text="@string/tips_title" />
+            <TextView style="@style/PermHint" android:text="@string/tips_body" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvFooter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="24dp"
+            android:text="@string/legal_footer"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp"
+            android:gravity="center" />
+
+    </LinearLayout>
+</ScrollView>
